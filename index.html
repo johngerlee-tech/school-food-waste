@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>溪洲國小校園午餐智慧惜食與菜單追蹤系統</title>
+  <title>雲林縣溪洲國小─午餐智慧惜食與菜單追蹤系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @media print {
@@ -18,11 +18,17 @@
 <body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
   <div class="max-w-6xl mx-auto p-4 md:p-6">
     
+    <!-- Firebase 尚未設定警告 (新增防呆提示) -->
+    <div id="firebase-warning" class="hidden mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm">
+      <p class="font-bold flex items-center gap-2">⚠️ 系統提示：尚未設定 Firebase 資料庫連線</p>
+      <p class="text-sm mt-1">目前使用的是預設金鑰 (`YOUR_API_KEY`)，因此系統嘗試連線時會出現 offline 錯誤。請將程式碼下方的 `firebaseConfig` 替換為您的真實金鑰以啟用儲存功能。</p>
+    </div>
+
     <!-- 頂部功能列與身分狀態 -->
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
-          🌱 溪洲國小校園午餐智慧惜食與菜單追蹤系統
+          🌱 雲林縣溪洲國小─午餐智慧惜食決策平台
         </h1>
         <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・CSV 批次匯入・雲端權限控管</p>
       </div>
@@ -291,6 +297,17 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+
+    // 新增：檢查金鑰狀態並攔截 offline 錯誤
+    if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+      document.getElementById('firebase-warning').classList.remove('hidden');
+    }
+    window.addEventListener('unhandledrejection', (event) => {
+      if (event.reason && event.reason.message && event.reason.message.includes('offline')) {
+        console.warn('Firebase 離線警告：系統無法連上資料庫，請確認您的 firebaseConfig 是否已填寫正確。');
+        event.preventDefault(); // 攔截報錯，避免影響畫面
+      }
+    });
 
     const WEEKDAYS = [{d:1, name:'週一'}, {d:2, name:'週二'}, {d:4, name:'週四'}, {d:5, name:'週五'}];
     window.CLASSES = [
