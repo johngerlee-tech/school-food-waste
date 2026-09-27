@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>校園午餐智慧惜食與菜單調控決策平台</title>
+  <title>溪洲國小校園午餐智慧惜食與菜單追蹤系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @media print {
@@ -22,9 +22,9 @@
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
-          🌱 校園午餐智慧惜食決策平台
+          🌱 溪洲國小校園午餐智慧惜食與菜單追蹤系統
         </h1>
-        <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・廚餘異常分析・雲端權限控管</p>
+        <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・CSV 批次匯入・雲端權限控管</p>
       </div>
       <div class="flex items-center gap-3 no-print">
         <div id="auth-badge" class="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600">
@@ -46,37 +46,47 @@
       <button onclick="window.switchTab('weekly')" id="tab-weekly" class="px-4 py-2 tab-inactive">3. 週評比/進步獎</button>
       <button onclick="window.switchTab('analysis')" id="tab-analysis" class="px-4 py-2 tab-inactive">4. 菜單關聯分析 🔍</button>
       <button onclick="window.switchTab('monthly')" id="tab-monthly" class="px-4 py-2 tab-inactive">5. 月度榮譽榜</button>
-      <button onclick="window.switchTab('settings')" id="tab-settings" class="px-4 py-2 tab-inactive">⚙️ 人數設定</button>
+      <button onclick="window.switchTab('settings')" id="tab-settings" class="px-4 py-2 tab-inactive">⚙️ 系統與匯入設定</button>
     </nav>
 
     <!-- 【頁面 1】每日登記 -->
     <section id="page-daily" class="space-y-4">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-4">
         <div>
-          <label class="text-xs font-semibold text-slate-500">學年/週次</label>
+          <label class="text-xs font-semibold text-slate-500">學年/週次 (自動定位)</label>
           <div class="flex items-center gap-2 mt-1">
-            <input type="number" id="daily-year" class="w-16 border rounded px-2 py-1 text-sm" value="115">
+            <input type="number" id="daily-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50" value="115">
             <span class="text-xs">學年 第</span>
-            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm" value="2" min="1" max="25" onchange="window.loadDailyRecords()">
+            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50" value="1" min="1" max="25" onchange="window.loadDailyRecords()">
             <span class="text-xs">週</span>
           </div>
         </div>
         <div>
           <label class="text-xs font-semibold text-slate-500">秤重星期</label>
-          <select id="daily-weekday" class="mt-1 block border rounded px-3 py-1 text-sm bg-white" onchange="window.loadDailyRecords()">
+          <select id="daily-weekday" class="mt-1 block border rounded px-3 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" onchange="window.loadDailyRecords()">
             <option value="1">週一</option><option value="2">週二</option><option value="4">週四</option><option value="5">週五</option>
           </select>
         </div>
+        
+        <!-- 免秤重設定區塊 -->
+        <div class="flex items-center gap-2 ml-2 mt-4 md:mt-0 bg-rose-50 px-3 py-1.5 rounded border border-rose-100">
+          <input type="checkbox" id="daily-skip-cb" onchange="window.toggleSkipDay()" class="w-4 h-4 text-rose-600 rounded cursor-pointer">
+          <label for="daily-skip-cb" class="text-sm font-semibold text-rose-800 cursor-pointer">本日全校停餐 / 免秤重</label>
+        </div>
+
         <div id="today-menu-hint" class="text-xs bg-emerald-50 text-emerald-800 px-3 py-2 rounded border border-emerald-100 hidden md:block">
           🍱 今日菜單讀取中...
         </div>
-        <div class="ml-auto">
+        
+        <div class="ml-auto flex gap-2">
           <button onclick="window.saveAllDailyRecords()" id="save-btn" disabled class="px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition flex items-center gap-1">
             🔒 需登入方可儲存
           </button>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+      
+      <!-- 每日清單 -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto" id="daily-table-container">
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
             <tr>
@@ -86,6 +96,10 @@
           <tbody id="daily-rows" class="divide-y divide-slate-100"></tbody>
         </table>
       </div>
+      
+      <div id="skip-overlay" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-8 text-center text-rose-700 font-bold">
+        🚫 本日已設定為「全校停餐 / 免秤重」，無需登記數據。（不列入統計）
+      </div>
     </section>
 
     <!-- 【頁面 2】當週菜單維護 (含 AI 影像辨識) -->
@@ -94,7 +108,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-4 mb-4">
           <div class="flex items-center gap-3">
             <span class="text-sm font-semibold">維護週次：第</span>
-            <input type="number" id="menu-week" class="w-16 border rounded px-2 py-1 text-sm" value="2" min="1" onchange="window.loadWeeklyMenu()">
+            <input type="number" id="menu-week" class="w-16 border rounded px-2 py-1 text-sm" value="1" min="1" onchange="window.loadWeeklyMenu()">
             <span class="text-sm font-semibold">週</span>
           </div>
           <button onclick="window.saveWeeklyMenu()" id="menu-save-btn" disabled class="px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed">
@@ -129,7 +143,7 @@
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
         <div class="flex items-center gap-3">
           <span class="text-sm font-semibold">評比週次：第</span>
-          <input type="number" id="weekly-select-week" class="w-16 border rounded px-2 py-1 text-sm" value="2" min="1" onchange="window.calcWeeklyReport()">
+          <input type="number" id="weekly-select-week" class="w-16 border rounded px-2 py-1 text-sm" value="1" min="1" onchange="window.calcWeeklyReport()">
           <span class="text-sm font-semibold">週</span>
           <button onclick="window.calcWeeklyReport()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded">🔄 重新讀取</button>
         </div>
@@ -159,7 +173,7 @@
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between no-print">
         <div class="flex items-center gap-3">
           <span class="text-sm font-semibold">分析週次：第</span>
-          <input type="number" id="analysis-week" class="w-16 border rounded px-2 py-1 text-sm" value="2" min="1" onchange="window.runMenuAnalysis()">
+          <input type="number" id="analysis-week" class="w-16 border rounded px-2 py-1 text-sm" value="1" min="1" onchange="window.runMenuAnalysis()">
           <span class="text-sm font-semibold">週</span>
           <button onclick="window.runMenuAnalysis()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow">
             🚀 啟動菜單與廚餘關聯診斷
@@ -194,17 +208,47 @@
       </div>
     </section>
 
-    <!-- 【頁面 6】班級預設人數管理 -->
-    <section id="page-settings" class="space-y-4 hidden">
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center">
-        <div><h2 class="text-base font-bold">班級預設人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值。</p></div>
-        <button onclick="window.saveClassSettings()" id="settings-save-btn" disabled class="px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow">🔒 需登入儲存</button>
+    <!-- 【頁面 6】系統與匯入設定 -->
+    <section id="page-settings" class="space-y-6 hidden">
+      
+      <!-- 學期行事曆設定 (自動定位用) -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+          <div><h2 class="text-base font-bold text-slate-800">📅 學期行事曆與自動定位設定</h2><p class="text-xs text-slate-500">設定開學日後，系統會依照今日日期自動為您切換到正確的「當前週次」。</p></div>
+          <button onclick="window.saveSystemConfig()" id="sys-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm">🔒 需登入</button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div><label class="block text-slate-500 font-semibold mb-1">當前學年度</label><input type="number" id="sys-year" value="115" class="border rounded w-full p-1.5 bg-slate-50"></div>
+          <div><label class="block text-slate-500 font-semibold mb-1">學期</label><input type="number" id="sys-sem" value="1" class="border rounded w-full p-1.5 bg-slate-50"></div>
+          <div><label class="block text-slate-500 font-semibold mb-1">開學日</label><input type="date" id="sys-start" value="2026-08-31" class="border rounded w-full p-1.5 bg-slate-50"></div>
+          <div><label class="block text-slate-500 font-semibold mb-1">結業日</label><input type="date" id="sys-end" value="2027-01-20" class="border rounded w-full p-1.5 bg-slate-50"></div>
+        </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
-        <table class="w-full text-left text-sm">
-          <thead class="bg-slate-50 border-b"><tr><th class="p-3">年段</th><th class="p-3">班級</th><th class="p-3">預設人數</th></tr></thead>
-          <tbody id="settings-rows" class="divide-y divide-slate-100"></tbody>
-        </table>
+
+      <!-- CSV 歷史資料批次匯入 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+          <div><h2 class="text-base font-bold text-slate-800">📂 歷史數據 CSV 批次匯入</h2><p class="text-xs text-slate-500">開學初或前幾週未登錄之歷史數據，可整理成 CSV 檔一鍵匯入。</p></div>
+          <button onclick="window.downloadCsvTemplate()" class="px-4 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-medium rounded shadow-sm text-sm transition">📥 下載 CSV 範例檔</button>
+        </div>
+        <div class="flex items-center gap-4">
+          <input type="file" id="csv-upload" accept=".csv" class="text-sm file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer">
+          <button onclick="window.importCsvData()" id="csv-import-btn" disabled class="px-5 py-1.5 bg-slate-300 text-slate-500 font-medium rounded-lg shadow text-sm">🔒 需登入</button>
+        </div>
+      </div>
+
+      <!-- 班級預設人數管理 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+          <div><h2 class="text-base font-bold text-slate-800">🧑‍🤝‍🧑 班級預設用餐人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值，節省登記時間。</p></div>
+          <button onclick="window.saveClassSettings()" id="settings-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm">🔒 需登入</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b"><tr><th class="p-3">年段</th><th class="p-3">班級</th><th class="p-3">預設人數</th></tr></thead>
+            <tbody id="settings-rows" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </div>
@@ -220,12 +264,18 @@
         <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.9c2.27-2.1 3.65-5.2 3.65-9.15z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.72-2.1-6.66-4.93H1.27v3.15C3.25 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.34 14.27c-.24-.72-.37-1.49-.37-2.27s.13-1.55.37-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.07-3.15z"/><path fill="#EA4335" d="M12 4.77c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.58l4.07 3.15c.94-2.83 3.56-4.96 6.66-4.96z"/></svg>
         Google 帳號登入
       </button>
+      <div class="relative my-4"><div class="absolute inset-0 flex items-center"><div class="w-full border-t"></div></div><div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-slate-400">或Email密碼</span></div></div>
+      <div class="space-y-3">
+        <input type="email" id="login-email" placeholder="電子信箱" class="w-full border rounded-lg px-3 py-2 text-sm">
+        <input type="password" id="login-password" placeholder="密碼" class="w-full border rounded-lg px-3 py-2 text-sm">
+        <button onclick="window.loginWithEmail()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition">登入</button>
+      </div>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     // 🔴 請替換為您的 Firebase 專案金鑰
@@ -262,31 +312,43 @@
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${user.displayName || user.email}`;
         document.getElementById('btn-login-modal').classList.add('hidden');
         document.getElementById('btn-logout').classList.remove('hidden');
-        ['save-btn', 'menu-save-btn', 'settings-save-btn'].forEach(id => {
+        ['save-btn', 'menu-save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn'].forEach(id => {
           let b = document.getElementById(id);
-          b.disabled = false;
-          b.className = "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition";
-          b.innerText = id==='save-btn' ? '☁️ 儲存上傳' : '💾 儲存';
+          if(b) {
+            b.disabled = false;
+            b.className = (id==='csv-import-btn') 
+              ? "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm"
+              : "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition";
+            if(id==='save-btn') b.innerText = '☁️ 儲存上傳';
+            else if(id==='csv-import-btn') b.innerText = '🚀 開始匯入';
+            else b.innerText = '💾 儲存設定';
+          }
         });
       } else {
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客唯讀模式`;
         document.getElementById('btn-login-modal').classList.remove('hidden');
         document.getElementById('btn-logout').classList.add('hidden');
-        ['save-btn', 'menu-save-btn', 'settings-save-btn'].forEach(id => {
+        ['save-btn', 'menu-save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn'].forEach(id => {
           let b = document.getElementById(id);
-          b.disabled = true;
-          b.className = "px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition";
-          b.innerText = '🔒 需登入儲存';
+          if(b) {
+            b.disabled = true;
+            b.className = "px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition text-sm";
+            b.innerText = '🔒 需登入操作';
+          }
         });
       }
-      await loadClassSettings();
+      
+      // 初始化系統：讀取行事曆、班級設定，並自動定位當前週次
+      await window.loadSystemConfig();
+      await window.loadClassSettings();
       window.switchTab('daily'); 
     });
 
     window.openLoginModal = () => document.getElementById('login-modal').classList.remove('hidden');
     window.closeLoginModal = () => document.getElementById('login-modal').classList.add('hidden');
     window.loginWithGoogle = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); window.closeLoginModal(); } catch (e) { alert(e.message); } };
+    window.loginWithEmail = async () => { try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); window.closeLoginModal(); } catch (e) { alert(e.message); } };
     window.logoutUser = async () => { if(confirm('登出？')) await signOut(auth); };
 
     /* --- Navigation --- */
@@ -301,7 +363,6 @@
       if(tabId==='daily') window.loadDailyRecords();
       if(tabId==='menu') { 
         window.loadWeeklyMenu(); 
-        // 載入 localStorage 的 Gemini Key
         let key = localStorage.getItem('food_waste_gemini_key');
         if(key) document.getElementById('gemini-api-key').value = key;
       }
@@ -311,137 +372,137 @@
       if(tabId==='settings') window.renderSettings();
     };
 
-    /* --- Menu Mgmt & AI Recognition --- */
-    window.loadWeeklyMenu = async () => {
-      const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('menu-week').value);
-      let menu = {};
-      try { const snap = await getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)); if(snap.exists()) menu = snap.data().days || {}; } catch(e){}
-      
-      document.getElementById('menu-days-container').innerHTML = WEEKDAYS.map(day => {
-        let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
-        let dis = window.currentUser ? '' : 'disabled';
-        return `
-          <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
-            <h3 class="font-bold text-emerald-800 mb-2">${day.name}菜單</h3>
-            <div class="space-y-1 text-sm">
-              主食: <input id="m-${day.d}-main" value="${d.main}" ${dis} class="border rounded w-full p-1"><br>
-              主菜: <input id="m-${day.d}-d1" value="${d.dish1}" ${dis} class="border rounded w-full p-1"><br>
-              副菜: <input id="m-${day.d}-d2" value="${d.dish2}" ${dis} class="border rounded w-full p-1"><br>
-              蔬菜: <input id="m-${day.d}-v" value="${d.vege}" ${dis} class="border rounded w-full p-1"><br>
-              湯品: <input id="m-${day.d}-s" value="${d.soup}" ${dis} class="border rounded w-full p-1">
-            </div>
-          </div>`;
-      }).join('');
-    };
-    window.saveWeeklyMenu = async () => {
-      if(!window.currentUser) return;
-      const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('menu-week').value);
-      let days = {};
-      WEEKDAYS.forEach(day => {
-        days[day.d] = {
-          main: document.getElementById(`m-${day.d}-main`).value, dish1: document.getElementById(`m-${day.d}-d1`).value,
-          dish2: document.getElementById(`m-${day.d}-d2`).value, vege: document.getElementById(`m-${day.d}-v`).value,
-          soup: document.getElementById(`m-${day.d}-s`).value
-        };
-      });
-      try { await setDoc(doc(db, "weekly_menus", `${y}_1_${w}`), { academicYear: y, semester: 1, week: w, days, updatedAt: serverTimestamp() }, { merge: true }); alert('✅ 菜單更新成功'); } catch(e) { alert(e.message); }
-    };
-
-    // 處理圖片預覽
-    document.getElementById('menu-image-upload').addEventListener('change', function(e) {
-      if (e.target.files && e.target.files[0]) {
-        let reader = new FileReader();
-        reader.onload = function(ev) {
-          document.getElementById('menu-image-preview').src = ev.target.result;
-          document.getElementById('image-preview-container').classList.remove('hidden');
-        };
-        reader.readAsDataURL(e.target.files[0]);
-      }
-    });
-
-    // 呼叫 Gemini AI 進行影像辨識
-    window.recognizeMenuImage = async () => {
-      const apiKey = document.getElementById('gemini-api-key').value.trim();
-      const fileInput = document.getElementById('menu-image-upload');
-      const btn = document.getElementById('btn-ai-recognize');
-      
-      if(!apiKey) return alert("請先輸入 Gemini API Key");
-      if(!fileInput.files || fileInput.files.length === 0) return alert("請先上傳菜單圖片");
-      
-      // 記住 API Key
-      localStorage.setItem('food_waste_gemini_key', apiKey);
-      
-      btn.innerText = "⏳ AI 辨識中...";
-      btn.disabled = true;
-
+    /* --- System Calendar Config (Auto-Week) --- */
+    window.loadSystemConfig = async () => {
       try {
-        // 讀取檔案轉為 Base64
-        const file = fileInput.files[0];
-        const base64String = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(',')[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        const snap = await getDoc(doc(db, "system_config", "main"));
+        if(snap.exists()) {
+          const d = snap.data();
+          if(d.year) document.getElementById('sys-year').value = d.year;
+          if(d.semester) document.getElementById('sys-sem').value = d.semester;
+          if(d.startDate) document.getElementById('sys-start').value = d.startDate;
+          if(d.endDate) document.getElementById('sys-end').value = d.endDate;
+        }
 
-        const prompt = `請分析這張國小營養午餐菜單圖片，擷取週一、週二、週四、週五的菜色（若圖片沒有標示星期，請依序推導，排除週三不紀錄）。
-請嚴格輸出符合以下結構的 JSON 格式，不要包含任何 markdown code block 標記（如 \`\`\`json ），直接輸出原始的 JSON 物件：
-{
-  "1": { "main": "主食名稱", "dish1": "主菜名稱", "dish2": "副菜名稱", "vege": "蔬菜名稱", "soup": "湯品名稱" },
-  "2": { "main": "主食", "dish1": "主菜", "dish2": "副菜", "vege": "蔬菜", "soup": "湯" },
-  "4": { "main": "主食", "dish1": "主菜", "dish2": "副菜", "vege": "蔬菜", "soup": "湯" },
-  "5": { "main": "主食", "dish1": "主菜", "dish2": "副菜", "vege": "蔬菜", "soup": "湯" }
-}
-若該天沒有菜色，欄位請填空字串。`;
+        // 自動推算當前週次
+        const startStr = document.getElementById('sys-start').value;
+        if(startStr) {
+          const startDate = new Date(startStr);
+          const today = new Date();
+          if(today >= startDate) {
+            const diffTime = Math.abs(today - startDate);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const currentWeek = Math.floor(diffDays / 7) + 1;
+            
+            let dayOfWeek = today.getDay(); // 0(Sun) - 6(Sat)
+            // 如果是三、六、日，自動預設為週四或週一 (依需求，這裡先簡單映射)
+            if(dayOfWeek === 3) dayOfWeek = 4; 
+            if(dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
 
-        const requestBody = {
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: file.type, data: base64String } }
-            ]
-          }]
-        };
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-
-        const result = await response.json();
-        if (result.error) throw new Error(result.error.message);
-        
-        let textResult = result.candidates[0].content.parts[0].text.trim();
-        // 清理可能的 markdown 標籤
-        textResult = textResult.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-        
-        const menuJson = JSON.parse(textResult);
-
-        // 將解析後的 JSON 填入 UI
-        WEEKDAYS.forEach(day => {
-          if (menuJson[day.d]) {
-            document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
-            document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
-            document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
-            document.getElementById(`m-${day.d}-v`).value = menuJson[day.d].vege || '';
-            document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
+            document.getElementById('daily-year').value = document.getElementById('sys-year').value;
+            document.getElementById('daily-week').value = currentWeek;
+            
+            // 確保 select 中有該值
+            const selectWd = document.getElementById('daily-weekday');
+            for(let i=0; i<selectWd.options.length; i++) {
+              if(parseInt(selectWd.options[i].value) === dayOfWeek) {
+                selectWd.selectedIndex = i; break;
+              }
+            }
           }
-        });
-
-        alert("✨ AI 辨識完成！請確認欄位無誤後，點擊「儲存菜單」。");
-
-      } catch (err) {
-        alert("辨識失敗：" + err.message);
-        console.error(err);
-      } finally {
-        btn.innerText = "✨ 開始辨識";
-        btn.disabled = false;
-      }
+        }
+      } catch (e) { console.warn("載入行事曆設定失敗"); }
     };
 
-    /* --- 其他分析與報表邏輯 (保留原功能) --- */
-    async function loadClassSettings() {
+    window.saveSystemConfig = async () => {
+      if(!window.currentUser) return;
+      try {
+        await setDoc(doc(db, "system_config", "main"), {
+          year: parseInt(document.getElementById('sys-year').value),
+          semester: parseInt(document.getElementById('sys-sem').value),
+          startDate: document.getElementById('sys-start').value,
+          endDate: document.getElementById('sys-end').value,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        alert('📅 行事曆設定已儲存！');
+      } catch(e) { alert(e.message); }
+    };
+
+    /* --- CSV Import --- */
+    window.downloadCsvTemplate = () => {
+      const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(kg),用餐人數\n" +
+                         "115,1,1,1,101,1.2,22\n115,1,1,1,102,0.9,21\n115,1,1,1,201,1.5,24\n";
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "惜食歷史數據匯入範例.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    window.importCsvData = async () => {
+      if(!window.currentUser) return;
+      const fileInput = document.getElementById('csv-upload');
+      if(!fileInput.files.length) return alert('請先選擇 CSV 檔案');
+      const file = fileInput.files[0];
+      
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        // 簡單解析 CSV (處理換行)
+        const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
+        if(lines.length < 2) return alert('檔案內容格式不符或為空');
+        
+        document.getElementById('csv-import-btn').innerText = '⏳ 匯入中...';
+        document.getElementById('csv-import-btn').disabled = true;
+
+        let successCount = 0;
+        try {
+          // 跳過第一行標題，逐行處理
+          const promises = [];
+          for(let i=1; i<lines.length; i++) {
+            const cols = lines[i].split(',');
+            if(cols.length >= 7) {
+              const year = parseInt(cols[0].trim());
+              const sem = parseInt(cols[1].trim());
+              const week = parseInt(cols[2].trim());
+              const weekday = parseInt(cols[3].trim());
+              const classId = cols[4].trim();
+              const weight = parseFloat(cols[5].trim());
+              const count = parseInt(cols[6].trim());
+              
+              const classInfo = window.CLASSES.find(c => c.id === classId);
+              if(!isNaN(year) && !isNaN(week) && classInfo && !isNaN(weight)) {
+                const per = count > 0 ? Number((weight*1000/count).toFixed(1)) : 0;
+                const docId = `${year}_${sem}_${week}_${weekday}_${classId}`;
+                
+                promises.push(
+                  setDoc(doc(db, "daily_records", docId), {
+                    academicYear: year, semester: sem, week, weekday,
+                    classId, className: classInfo.name, stage: classInfo.stage,
+                    weightKg: weight, eaterCount: count, perCapitaGram: per,
+                    updatedAt: serverTimestamp(), imported: true
+                  }, { merge: true }).then(() => successCount++)
+                );
+              }
+            }
+          }
+          await Promise.all(promises);
+          alert(`✅ 成功匯入 ${successCount} 筆數據！`);
+        } catch(err) {
+          alert('匯入發生錯誤：' + err.message);
+        } finally {
+          document.getElementById('csv-import-btn').innerText = '🚀 開始匯入';
+          document.getElementById('csv-import-btn').disabled = false;
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    /* --- Class Settings --- */
+    window.loadClassSettings = async () => {
       try {
         const snap = await getDocs(collection(db, "class_settings"));
         snap.forEach(d => {
@@ -456,10 +517,11 @@
       document.getElementById('settings-rows').innerHTML = window.CLASSES.map(c => `
         <tr class="hover:bg-slate-50">
           <td class="p-3 text-slate-500">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
-          <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAuth?'':'disabled'} class="border rounded px-2 py-1 w-24 text-right"> 人</td>
+          <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAuth?'':'disabled'} class="border rounded px-2 py-1 w-24 text-right bg-slate-50"> 人</td>
         </tr>
       `).join('');
     };
+
     window.saveClassSettings = async () => {
       if(!window.currentUser) return;
       try {
@@ -468,8 +530,23 @@
           c.defaultCount = v;
           await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
         }
-        alert('人數設定更新成功！');
+        alert('🧑‍🤝‍🧑 班級人數設定更新成功！');
       } catch(e){ alert(e.message); }
+    };
+
+    /* --- Daily Entry --- */
+    window.toggleSkipDay = () => {
+      const isSkipped = document.getElementById('daily-skip-cb').checked;
+      const tableCon = document.getElementById('daily-table-container');
+      const overlay = document.getElementById('skip-overlay');
+      
+      if(isSkipped) {
+        tableCon.classList.add('hidden');
+        overlay.classList.remove('hidden');
+      } else {
+        tableCon.classList.remove('hidden');
+        overlay.classList.add('hidden');
+      }
     };
 
     window.loadDailyRecords = async () => {
@@ -484,11 +561,21 @@
         const menuSnap = await getDoc(doc(db, "weekly_menus", `${year}_1_${week}`));
         if(menuSnap.exists() && menuSnap.data().days[weekday]) {
           const d = menuSnap.data().days[weekday];
-          hint.innerHTML = `🍱 <strong>今日菜單</strong>：${d.main},${d.dish1}, ${d.vege},${d.soup}`;
+          hint.innerHTML = `🍱 <strong>今日菜單</strong>：${d.main}, ${d.dish1}, ${d.vege}, ${d.soup}`;
         } else { hint.innerHTML = '🍱 今日無菜單紀錄'; }
       } catch(e) {}
 
       try {
+        // 檢查本日是否被標記為免秤重 (skip)
+        const statusSnap = await getDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`));
+        if(statusSnap.exists() && statusSnap.data().isSkipped) {
+          document.getElementById('daily-skip-cb').checked = true;
+          window.toggleSkipDay();
+        } else {
+          document.getElementById('daily-skip-cb').checked = false;
+          window.toggleSkipDay();
+        }
+
         const snap = await getDocs(query(collection(db, "daily_records"), where("academicYear", "==", year), where("week", "==", week), where("weekday", "==", weekday)));
         let map = {}; snap.forEach(d => map[d.data().classId] = d.data());
         
@@ -519,21 +606,115 @@
       const year = parseInt(document.getElementById('daily-year').value);
       const week = parseInt(document.getElementById('daily-week').value);
       const weekday = parseInt(document.getElementById('daily-weekday').value);
+      const isSkipped = document.getElementById('daily-skip-cb').checked;
+
       try {
-        let promises = window.CLASSES.map(async c => {
-          let wStr = document.getElementById(`w-${c.id}`).value;
-          if(wStr === '') return;
-          let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
-          let per = count > 0 ? Number((w*1000/count).toFixed(1)) : 0;
-          await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
-            academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
-            weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
-          }, { merge: true });
-        });
-        await Promise.all(promises); alert('✅ 數據儲存成功');
+        // 儲存狀態：是否免秤重
+        await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
+        
+        if(!isSkipped) {
+          let promises = window.CLASSES.map(async c => {
+            let wStr = document.getElementById(`w-${c.id}`).value;
+            if(wStr === '') return;
+            let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
+            let per = count > 0 ? Number((w*1000/count).toFixed(1)) : 0;
+            await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
+              academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
+              weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
+            }, { merge: true });
+          });
+          await Promise.all(promises); 
+        }
+        alert(isSkipped ? '🚫 已將本日設定為停餐/免秤重並儲存！' : '✅ 廚餘數據儲存成功！');
       } catch(e) { alert(e.message); }
     };
 
+    /* --- Menu Mgmt & AI Recognition --- */
+    window.loadWeeklyMenu = async () => {
+      const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('menu-week').value);
+      let menu = {};
+      try { const snap = await getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)); if(snap.exists()) menu = snap.data().days || {}; } catch(e){}
+      
+      document.getElementById('menu-days-container').innerHTML = WEEKDAYS.map(day => {
+        let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
+        let dis = window.currentUser ? '' : 'disabled';
+        return `
+          <div class="bg-white p-4 rounded shadow-sm border border-slate-200">
+            <h3 class="font-bold text-emerald-800 mb-2">${day.name}菜單</h3>
+            <div class="space-y-1 text-sm">
+              主食: <input id="m-${day.d}-main" value="${d.main}" ${dis} class="border rounded w-full p-1"><br>
+              主菜: <input id="m-${day.d}-d1" value="${d.dish1}" ${dis} class="border rounded w-full p-1"><br>
+              副菜: <input id="m-${day.d}-d2" value="${d.dish2}" ${dis} class="border rounded w-full p-1"><br>
+              蔬菜: <input id="m-${day.d}-v" value="${d.vege}" ${dis} class="border rounded w-full p-1"><br>
+              湯品: <input id="m-${day.d}-s" value="${d.soup}" ${dis} class="border rounded w-full p-1">
+            </div>
+          </div>`;
+      }).join('');
+    };
+
+    window.saveWeeklyMenu = async () => {
+      if(!window.currentUser) return;
+      const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('menu-week').value);
+      let days = {};
+      WEEKDAYS.forEach(day => {
+        days[day.d] = {
+          main: document.getElementById(`m-${day.d}-main`).value, dish1: document.getElementById(`m-${day.d}-d1`).value,
+          dish2: document.getElementById(`m-${day.d}-d2`).value, vege: document.getElementById(`m-${day.d}-v`).value,
+          soup: document.getElementById(`m-${day.d}-s`).value
+        };
+      });
+      try { await setDoc(doc(db, "weekly_menus", `${y}_1_${w}`), { academicYear: y, semester: 1, week: w, days, updatedAt: serverTimestamp() }, { merge: true }); alert('✅ 菜單更新成功'); } catch(e) { alert(e.message); }
+    };
+
+    document.getElementById('menu-image-upload').addEventListener('change', function(e) {
+      if (e.target.files && e.target.files[0]) {
+        let reader = new FileReader();
+        reader.onload = function(ev) {
+          document.getElementById('menu-image-preview').src = ev.target.result;
+          document.getElementById('image-preview-container').classList.remove('hidden');
+        };
+        reader.readAsDataURL(e.target.files[0]);
+      }
+    });
+
+    window.recognizeMenuImage = async () => {
+      const apiKey = document.getElementById('gemini-api-key').value.trim();
+      const fileInput = document.getElementById('menu-image-upload');
+      const btn = document.getElementById('btn-ai-recognize');
+      if(!apiKey) return alert("請先輸入 Gemini API Key");
+      if(!fileInput.files || fileInput.files.length === 0) return alert("請先上傳菜單圖片");
+      localStorage.setItem('food_waste_gemini_key', apiKey);
+      btn.innerText = "⏳ AI 辨識中..."; btn.disabled = true;
+
+      try {
+        const file = fileInput.files[0];
+        const base64String = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
+        const prompt = `請分析這張菜單，擷取週一、二、四、五的菜色。輸出嚴格JSON，不含任何markdown：\n{"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{...},"4":{...},"5":{...}}`;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type, data: base64String } }] }] })
+        });
+        const result = await res.json();
+        if (result.error) throw new Error(result.error.message);
+        
+        let textResult = result.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+        const menuJson = JSON.parse(textResult);
+
+        WEEKDAYS.forEach(day => {
+          if (menuJson[day.d]) {
+            document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
+            document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
+            document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
+            document.getElementById(`m-${day.d}-v`).value = menuJson[day.d].vege || '';
+            document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
+          }
+        });
+        alert("✨ 辨識完成！請確認後點擊儲存。");
+      } catch (err) { alert("辨識失敗：" + err.message); } 
+      finally { btn.innerText = "✨ 開始辨識"; btn.disabled = false; }
+    };
+
+    /* --- Reports & Analysis --- */
     window.calcWeeklyReport = async () => {
       const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('weekly-select-week').value);
       const [cur, prv] = await Promise.all([
@@ -603,7 +784,7 @@
         
         let insight = '', advice = '';
         if(menu) {
-          let str = `${menu.main} ${menu.dish1}${menu.vege}`;
+          let str = `${menu.main} ${menu.dish1} ${menu.vege}`;
           if(/魚|排骨|骨|棒腿/.test(str)){ insight='含帶骨/刺食材，殘渣重。'; advice='建議調整為無骨肉類（如去骨雞腿丁）。'; }
           else if(/苦瓜|青椒|芥藍|茄子/.test(str)){ insight='含學童易排斥蔬菜。'; advice='建議細切或拌炒玉米甜味食材掩蓋特殊氣味。'; }
           else if(/糙米|五穀|雜糧/.test(str)){ insight='粗糧比例可能過高。'; advice='建議調整白米與粗糧比例，或增加悶煮時間。'; }
@@ -617,7 +798,7 @@
             ${isSpike ? `<div class="bg-rose-50 p-2 rounded text-xs text-rose-800"><b>🚨 診斷:</b> ${insight}<br><b>💡 建議:</b> ${advice}</div>` : `<div class="text-xs text-emerald-600">數據穩定</div>`}
           </div>`;
       }).join('');
-      con.innerHTML = html;
+      con.innerHTML = html || '<div class="text-center p-4">本週尚無資料</div>';
     };
 
     window.calcMonthlyReport = async () => {
