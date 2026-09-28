@@ -29,10 +29,10 @@
       </div>
       <div class="flex items-center gap-3 no-print">
         <div id="auth-badge" class="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600">
-          <span class="w-2 h-2 rounded-full bg-slate-400"></span><span>訪客模式 (唯讀)</span>
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span><span>訪客模式</span>
         </div>
         <button id="btn-login-modal" onclick="window.openLoginModal()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
-          🔐 管理員登入
+          🔐 後臺管理
         </button>
         <button id="btn-logout" onclick="window.confirmLogout()" class="hidden px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold rounded-lg transition">
           登出
@@ -46,8 +46,8 @@
       <button onclick="window.switchTab('weekly')" id="tab-weekly" class="px-4 py-2 tab-inactive">2. 週評比/進步獎</button>
       <button onclick="window.switchTab('monthly')" id="tab-monthly" class="px-4 py-2 tab-inactive">3. 每月榮譽榜</button>
       <button onclick="window.switchTab('menu')" id="tab-menu" class="px-4 py-2 tab-inactive flex items-center gap-1.5">
-        <span>4. 🤖 AI 菜單維護</span>
-        <span class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">🔒</span>
+        <span id="tab-menu-text">4. 菜單查詢</span>
+        <span id="tab-menu-badge" class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal hidden">🔒</span>
       </button>
       <button onclick="window.switchTab('analysis')" id="tab-analysis" class="px-4 py-2 tab-inactive flex items-center gap-1.5">
         <span>5. 菜單關聯分析 🔍</span>
@@ -187,23 +187,23 @@
       </div>
     </section>
 
-    <!-- 【頁面 4】當週菜單維護 (管理員專屬) -->
+    <!-- 【頁面 4】菜單查詢 / 當週菜單維護 (雙模態) -->
     <section id="page-menu" class="space-y-4 hidden">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-4 mb-4">
           <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold">維護週次：第</span>
+            <span class="text-sm font-semibold" id="menu-week-title-label">本週週次：第</span>
             <input type="number" id="menu-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-emerald-800" value="1" min="1" onchange="window.loadWeeklyMenu()">
             <span class="text-sm font-semibold">週</span>
             <span id="menu-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 font-medium"></span>
           </div>
-          <button onclick="window.saveWeeklyMenu()" id="menu-save-btn" disabled class="px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed">
-            🔒 需登入儲存菜單
+          <button onclick="window.saveWeeklyMenu()" id="menu-save-btn" class="hidden px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow transition">
+            💾 儲存菜單
           </button>
         </div>
         
-        <!-- AI 辨識區塊 -->
-        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start md:items-center">
+        <!-- AI 辨識區塊 (僅管理員可見) -->
+        <div id="menu-ai-section" class="hidden bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start md:items-center">
           <div class="flex-1 space-y-2">
             <h3 class="font-bold text-indigo-900 flex items-center gap-1">🤖 AI 自動菜單圖片辨識</h3>
             <p class="text-xs text-indigo-700">上傳營養午餐菜單圖檔（JPG/PNG），系統將自動為您填入週一、二、四、五的菜色（含主食、主菜、副菜、青菜、湯）。</p>
@@ -400,8 +400,8 @@
       "rodyg103022@gmail.com"        // 第二位管理者 Email
     ];
 
-    // 管理員專屬的選單 ID 清單
-    const ADMIN_ONLY_TABS = ['menu', 'analysis', 'settings'];
+    // 管理員專屬的選單 ID 清單 (menu 已開放為雙模態，從限制名單移除)
+    const ADMIN_ONLY_TABS = ['analysis', 'settings'];
 
     const WEEKDAYS = [{d:1, name:'週一'}, {d:2, name:'週二'}, {d:4, name:'週四'}, {d:5, name:'週五'}];
     window.CLASSES = [
@@ -533,11 +533,28 @@
       window.currentUser = user;
       const badge = document.getElementById('auth-badge');
       const adminBadges = document.querySelectorAll('.admin-badge');
+      const tabMenuText = document.getElementById('tab-menu-text');
+      const tabMenuBadge = document.getElementById('tab-menu-badge');
+      const menuWeekTitle = document.getElementById('menu-week-title-label');
+      const menuSaveBtn = document.getElementById('menu-save-btn');
+      const menuAiSection = document.getElementById('menu-ai-section');
+
       if (user) {
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${user.displayName || user.email}`;
         document.getElementById('btn-login-modal').classList.add('hidden');
         document.getElementById('btn-logout').classList.remove('hidden');
+
+        // 更新第 4 選單為管理模式
+        if (tabMenuText) tabMenuText.innerText = "4. 🤖 AI 菜單維護";
+        if (tabMenuBadge) {
+          tabMenuBadge.classList.remove('hidden');
+          tabMenuBadge.className = "admin-badge text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
+          tabMenuBadge.innerText = "🔓";
+        }
+        if (menuWeekTitle) menuWeekTitle.innerText = "維護週次：第";
+        if (menuSaveBtn) menuSaveBtn.classList.remove('hidden');
+        if (menuAiSection) menuAiSection.classList.remove('hidden');
 
         // 更新後方管理選單徽章為解鎖圖示
         adminBadges.forEach(b => {
@@ -545,7 +562,7 @@
           b.innerText = "🔓";
         });
 
-        ['save-btn', 'menu-save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn'].forEach(id => {
+        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn'].forEach(id => {
           let b = document.getElementById(id);
           if(b) {
             b.disabled = false;
@@ -559,9 +576,16 @@
         });
       } else {
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客唯讀模式`;
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
         document.getElementById('btn-login-modal').classList.remove('hidden');
         document.getElementById('btn-logout').classList.add('hidden');
+
+        // 更新第 4 選單為訪客模式
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        if (tabMenuBadge) tabMenuBadge.classList.add('hidden');
+        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
+        if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
+        if (menuAiSection) menuAiSection.classList.add('hidden');
 
         // 更新後方管理選單徽章為上鎖圖示
         adminBadges.forEach(b => {
@@ -569,7 +593,7 @@
           b.innerText = "🔒";
         });
 
-        ['save-btn', 'menu-save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn'].forEach(id => {
+        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn'].forEach(id => {
           let b = document.getElementById(id);
           if(b) {
             b.disabled = true;
@@ -603,9 +627,6 @@
       } catch (e) { 
         window.showNotice('登入失敗', e.message, false); 
       } 
-    };
-    window.logoutUser = async () => {
-      await window.confirmLogout();
     };
 
     /* --- Navigation & 權限保護路由 --- */
