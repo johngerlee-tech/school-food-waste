@@ -126,7 +126,7 @@
         <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start md:items-center">
           <div class="flex-1 space-y-2">
             <h3 class="font-bold text-indigo-900 flex items-center gap-1">🤖 AI 自動菜單圖片辨識</h3>
-            <p class="text-xs text-indigo-700">上傳營養午餐菜單圖檔（JPG/PNG），系統將自動為您填入週一、二、四、五的菜色。</p>
+            <p class="text-xs text-indigo-700">上傳營養午餐菜單圖檔（JPG/PNG），系統將自動為您填入週一、二、四、五的菜色（含主食、主菜、副菜、青菜、湯）。</p>
             <div class="flex items-center gap-2 mt-2">
               <input type="password" id="gemini-api-key" placeholder="輸入 Gemini API Key" class="border border-indigo-200 rounded px-2 py-1 text-xs w-48 bg-white focus:outline-indigo-500">
               <input type="file" id="menu-image-upload" accept="image/*" class="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer text-indigo-800">
@@ -134,6 +134,7 @@
                 ✨ 開始辨識
               </button>
             </div>
+            <div id="ai-status-hint" class="text-[11px] text-slate-500"></div>
           </div>
           <div id="image-preview-container" class="hidden w-24 h-24 border border-indigo-200 rounded overflow-hidden bg-white flex items-center justify-center shrink-0">
             <img id="menu-image-preview" class="max-w-full max-h-full object-contain">
@@ -164,7 +165,7 @@
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
             <tr>
-              <th class="p-3">班級</th><th class="p-3 text-right">當週總重</th><th class="p-3 text-right">用餐人次</th>
+              <th class="p-3">班級</th><th class="p-3 text-right">當週總重 (g)</th><th class="p-3 text-right">用餐人次</th>
               <th class="p-3 text-right text-emerald-700 font-bold">本週人均(g)</th><th class="p-3 text-right text-slate-400">前週人均(g)</th>
               <th class="p-3 text-right">減幅(%)</th><th class="p-3 text-center">狀態</th>
             </tr>
@@ -205,7 +206,7 @@
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
             <tr>
-              <th class="p-3">班級</th><th class="p-3 text-right">全月總重(g)</th><th class="p-3 text-right">全月總人次</th>
+              <th class="p-3">班級</th><th class="p-3 text-right">全月總重 (g)</th><th class="p-3 text-right">全月總人次</th>
               <th class="p-3 text-right text-indigo-700 font-bold">月加權人均 (g/人)</th><th class="p-3 text-center">榮譽</th>
             </tr>
           </thead>
@@ -683,8 +684,8 @@
               主食: <input id="m-${day.d}-main" value="${d.main}" ${dis} class="border rounded w-full p-1"><br>
               主菜: <input id="m-${day.d}-d1" value="${d.dish1}" ${dis} class="border rounded w-full p-1"><br>
               副菜: <input id="m-${day.d}-d2" value="${d.dish2}" ${dis} class="border rounded w-full p-1"><br>
-              蔬菜: <input id="m-${day.d}-vege" value="${d.vege}" ${dis} class="border rounded w-full p-1"><br>
-              湯品: <input id="m-${day.d}-s" value="${d.soup}" ${dis} class="border rounded w-full p-1">
+              青菜: <input id="m-${day.d}-vege" value="${d.vege}" ${dis} class="border rounded w-full p-1"><br>
+              湯: <input id="m-${day.d}-s" value="${d.soup}" ${dis} class="border rounded w-full p-1">
             </div>
           </div>`;
       }).join('');
@@ -719,59 +720,85 @@
       const apiKey = document.getElementById('gemini-api-key').value.trim();
       const fileInput = document.getElementById('menu-image-upload');
       const btn = document.getElementById('btn-ai-recognize');
+      const hint = document.getElementById('ai-status-hint');
+      
       if(!apiKey) return alert("請先輸入 Gemini API Key");
       if(!fileInput.files || fileInput.files.length === 0) return alert("請先上傳菜單圖片");
       localStorage.setItem('food_waste_gemini_key', apiKey);
-      btn.innerText = "⏳ AI 辨識中..."; btn.disabled = true;
+      btn.innerText = "⏳ 偵測可用模型中..."; btn.disabled = true;
+      if(hint) hint.innerText = "正在連線 Google API 獲取您帳戶目前支援的模型清單...";
 
       try {
         const file = fileInput.files[0];
-        const base64String = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
-        const prompt = `請分析這張菜單，擷取週一、二、四、五的菜色。輸出嚴格JSON，不含任何markdown：\n{"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{...},"4":{...},"5":{...}}`;
+        const base64String = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result.split(',')[1]);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
 
-        // 支援多版本候選名單，自動輪詢直到成功
-        const candidateModels = [
-          'gemini-2.5-flash',
-          'gemini-2.0-flash',
-          'gemini-1.5-flash-latest',
-          'gemini-1.5-flash'
-        ];
+        // 步驟 1：動態查詢 Google 官方 ListModels，找出目前在該 API Key 下活躍支援 generateContent 的模型
+        let selectedModel = 'gemini-2.5-flash';
+        let isDynamic = false;
+        try {
+          const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+          const listData = await listRes.json();
+          if (listRes.ok && listData.models && Array.isArray(listData.models)) {
+            const usable = listData.models
+              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+              .map(m => m.name.replace('models/', ''));
 
-        let result = null;
-        let lastErrorMsg = '';
-
-        for (const model of candidateModels) {
-          try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: prompt },
-                    { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }
-                  ]
-                }]
-              })
-            });
-
-            const data = await res.json();
-            if (res.ok && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-              result = data;
-              break;
-            } else if (data.error) {
-              lastErrorMsg = data.error.message || JSON.stringify(data.error);
+            // 優先挑選最新 2.5-flash，其次 2.0-flash 或其他具備 flash 的穩定模型，避開已下線的 1.5-flash
+            const candidate = usable.find(m => m === 'gemini-2.5-flash') ||
+                              usable.find(m => m === 'gemini-2.0-flash') ||
+                              usable.find(m => m.includes('2.5') && m.includes('flash')) ||
+                              usable.find(m => m.includes('flash') && !m.includes('1.5')) ||
+                              usable.find(m => m.includes('gemini'));
+            if (candidate) {
+              selectedModel = candidate;
+              isDynamic = true;
             }
-          } catch (netErr) {
-            lastErrorMsg = netErr.message;
+          } else if (listData.error) {
+            throw new Error(`API 金鑰檢驗未通過：${listData.error.message}`);
           }
+        } catch (queryErr) {
+          console.warn('動態獲取模型失敗，改以主流模型呼叫:', queryErr);
         }
 
-        if (!result) {
-          throw new Error(lastErrorMsg || "所有可用模型皆無法回應，請檢查 API Key 權限或配額。");
+        if(hint) hint.innerText = `已鎖定支援模型 [${selectedModel}]，正在解析菜單圖片...`;
+        btn.innerText = "⏳ AI 圖片辨識中...";
+
+        // 優化提示詞：明確標示「青菜」與「湯」的對應關係
+        const prompt = `請分析這張午餐菜單圖片，擷取週一、週二、週四、週五的菜色內容（週三若有請忽略）。
+菜單欄位對應說明：
+- 主食 (main)
+- 主菜 (dish1)
+- 副菜 (dish2)
+- 青菜 / 蔬菜 (vege)
+- 湯 / 湯品 (soup)
+
+請務必輸出嚴格 JSON 格式，不要包含任何 markdown 標記（如 \`\`\`json 或任何說明文字）：
+{"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"4":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"5":{"main":"","dish1":"","dish2":"","vege":"","soup":""}}`;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }
+              ]
+            }]
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+          throw new Error(data.error?.message || `模型 [${selectedModel}] 解析異常，請確認配額或圖檔解析度`);
         }
         
-        let textResult = result.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+        let textResult = data.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
         const menuJson = JSON.parse(textResult);
 
         WEEKDAYS.forEach(day => {
@@ -783,9 +810,15 @@
             document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
           }
         });
-        alert("✨ 辨識完成！請確認後點擊儲存。");
-      } catch (err) { alert("辨識失敗：" + err.message); } 
-      finally { btn.innerText = "✨ 開始辨識"; btn.disabled = false; }
+        if(hint) hint.innerText = `辨識成功！目前呼叫模型：${selectedModel}`;
+        alert(`✨ 菜單辨識完成！（已使用最佳相容模型：${selectedModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
+      } catch (err) {
+        alert("辨識失敗：" + err.message);
+        if(hint) hint.innerText = `辨識失敗：${err.message}`;
+      } finally {
+        btn.innerText = "✨ 開始辨識";
+        btn.disabled = false;
+      }
     };
 
     /* --- Reports & Analysis --- */
