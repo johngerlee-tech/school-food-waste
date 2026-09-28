@@ -737,8 +737,8 @@
           r.readAsDataURL(file);
         });
 
-        // 步驟 1：動態查詢 Google 官方 ListModels，找出目前在該 API Key 下活躍支援 generateContent 的模型
-        let selectedModel = 'gemini-2.5-flash';
+        // 步驟 1：預設採用 Google 最新指定的 gemini-3.8-flash，並動態查詢相容清單
+        let selectedModel = 'gemini-3.8-flash';
         let isDynamic = false;
         try {
           const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -748,11 +748,11 @@
               .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
               .map(m => m.name.replace('models/', ''));
 
-            // 優先挑選最新 2.5-flash，其次 2.0-flash 或其他具備 flash 的穩定模型，避開已下線的 1.5-flash
-            const candidate = usable.find(m => m === 'gemini-2.5-flash') ||
-                              usable.find(m => m === 'gemini-2.0-flash') ||
-                              usable.find(m => m.includes('2.5') && m.includes('flash')) ||
-                              usable.find(m => m.includes('flash') && !m.includes('1.5')) ||
+            // 優先挑選最新 3.8-flash，避開已限制新用戶的 2.5/2.0/1.5 系列
+            const candidate = usable.find(m => m === 'gemini-3.8-flash') ||
+                              usable.find(m => m.includes('3.8') && m.includes('flash')) ||
+                              usable.find(m => m.includes('flash') && !m.includes('1.5') && !m.includes('2.0') && !m.includes('2.5')) ||
+                              usable.find(m => m.includes('flash')) ||
                               usable.find(m => m.includes('gemini'));
             if (candidate) {
               selectedModel = candidate;
@@ -762,7 +762,7 @@
             throw new Error(`API 金鑰檢驗未通過：${listData.error.message}`);
           }
         } catch (queryErr) {
-          console.warn('動態獲取模型失敗，改以主流模型呼叫:', queryErr);
+          console.warn('動態獲取模型失敗，以最新官方指定模型 gemini-3.8-flash 呼叫:', queryErr);
         }
 
         if(hint) hint.innerText = `已鎖定支援模型 [${selectedModel}]，正在解析菜單圖片...`;
@@ -811,7 +811,7 @@
           }
         });
         if(hint) hint.innerText = `辨識成功！目前呼叫模型：${selectedModel}`;
-        alert(`✨ 菜單辨識完成！（已使用最佳相容模型：${selectedModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
+        alert(`✨ 菜單辨識完成！（已使用最新支援模型：${selectedModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
       } catch (err) {
         alert("辨識失敗：" + err.message);
         if(hint) hint.innerText = `辨識失敗：${err.message}`;
