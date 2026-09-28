@@ -683,7 +683,7 @@
               主食: <input id="m-${day.d}-main" value="${d.main}" ${dis} class="border rounded w-full p-1"><br>
               主菜: <input id="m-${day.d}-d1" value="${d.dish1}" ${dis} class="border rounded w-full p-1"><br>
               副菜: <input id="m-${day.d}-d2" value="${d.dish2}" ${dis} class="border rounded w-full p-1"><br>
-              蔬菜: <input id="m-${day.d}-v" value="${d.vege}" ${dis} class="border rounded w-full p-1"><br>
+              蔬菜: <input id="m-${day.d}-vege" value="${d.vege}" ${dis} class="border rounded w-full p-1"><br>
               湯品: <input id="m-${day.d}-s" value="${d.soup}" ${dis} class="border rounded w-full p-1">
             </div>
           </div>`;
@@ -697,7 +697,7 @@
       WEEKDAYS.forEach(day => {
         days[day.d] = {
           main: document.getElementById(`m-${day.d}-main`).value, dish1: document.getElementById(`m-${day.d}-d1`).value,
-          dish2: document.getElementById(`m-${day.d}-d2`).value, vege: document.getElementById(`m-${day.d}-v`).value,
+          dish2: document.getElementById(`m-${day.d}-d2`).value, vege: document.getElementById(`m-${day.d}-vege`).value,
           soup: document.getElementById(`m-${day.d}-s`).value
         };
       });
@@ -728,12 +728,48 @@
         const file = fileInput.files[0];
         const base64String = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
         const prompt = `請分析這張菜單，擷取週一、二、四、五的菜色。輸出嚴格JSON，不含任何markdown：\n{"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{...},"4":{...},"5":{...}}`;
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type, data: base64String } }] }] })
-        });
-        const result = await res.json();
-        if (result.error) throw new Error(result.error.message);
+
+        // 支援多版本候選名單，自動輪詢直到成功
+        const candidateModels = [
+          'gemini-2.5-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash-latest',
+          'gemini-1.5-flash'
+        ];
+
+        let result = null;
+        let lastErrorMsg = '';
+
+        for (const model of candidateModels) {
+          try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: prompt },
+                    { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }
+                  ]
+                }]
+              })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+              result = data;
+              break;
+            } else if (data.error) {
+              lastErrorMsg = data.error.message || JSON.stringify(data.error);
+            }
+          } catch (netErr) {
+            lastErrorMsg = netErr.message;
+          }
+        }
+
+        if (!result) {
+          throw new Error(lastErrorMsg || "所有可用模型皆無法回應，請檢查 API Key 權限或配額。");
+        }
         
         let textResult = result.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
         const menuJson = JSON.parse(textResult);
@@ -743,7 +779,7 @@
             document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
             document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
             document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
-            document.getElementById(`m-${day.d}-v`).value = menuJson[day.d].vege || '';
+            document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
             document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
           }
         });
