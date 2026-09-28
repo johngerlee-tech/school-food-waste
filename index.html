@@ -856,7 +856,7 @@
         // 修改：異常分析計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
         let per = tc>0 ? (tw/tc).toFixed(1) : 0;
         let menu = menus[day.d] || null;
-        let isSpike = per > 65;
+        let isSpike = per > 150;
         
         let insight = '', advice = '';
         if(menu) {
