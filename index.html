@@ -18,12 +18,6 @@
 <body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
   <div class="max-w-6xl mx-auto p-4 md:p-6">
     
-    <!-- Firebase 尚未設定警告 (新增防呆提示) -->
-    <div id="firebase-warning" class="hidden mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm">
-      <p class="font-bold flex items-center gap-2">⚠️ 系統提示：尚未設定 Firebase 資料庫連線</p>
-      <p class="text-sm mt-1">目前使用的是預設金鑰 (`YOUR_API_KEY`)，因此系統嘗試連線時會出現 offline 錯誤。請將程式碼下方的 `firebaseConfig` 替換為您的真實金鑰以啟用儲存功能。</p>
-    </div>
-
     <!-- 頂部功能列與身分狀態 -->
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
@@ -290,30 +284,19 @@
     import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 🔴 請替換為您的 Firebase 專案金鑰
+    // 專屬 Firebase 專案金鑰
     const firebaseConfig = {
-  apiKey: "AIzaSyB6xjT4asS3xcpRrgLD33jrssSIzmh0ix4",
-  authDomain: "school-food-waste.firebaseapp.com",
-  projectId: "school-food-waste",
-  storageBucket: "school-food-waste.firebasestorage.app",
-  messagingSenderId: "1056761999500",
-  appId: "1:1056761999500:web:1014f9ec8d320391ce8ba9"
+      apiKey: "AIzaSyB6xjT4asS3xcpRrgLD33jrssSIzmh0ix4",
+      authDomain: "school-food-waste.firebaseapp.com",
+      projectId: "school-food-waste",
+      storageBucket: "school-food-waste.firebasestorage.app",
+      messagingSenderId: "1056761999500",
+      appId: "1:1056761999500:web:1014f9ec8d320391ce8ba9"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
-    // 新增：檢查金鑰狀態並攔截 offline 錯誤
-    if (firebaseConfig.apiKey === "YOUR_API_KEY") {
-      document.getElementById('firebase-warning').classList.remove('hidden');
-    }
-    window.addEventListener('unhandledrejection', (event) => {
-      if (event.reason && event.reason.message && event.reason.message.includes('offline')) {
-        console.warn('Firebase 離線警告：系統無法連上資料庫，請確認您的 firebaseConfig 是否已填寫正確。');
-        event.preventDefault(); // 攔截報錯，避免影響畫面
-      }
-    });
 
     const WEEKDAYS = [{d:1, name:'週一'}, {d:2, name:'週二'}, {d:4, name:'週四'}, {d:5, name:'週五'}];
     window.CLASSES = [
@@ -418,14 +401,12 @@
             const currentWeek = Math.floor(diffDays / 7) + 1;
             
             let dayOfWeek = today.getDay(); // 0(Sun) - 6(Sat)
-            // 如果是三、六、日，自動預設為週四或週一 (依需求，這裡先簡單映射)
             if(dayOfWeek === 3) dayOfWeek = 4; 
             if(dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
 
             document.getElementById('daily-year').value = document.getElementById('sys-year').value;
             document.getElementById('daily-week').value = currentWeek;
             
-            // 確保 select 中有該值
             const selectWd = document.getElementById('daily-weekday');
             for(let i=0; i<selectWd.options.length; i++) {
               if(parseInt(selectWd.options[i].value) === dayOfWeek) {
@@ -474,7 +455,6 @@
       const reader = new FileReader();
       reader.onload = async (e) => {
         const text = e.target.result;
-        // 簡單解析 CSV (處理換行)
         const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
         if(lines.length < 2) return alert('檔案內容格式不符或為空');
         
@@ -483,7 +463,6 @@
 
         let successCount = 0;
         try {
-          // 跳過第一行標題，逐行處理
           const promises = [];
           for(let i=1; i<lines.length; i++) {
             const cols = lines[i].split(',');
@@ -493,12 +472,11 @@
               const week = parseInt(cols[2].trim());
               const weekday = parseInt(cols[3].trim());
               const classId = cols[4].trim();
-              const weight = parseFloat(cols[5].trim()); // 這裡抓到的數值現在是公克
+              const weight = parseFloat(cols[5].trim());
               const count = parseInt(cols[6].trim());
               
               const classInfo = window.CLASSES.find(c => c.id === classId);
               if(!isNaN(year) && !isNaN(week) && classInfo && !isNaN(weight)) {
-                // 修改：因為 weight 現在已經是公克(g)，所以直接除以 count 即可
                 const per = count > 0 ? Number((weight/count).toFixed(1)) : 0;
                 const docId = `${year}_${sem}_${week}_${weekday}_${classId}`;
                 
@@ -614,7 +592,6 @@
       } catch(e) {}
 
       try {
-        // 檢查本日是否被標記為免秤重 (skip)
         const statusSnap = await getDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`));
         if(statusSnap.exists() && statusSnap.data().isSkipped) {
           document.getElementById('daily-skip-cb').checked = true;
@@ -632,7 +609,6 @@
           let isClassSkipped = rec.isSkipped || false;
           let w = rec.weightKg !== undefined ? rec.weightKg : '';
           let count = rec.eaterCount || c.defaultCount;
-          // 修改：計算人均時，w 已經是公克，直接除以 count
           let per = (w !== '' && count > 0) ? (w/count).toFixed(1) : '-';
           
           let rowHtml = `
@@ -653,7 +629,6 @@
     window.calcRow = (id) => {
       let w = parseFloat(document.getElementById(`w-${id}`).value);
       let c = parseInt(document.getElementById(`c-${id}`).value);
-      // 修改：即時計算時，w 已經是公克
       document.getElementById(`per-${id}`).innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
     };
 
@@ -665,14 +640,12 @@
       const isSkipped = document.getElementById('daily-skip-cb').checked;
 
       try {
-        // 儲存狀態：全校是否免秤重
         await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
         
         if(!isSkipped) {
           let promises = window.CLASSES.map(async c => {
             const isRowSkipped = document.getElementById(`skip-row-${c.id}`).checked;
             if(isRowSkipped) {
-               // 該班級停餐
                await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
                 isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
@@ -681,9 +654,7 @@
               let wStr = document.getElementById(`w-${c.id}`).value;
               if(wStr === '') return;
               let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
-              // 修改：儲存時，w 已經是公克
               let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
-              // 注意：為了不影響資料庫舊資料欄位結構，這裡依然存進 weightKg 欄位，但實際上裡面的數值現在是公克(g)
               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
                 isSkipped: false, weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
@@ -791,17 +762,15 @@
       const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
 
       let stats = window.CLASSES.map(c => {
-        // 過濾掉停餐的紀錄 (isSkipped 為 true 或 count 為 0)
         let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && l.eaterCount > 0);
         let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && l.eaterCount > 0);
         
         let tw = cc.reduce((s,l)=>s+l.weightKg,0), tc = cc.reduce((s,l)=>s+l.eaterCount,0);
         let pw = pc.reduce((s,l)=>s+l.weightKg,0), pco = pc.reduce((s,l)=>s+l.eaterCount,0);
         
-        // 修改：週結算計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
         let per = tc>0 ? Number((tw/tc).toFixed(1)) : null, pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
         let dec = (per!==null && pPer>0) ? Number(((pPer-per)/pPer*100).toFixed(1)) : null;
-        return { ...c, tw: tw.toFixed(0), tc, per, pPer, dec, isProg: dec>=5.0 }; // tw 總重改顯示為沒有小數點的公克數
+        return { ...c, tw: tw.toFixed(0), tc, per, pPer, dec, isProg: dec>=5.0 };
       });
 
       let champs = {};
@@ -850,12 +819,11 @@
       const menus = mSnap.exists() ? mSnap.data().days : {};
 
       let html = WEEKDAYS.map(day => {
-        // 過濾掉停餐紀錄
         let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && l.eaterCount > 0);
         let tw = dl.reduce((s,l)=>s+l.weightKg,0), tc = dl.reduce((s,l)=>s+l.eaterCount,0);
         let per = tc>0 ? (tw/tc).toFixed(1) : 0;
         let menu = menus[day.d] || null;
-        let isSpike = per > 65;
+        let isSpike = per > 150; // 已依據需求調整為 150g
         
         let insight = '', advice = '';
         if(menu) {
@@ -867,25 +835,21 @@
           if(!insight && isSpike) { insight='人均量異常飆升。'; advice='請查核當日調味是否過鹹/淡或烹調失誤。'; }
         }
 
-        // 修改顯示邏輯：若無菜單，則不顯示診斷框，即使 isSpike 為 true
         let diagnosticHtml = '';
         if (menu) {
           if (insight) {
-            // 有菜單且觸發任何診斷（包含飆升通用建議）
             diagnosticHtml = `<div class="bg-rose-50 p-2 rounded text-xs text-rose-800 mt-2"><b>🚨 診斷:</b> ${insight}<br><b>💡 建議:</b> ${advice}</div>`;
           } else {
-             // 有菜單但沒事
             diagnosticHtml = `<div class="text-xs text-emerald-600 mt-2">數據穩定，無異常發現。</div>`;
           }
         } else {
-           // 無菜單紀錄
-           diagnosticHtml = `<div class="text-xs text-slate-400 mt-2">請先於「2. AI 菜單維護」登錄本日菜單，以利進行交叉診斷。</div>`;
+          diagnosticHtml = `<div class="text-xs text-slate-400 mt-2">請先於「2. AI 菜單維護」登錄本日菜單，以利進行交叉診斷。</div>`;
         }
 
         return `
-          <div class="p-4 bg-white border rounded-lg ${(isSpike && menu) ?'border-rose-300':''}">
+          <div class="p-4 bg-white border rounded-lg ${(isSpike && menu)?'border-rose-300':''}">
             <div class="flex justify-between font-bold border-b pb-2 mb-2"><span>${day.name}</span><span class="${isSpike?'text-rose-600':'text-emerald-600'}">${per} g/人</span></div>
-            <div class="text-xs text-slate-500 mb-2">菜單: ${menu? `${menu.main},${menu.dish1}, ${menu.vege},${menu.soup}` : '無紀錄'}</div>
+            <div class="text-xs text-slate-500 mb-2">菜單: ${menu? `${menu.main}, ${menu.dish1}, ${menu.vege}, ${menu.soup}` : '無紀錄'}</div>
             ${diagnosticHtml}
           </div>`;
       }).join('');
@@ -899,11 +863,9 @@
       const logs = snap.docs.map(d=>d.data());
 
       let stats = window.CLASSES.map(c => {
-        // 過濾掉停餐紀錄
         let l = logs.filter(x=>x.classId===c.id && !x.isSkipped && x.eaterCount > 0);
         let tw = l.reduce((s,x)=>s+x.weightKg,0), tc = l.reduce((s,x)=>s+x.eaterCount,0);
-        // 修改：月結算計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
-        return { ...c, tw: tw.toFixed(0), tc, per: tc>0 ? Number((tw/tc).toFixed(1)) : null }; // tw 總重改顯示為沒有小數點的公克數
+        return { ...c, tw: tw.toFixed(0), tc, per: tc>0 ? Number((tw/tc).toFixed(1)) : null };
       });
       let champs = {};
       ['低年級','中年級','高年級'].forEach(stg => {
