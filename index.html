@@ -487,7 +487,7 @@
               const week = parseInt(cols[2].trim());
               const weekday = parseInt(cols[3].trim());
               const classId = cols[4].trim();
-              const weight = parseFloat(cols[5].trim());
+              const weight = parseFloat(cols[5].trim()); // 這裡抓到的數值現在是公克
               const count = parseInt(cols[6].trim());
               
               const classInfo = window.CLASSES.find(c => c.id === classId);
