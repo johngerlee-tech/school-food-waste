@@ -853,10 +853,9 @@
         // 過濾掉停餐紀錄
         let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && l.eaterCount > 0);
         let tw = dl.reduce((s,l)=>s+l.weightKg,0), tc = dl.reduce((s,l)=>s+l.eaterCount,0);
-        // 修改：異常分析計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
         let per = tc>0 ? (tw/tc).toFixed(1) : 0;
         let menu = menus[day.d] || null;
-        let isSpike = per > 150;
+        let isSpike = per > 65;
         
         let insight = '', advice = '';
         if(menu) {
@@ -864,14 +863,30 @@
           if(/魚|排骨|骨|棒腿/.test(str)){ insight='含帶骨/刺食材，殘渣重。'; advice='建議調整為無骨肉類（如去骨雞腿丁）。'; }
           else if(/苦瓜|青椒|芥藍|茄子/.test(str)){ insight='含學童易排斥蔬菜。'; advice='建議細切或拌炒玉米甜味食材掩蓋特殊氣味。'; }
           else if(/糙米|五穀|雜糧/.test(str)){ insight='粗糧比例可能過高。'; advice='建議調整白米與粗糧比例，或增加悶煮時間。'; }
+          
+          if(!insight && isSpike) { insight='人均量異常飆升。'; advice='請查核當日調味是否過鹹/淡或烹調失誤。'; }
         }
-        if(!insight && isSpike) { insight='人均量異常飆升。'; advice='請查核當日調味是否過鹹/淡，或菜色種類搭配學童較接受度較低。'; }
+
+        // 修改顯示邏輯：若無菜單，則不顯示診斷框，即使 isSpike 為 true
+        let diagnosticHtml = '';
+        if (menu) {
+          if (insight) {
+            // 有菜單且觸發任何診斷（包含飆升通用建議）
+            diagnosticHtml = `<div class="bg-rose-50 p-2 rounded text-xs text-rose-800 mt-2"><b>🚨 診斷:</b> ${insight}<br><b>💡 建議:</b> ${advice}</div>`;
+          } else {
+             // 有菜單但沒事
+            diagnosticHtml = `<div class="text-xs text-emerald-600 mt-2">數據穩定，無異常發現。</div>`;
+          }
+        } else {
+           // 無菜單紀錄
+           diagnosticHtml = `<div class="text-xs text-slate-400 mt-2">請先於「2. AI 菜單維護」登錄本日菜單，以利進行交叉診斷。</div>`;
+        }
 
         return `
-          <div class="p-4 bg-white border rounded-lg ${isSpike?'border-rose-300':''}">
+          <div class="p-4 bg-white border rounded-lg ${(isSpike && menu) ?'border-rose-300':''}">
             <div class="flex justify-between font-bold border-b pb-2 mb-2"><span>${day.name}</span><span class="${isSpike?'text-rose-600':'text-emerald-600'}">${per} g/人</span></div>
-            <div class="text-xs text-slate-500 mb-2">菜單: ${menu? `${menu.main}, ${menu.dish1}, ${menu.vege}, ${menu.soup}` : '無紀錄'}</div>
-            ${isSpike ? `<div class="bg-rose-50 p-2 rounded text-xs text-rose-800"><b>🚨 診斷:</b> ${insight}<br><b>💡 建議:</b> ${advice}</div>` : `<div class="text-xs text-emerald-600">數據穩定</div>`}
+            <div class="text-xs text-slate-500 mb-2">菜單: ${menu? `${menu.main},${menu.dish1}, ${menu.vege},${menu.soup}` : '無紀錄'}</div>
+            ${diagnosticHtml}
           </div>`;
       }).join('');
       con.innerHTML = html || '<div class="text-center p-4">本週尚無資料</div>';
