@@ -28,7 +28,7 @@
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
-          🌱 雲林縣溪洲國小─午餐智慧惜食決策平台
+          🌱 雲林縣溪洲國小─午餐智慧惜食與菜單追蹤系統
         </h1>
         <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・CSV 批次匯入・雲端權限控管</p>
       </div>
@@ -96,7 +96,7 @@
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
             <tr>
-              <th class="p-3">年段</th><th class="p-3">班級</th><th class="p-3">廚餘重量 (kg)</th><th class="p-3">用餐人數 (人)</th><th class="p-3 text-right">今日人均 (g/人)</th>
+              <th class="p-3">年段</th><th class="p-3">班級</th><th class="p-3">廚餘重量 (g)</th><th class="p-3">用餐人數 (人)</th><th class="p-3 text-right">今日人均 (g/人)</th>
             </tr>
           </thead>
           <tbody id="daily-rows" class="divide-y divide-slate-100"></tbody>
@@ -447,8 +447,8 @@
 
     /* --- CSV Import --- */
     window.downloadCsvTemplate = () => {
-      const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(kg),用餐人數\n" +
-                         "115,1,1,1,101,1.2,22\n115,1,1,1,102,0.9,21\n115,1,1,1,201,1.5,24\n";
+      const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n" +
+                         "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,1,201,1500,24\n";
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -492,7 +492,8 @@
               
               const classInfo = window.CLASSES.find(c => c.id === classId);
               if(!isNaN(year) && !isNaN(week) && classInfo && !isNaN(weight)) {
-                const per = count > 0 ? Number((weight*1000/count).toFixed(1)) : 0;
+                // 修改：因為 weight 現在已經是公克(g)，所以直接除以 count 即可
+                const per = count > 0 ? Number((weight/count).toFixed(1)) : 0;
                 const docId = `${year}_${sem}_${week}_${weekday}_${classId}`;
                 
                 promises.push(
@@ -600,11 +601,12 @@
           let rec = map[c.id] || {};
           let w = rec.weightKg !== undefined ? rec.weightKg : '';
           let count = rec.eaterCount || c.defaultCount;
-          let per = (w !== '' && count > 0) ? (w*1000/count).toFixed(1) : '-';
+          // 修改：計算人均時，w 已經是公克，直接除以 count
+          let per = (w !== '' && count > 0) ? (w/count).toFixed(1) : '-';
           return `
             <tr>
               <td class="p-3">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
-              <td class="p-3"><input type="number" step="0.1" id="w-${c.id}" value="${w}" oninput="window.calcRow('${c.id}')" ${window.currentUser?'':'disabled'} class="border rounded px-2 w-20 text-right"> kg</td>
+              <td class="p-3"><input type="number" id="w-${c.id}" value="${w}" oninput="window.calcRow('${c.id}')" ${window.currentUser?'':'disabled'} class="border rounded px-2 w-24 text-right"> g</td>
               <td class="p-3"><input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${window.currentUser?'':'disabled'} class="border rounded px-2 w-16 text-right"> 人</td>
               <td class="p-3 text-right font-bold text-emerald-700" id="per-${c.id}">${per}</td>
             </tr>`;
@@ -615,7 +617,8 @@
     window.calcRow = (id) => {
       let w = parseFloat(document.getElementById(`w-${id}`).value);
       let c = parseInt(document.getElementById(`c-${id}`).value);
-      document.getElementById(`per-${id}`).innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w*1000/c).toFixed(1) : '-';
+      // 修改：即時計算時，w 已經是公克
+      document.getElementById(`per-${id}`).innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
     };
 
     window.saveAllDailyRecords = async () => {
@@ -634,7 +637,9 @@
             let wStr = document.getElementById(`w-${c.id}`).value;
             if(wStr === '') return;
             let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
-            let per = count > 0 ? Number((w*1000/count).toFixed(1)) : 0;
+            // 修改：儲存時，w 已經是公克
+            let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
+            // 注意：為了不影響資料庫舊資料欄位結構，這裡依然存進 weightKg 欄位，但實際上裡面的數值現在是公克(g)
             await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
               academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
               weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
@@ -744,9 +749,10 @@
         let cc = curL.filter(l=>l.classId===c.id), pc = prvL.filter(l=>l.classId===c.id);
         let tw = cc.reduce((s,l)=>s+l.weightKg,0), tc = cc.reduce((s,l)=>s+l.eaterCount,0);
         let pw = pc.reduce((s,l)=>s+l.weightKg,0), pco = pc.reduce((s,l)=>s+l.eaterCount,0);
-        let per = tc>0 ? Number((tw*1000/tc).toFixed(1)) : null, pPer = pco>0 ? Number((pw*1000/pco).toFixed(1)) : null;
+        // 修改：週結算計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
+        let per = tc>0 ? Number((tw/tc).toFixed(1)) : null, pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
         let dec = (per!==null && pPer>0) ? Number(((pPer-per)/pPer*100).toFixed(1)) : null;
-        return { ...c, tw: tw.toFixed(1), tc, per, pPer, dec, isProg: dec>=5.0 };
+        return { ...c, tw: tw.toFixed(0), tc, per, pPer, dec, isProg: dec>=5.0 }; // tw 總重改顯示為沒有小數點的公克數
       });
 
       let champs = {};
@@ -795,7 +801,8 @@
 
       let html = WEEKDAYS.map(day => {
         let dl = logs.filter(l=>l.weekday===day.d), tw = dl.reduce((s,l)=>s+l.weightKg,0), tc = dl.reduce((s,l)=>s+l.eaterCount,0);
-        let per = tc>0 ? (tw*1000/tc).toFixed(1) : 0;
+        // 修改：異常分析計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
+        let per = tc>0 ? (tw/tc).toFixed(1) : 0;
         let menu = menus[day.d] || null;
         let isSpike = per > 65;
         
@@ -827,7 +834,8 @@
       let stats = window.CLASSES.map(c => {
         let l = logs.filter(x=>x.classId===c.id);
         let tw = l.reduce((s,x)=>s+x.weightKg,0), tc = l.reduce((s,x)=>s+x.eaterCount,0);
-        return { ...c, tw: tw.toFixed(1), tc, per: tc>0 ? Number((tw*1000/tc).toFixed(1)) : null };
+        // 修改：月結算計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
+        return { ...c, tw: tw.toFixed(0), tc, per: tc>0 ? Number((tw/tc).toFixed(1)) : null }; // tw 總重改顯示為沒有小數點的公克數
       });
       let champs = {};
       ['低年級','中年級','高年級'].forEach(stg => {
