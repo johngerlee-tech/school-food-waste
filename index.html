@@ -865,7 +865,7 @@
           else if(/苦瓜|青椒|芥藍|茄子/.test(str)){ insight='含學童易排斥蔬菜。'; advice='建議細切或拌炒玉米甜味食材掩蓋特殊氣味。'; }
           else if(/糙米|五穀|雜糧/.test(str)){ insight='粗糧比例可能過高。'; advice='建議調整白米與粗糧比例，或增加悶煮時間。'; }
         }
-        if(!insight && isSpike) { insight='人均量異常飆升。'; advice='請查核當日調味是否過鹹/淡或烹調失誤。'; }
+        if(!insight && isSpike) { insight='人均量異常飆升。'; advice='請查核當日調味是否過鹹/淡，或菜色種類搭配學童較接受度較低。'; }
 
         return `
           <div class="p-4 bg-white border rounded-lg ${isSpike?'border-rose-300':''}">
