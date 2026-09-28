@@ -204,20 +204,34 @@
 
     <!-- 【頁面 5】每月榮譽榜 -->
     <section id="page-monthly" class="space-y-6 hidden">
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4 no-print">
-        <label class="text-sm font-semibold">選擇月份：</label>
-        <select id="monthly-select-month" class="border rounded px-3 py-1 text-sm bg-white font-medium" onchange="window.calcMonthlyReport()">
-          <option value="9">9 月 (第1~4週)</option><option value="10">10 月 (第5~8週)</option><option value="11">11 月 (第9~12週)</option><option value="12">12 月 (第13~17週)</option>
-        </select>
-        <button onclick="window.calcMonthlyReport()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded">🔄 重新彙整</button>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="text-sm font-semibold text-slate-600">學年度：</label>
+          <input type="number" id="monthly-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold" value="115" onchange="window.calcMonthlyReport()">
+          
+          <label class="text-sm font-semibold text-slate-600 ml-2">統計月份：</label>
+          <select id="monthly-select-month" class="border rounded px-3 py-1 text-sm bg-white font-medium text-indigo-800" onchange="window.calcMonthlyReport()">
+            <option value="9">9 月 (第 1~4 週)</option>
+            <option value="10">10 月 (第 5~8 週)</option>
+            <option value="11">11 月 (第 9~12 週)</option>
+            <option value="12">12 月 (第 13~17 週)</option>
+          </select>
+          <button onclick="window.calcMonthlyReport()" class="px-3.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition">
+            🔄 重新彙整
+          </button>
+        </div>
+        <div id="monthly-status-hint" class="text-xs text-slate-500"></div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="monthly-cards"></div>
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
             <tr>
-              <th class="p-3">班級</th><th class="p-3 text-right">全月總重 (g)</th><th class="p-3 text-right">全月總人次</th>
-              <th class="p-3 text-right text-indigo-700 font-bold">月加權人均 (g/人)</th><th class="p-3 text-center">榮譽</th>
+              <th class="p-3">班級</th>
+              <th class="p-3 text-right">全月總重 (g)</th>
+              <th class="p-3 text-right">全月總人次</th>
+              <th class="p-3 text-right text-indigo-700 font-bold">月加權人均 (g/人)</th>
+              <th class="p-3 text-center">榮譽</th>
             </tr>
           </thead>
           <tbody id="monthly-table-body" class="divide-y divide-slate-100"></tbody>
@@ -442,9 +456,29 @@
         let key = localStorage.getItem('food_waste_gemini_key');
         if(key) document.getElementById('gemini-api-key').value = key;
       }
-      if(tabId==='weekly') window.calcWeeklyReport();
-      if(tabId==='analysis') window.runMenuAnalysis();
-      if(tabId==='monthly') window.calcMonthlyReport();
+      if(tabId==='weekly') {
+        const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+        const weeklyInput = document.getElementById('weekly-select-week');
+        if (weeklyInput && (!weeklyInput.value || parseInt(weeklyInput.value) === window.calculatedCurrentWeek)) {
+          weeklyInput.value = pastWeek;
+        }
+        window.calcWeeklyReport();
+      }
+      if(tabId==='analysis') {
+        const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+        const analysisInput = document.getElementById('analysis-week');
+        if (analysisInput && (!analysisInput.value || parseInt(analysisInput.value) === window.calculatedCurrentWeek)) {
+          analysisInput.value = pastWeek;
+        }
+        window.runMenuAnalysis();
+      }
+      if(tabId==='monthly') {
+        // 同步學年度
+        const curYear = document.getElementById('sys-year')?.value || 115;
+        const myInput = document.getElementById('monthly-year');
+        if(myInput) myInput.value = curYear;
+        window.calcMonthlyReport();
+      }
       if(tabId==='settings') window.renderSettings();
 
       window.refreshAllWeekLabels();
@@ -494,12 +528,17 @@
           }
           window.calculatedCurrentWeek = currentWeek;
 
+          const pastWeek = Math.max(1, currentWeek - 1);
+
           document.getElementById('daily-year').value = document.getElementById('sys-year').value;
           document.getElementById('daily-week').value = currentWeek;
           document.getElementById('menu-week').value = currentWeek;
-          document.getElementById('weekly-select-week').value = currentWeek;
-          document.getElementById('analysis-week').value = currentWeek;
+          document.getElementById('weekly-select-week').value = pastWeek;
+          document.getElementById('analysis-week').value = pastWeek;
           
+          const myInput = document.getElementById('monthly-year');
+          if(myInput) myInput.value = document.getElementById('sys-year').value;
+
           window.refreshAllWeekLabels();
         }
       } catch (e) { console.warn("載入行事曆設定失敗", e); }
@@ -954,13 +993,16 @@
       const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
 
       let stats = window.CLASSES.map(c => {
-        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && l.eaterCount > 0);
-        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && l.eaterCount > 0);
+        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
         
-        let tw = cc.reduce((s,l)=>s+l.weightKg,0), tc = cc.reduce((s,l)=>s+l.eaterCount,0);
-        let pw = pc.reduce((s,l)=>s+l.weightKg,0), pco = pc.reduce((s,l)=>s+l.eaterCount,0);
+        let tw = cc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+        let tc = cc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+        let pw = pc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+        let pco = pc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
         
-        let per = tc>0 ? Number((tw/tc).toFixed(1)) : null, pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
+        let per = tc>0 ? Number((tw/tc).toFixed(1)) : null;
+        let pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
         let dec = (per!==null && pPer>0) ? Number(((pPer-per)/pPer*100).toFixed(1)) : null;
         return { ...c, tw: tw.toFixed(0), tc, per, pPer, dec, isProg: dec>=5.0 };
       });
@@ -1021,9 +1063,9 @@
       const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
 
       let html = WEEKDAYS.map(day => {
-        let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && l.eaterCount > 0);
-        let tw = dl.reduce((s,l)=>s+l.weightKg, 0);
-        let tc = dl.reduce((s,l)=>s+l.eaterCount, 0);
+        let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+        let tw = dl.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+        let tc = dl.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
         let per = tc>0 ? Number((tw/tc).toFixed(1)) : 0;
         let menu = menus[day.d] || null;
         let hasMenu = menu && (menu.main || menu.dish1 || menu.vege || menu.soup);
@@ -1077,55 +1119,93 @@
       con.innerHTML = html || '<div class="text-center p-8 text-slate-400">本週尚無秤重紀錄</div>';
     };
 
-    /* --- 每月榮譽榜計算 --- */
+    /* --- 每月榮譽榜計算 (完全免複合索引，前端精確過濾) --- */
     window.calcMonthlyReport = async () => {
-      const y = parseInt(document.getElementById('daily-year').value);
+      const yearInput = document.getElementById('monthly-year') || document.getElementById('daily-year') || document.getElementById('sys-year');
+      const y = parseInt(yearInput?.value) || 115;
       const m = parseInt(document.getElementById('monthly-select-month').value);
       
+      const tbody = document.getElementById('monthly-table-body');
+      const cards = document.getElementById('monthly-cards');
+      const hint = document.getElementById('monthly-status-hint');
+
+      tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">⏳ 正在彙整全月數據，請稍候...</td></tr>';
+      cards.innerHTML = '';
+      if(hint) hint.innerText = `正在讀取 ${y} 學年度資料...`;
+
       let weekRanges = { 9: [1, 4], 10: [5, 8], 11: [9, 12], 12: [13, 17] };
       let [wStart, wEnd] = weekRanges[m] || [1, 4];
 
-      const snap = await getDocs(query(
-        collection(db, "daily_records"),
-        where("academicYear", "==", y),
-        where("week", ">=", wStart),
-        where("week", "<=", wEnd)
-      ));
+      try {
+        // 單一條件查詢 academicYear == y，保證不踩到 Firestore 複合索引限制！
+        const snap = await getDocs(query(
+          collection(db, "daily_records"),
+          where("academicYear", "==", y)
+        ));
 
-      const logs = snap.docs.map(d => d.data());
+        // 在前端過濾所選月份對應的週次範圍 [wStart, wEnd]
+        const allLogs = snap.docs.map(d => d.data());
+        const logs = allLogs.filter(d => {
+          const wk = parseInt(d.week);
+          return !isNaN(wk) && wk >= wStart && wk <= wEnd;
+        });
 
-      let stats = window.CLASSES.map(c => {
-        let classLogs = logs.filter(l => l.classId === c.id && !l.isSkipped && l.eaterCount > 0);
-        let tw = classLogs.reduce((s, l) => s + l.weightKg, 0);
-        let tc = classLogs.reduce((s, l) => s + l.eaterCount, 0);
-        let per = tc > 0 ? Number((tw / tc).toFixed(1)) : null;
-        return { ...c, tw: tw.toFixed(0), tc, per };
-      });
+        if(hint) {
+          hint.innerText = `統計範圍：第 ${wStart} ~ ${wEnd} 週 (共納入 ${logs.length} 筆當月秤重紀錄)`;
+        }
 
-      let champs = {};
-      ['低年級', '中年級', '高年級'].forEach(stg => {
-        let s = stats.filter(x => x.stage === stg && x.per !== null).sort((a, b) => a.per - b.per);
-        if (s.length > 0) champs[stg] = s[0];
-      });
+        if (logs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">
+            ℹ️ 目前在 <b>${y} 學年度 第 ${wStart} ~ ${wEnd} 週</b> 尚未查詢到有效的秤重登記資料。<br>
+            <span class="text-xs text-slate-400 mt-1 block">（請至「1. 每日登記」檢查該學年度與週次是否已「☁️ 儲存上傳」數據）</span>
+          </td></tr>`;
+          cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
+              <div class="text-xs font-bold text-slate-500">👑 ${m}月 ${stg}惜食總冠軍</div>
+              <div class="text-xl font-bold mt-1 text-slate-400">-</div>
+              <div class="text-sm font-semibold text-slate-400">尚無資料</div>
+            </div>`).join('');
+          return;
+        }
 
-      document.getElementById('monthly-cards').innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
-        <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center shadow-sm">
-          <div class="text-xs font-bold text-indigo-800">👑 ${m}月 ${stg}惜食總冠軍</div>
-          <div class="text-xl font-bold mt-1 text-slate-800">${champs[stg] ? champs[stg].name : '-'}</div>
-          <div class="text-sm font-semibold text-indigo-600">${champs[stg] ? champs[stg].per + ' g/人' : ''}</div>
-        </div>`).join('');
+        let stats = window.CLASSES.map(c => {
+          let classLogs = logs.filter(l => l.classId === c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+          let tw = classLogs.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
+          let tc = classLogs.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+          let per = tc > 0 ? Number((tw / tc).toFixed(1)) : null;
+          return { ...c, tw: tw.toFixed(0), tc, per };
+        });
 
-      document.getElementById('monthly-table-body').innerHTML = stats.map(s => {
-        let isC = Object.values(champs).some(c => c && c.id === s.id);
-        return `
-          <tr class="${isC ? 'bg-indigo-50/50 font-semibold' : 'hover:bg-slate-50'}">
-            <td class="p-3">${s.name}</td>
-            <td class="p-3 text-right">${s.tw}</td>
-            <td class="p-3 text-right">${s.tc}</td>
-            <td class="p-3 text-right font-bold text-indigo-700">${s.per !== null ? s.per : '-'}</td>
-            <td class="p-3 text-center">${isC ? '👑 月冠軍' : '-'}</td>
-          </tr>`;
-      }).join('');
+        let champs = {};
+        ['低年級', '中年級', '高年級'].forEach(stg => {
+          let s = stats.filter(x => x.stage === stg && x.per !== null).sort((a, b) => a.per - b.per);
+          if (s.length > 0) champs[stg] = s[0];
+        });
+
+        cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+          <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center shadow-sm">
+            <div class="text-xs font-bold text-indigo-800">👑 ${m}月 ${stg}惜食總冠軍</div>
+            <div class="text-xl font-bold mt-1 text-slate-800">${champs[stg] ? champs[stg].name : '-'}</div>
+            <div class="text-sm font-semibold text-indigo-600">${champs[stg] ? champs[stg].per + ' g/人' : '無有效人均'}</div>
+          </div>`).join('');
+
+        tbody.innerHTML = stats.map(s => {
+          let isC = Object.values(champs).some(c => c && c.id === s.id);
+          return `
+            <tr class="${isC ? 'bg-indigo-50/50 font-semibold' : 'hover:bg-slate-50'}">
+              <td class="p-3">${s.name}</td>
+              <td class="p-3 text-right">${s.tw}</td>
+              <td class="p-3 text-right">${s.tc}</td>
+              <td class="p-3 text-right font-bold text-indigo-700">${s.per !== null ? s.per : '-'}</td>
+              <td class="p-3 text-center">${isC ? '👑 月冠軍' : '-'}</td>
+            </tr>`;
+        }).join('');
+
+      } catch (err) {
+        console.error("每月榮譽榜計算異常:", err);
+        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">❌ 彙整數據失敗：${err.message}</td></tr>`;
+        if(hint) hint.innerText = '讀取發生錯誤';
+      }
     };
 
   </script>
