@@ -96,13 +96,19 @@
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
             <tr>
-              <th class="p-3">年段</th><th class="p-3">班級</th><th class="p-3">廚餘重量 (g)</th><th class="p-3">用餐人數 (人)</th><th class="p-3 text-right">今日人均 (g/人)</th>
+              <th class="p-3">年段</th>
+              <th class="p-3">班級</th>
+              <th class="p-3">廚餘重量 (g)</th>
+              <th class="p-3">用餐人數 (人)</th>
+              <th class="p-3 text-right">今日人均 (g/人)</th>
+              <th class="p-3 text-center text-rose-600">班級免秤重</th>
             </tr>
           </thead>
           <tbody id="daily-rows" class="divide-y divide-slate-100"></tbody>
         </table>
       </div>
       
+      <!-- 全校免秤重遮罩 -->
       <div id="skip-overlay" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-8 text-center text-rose-700 font-bold">
         🚫 本日已設定為「全校停餐 / 免秤重」，無需登記數據。（不列入統計）
       </div>
@@ -566,13 +572,37 @@
         overlay.classList.add('hidden');
       }
     };
+    
+    window.toggleRowSkip = (classId) => {
+      const isSkipped = document.getElementById(`skip-row-${classId}`).checked;
+      const weightInput = document.getElementById(`w-${classId}`);
+      const countInput = document.getElementById(`c-${classId}`);
+      const perText = document.getElementById(`per-${classId}`);
+      
+      if(isSkipped) {
+        weightInput.value = '';
+        weightInput.disabled = true;
+        countInput.disabled = true;
+        weightInput.classList.add('bg-slate-100');
+        countInput.classList.add('bg-slate-100');
+        perText.innerText = '停餐';
+        perText.classList.replace('text-emerald-700', 'text-slate-400');
+      } else {
+        weightInput.disabled = false;
+        countInput.disabled = false;
+        weightInput.classList.remove('bg-slate-100');
+        countInput.classList.remove('bg-slate-100');
+        perText.classList.replace('text-slate-400', 'text-emerald-700');
+        window.calcRow(classId);
+      }
+    };
 
     window.loadDailyRecords = async () => {
       const year = parseInt(document.getElementById('daily-year').value);
       const week = parseInt(document.getElementById('daily-week').value);
       const weekday = parseInt(document.getElementById('daily-weekday').value);
       const tbody = document.getElementById('daily-rows');
-      tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">讀取中...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">讀取中...</td></tr>';
       
       const hint = document.getElementById('today-menu-hint');
       try {
@@ -599,19 +629,25 @@
         
         tbody.innerHTML = window.CLASSES.map(c => {
           let rec = map[c.id] || {};
+          let isClassSkipped = rec.isSkipped || false;
           let w = rec.weightKg !== undefined ? rec.weightKg : '';
           let count = rec.eaterCount || c.defaultCount;
           // 修改：計算人均時，w 已經是公克，直接除以 count
           let per = (w !== '' && count > 0) ? (w/count).toFixed(1) : '-';
-          return `
+          
+          let rowHtml = `
             <tr>
               <td class="p-3">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
-              <td class="p-3"><input type="number" id="w-${c.id}" value="${w}" oninput="window.calcRow('${c.id}')" ${window.currentUser?'':'disabled'} class="border rounded px-2 w-24 text-right"> g</td>
-              <td class="p-3"><input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${window.currentUser?'':'disabled'} class="border rounded px-2 w-16 text-right"> 人</td>
-              <td class="p-3 text-right font-bold text-emerald-700" id="per-${c.id}">${per}</td>
+              <td class="p-3"><input type="number" id="w-${c.id}" value="${isClassSkipped ? '' : w}" oninput="window.calcRow('${c.id}')" ${!window.currentUser || isClassSkipped ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isClassSkipped ? 'bg-slate-100' : ''}"> g</td>
+              <td class="p-3"><input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${!window.currentUser || isClassSkipped ? 'disabled' : ''} class="border rounded px-2 w-16 text-right ${isClassSkipped ? 'bg-slate-100' : ''}"> 人</td>
+              <td class="p-3 text-right font-bold ${isClassSkipped ? 'text-slate-400' : 'text-emerald-700'}" id="per-${c.id}">${isClassSkipped ? '停餐' : per}</td>
+              <td class="p-3 text-center">
+                <input type="checkbox" id="skip-row-${c.id}" onchange="window.toggleRowSkip('${c.id}')" ${isClassSkipped ? 'checked' : ''} ${!window.currentUser ? 'disabled' : ''} class="w-4 h-4 text-rose-600 rounded cursor-pointer">
+              </td>
             </tr>`;
+          return rowHtml;
         }).join('');
-      } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-red-500">讀取失敗</td></tr>'; }
+      } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-red-500">讀取失敗</td></tr>'; }
     };
 
     window.calcRow = (id) => {
@@ -629,21 +665,30 @@
       const isSkipped = document.getElementById('daily-skip-cb').checked;
 
       try {
-        // 儲存狀態：是否免秤重
+        // 儲存狀態：全校是否免秤重
         await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
         
         if(!isSkipped) {
           let promises = window.CLASSES.map(async c => {
-            let wStr = document.getElementById(`w-${c.id}`).value;
-            if(wStr === '') return;
-            let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
-            // 修改：儲存時，w 已經是公克
-            let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
-            // 注意：為了不影響資料庫舊資料欄位結構，這裡依然存進 weightKg 欄位，但實際上裡面的數值現在是公克(g)
-            await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
-              academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
-              weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
-            }, { merge: true });
+            const isRowSkipped = document.getElementById(`skip-row-${c.id}`).checked;
+            if(isRowSkipped) {
+               // 該班級停餐
+               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
+                academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
+                isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+              }, { merge: true });
+            } else {
+              let wStr = document.getElementById(`w-${c.id}`).value;
+              if(wStr === '') return;
+              let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
+              // 修改：儲存時，w 已經是公克
+              let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
+              // 注意：為了不影響資料庫舊資料欄位結構，這裡依然存進 weightKg 欄位，但實際上裡面的數值現在是公克(g)
+              await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
+                academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
+                isSkipped: false, weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
+              }, { merge: true });
+            }
           });
           await Promise.all(promises); 
         }
@@ -746,9 +791,13 @@
       const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
 
       let stats = window.CLASSES.map(c => {
-        let cc = curL.filter(l=>l.classId===c.id), pc = prvL.filter(l=>l.classId===c.id);
+        // 過濾掉停餐的紀錄 (isSkipped 為 true 或 count 為 0)
+        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && l.eaterCount > 0);
+        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && l.eaterCount > 0);
+        
         let tw = cc.reduce((s,l)=>s+l.weightKg,0), tc = cc.reduce((s,l)=>s+l.eaterCount,0);
         let pw = pc.reduce((s,l)=>s+l.weightKg,0), pco = pc.reduce((s,l)=>s+l.eaterCount,0);
+        
         // 修改：週結算計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
         let per = tc>0 ? Number((tw/tc).toFixed(1)) : null, pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
         let dec = (per!==null && pPer>0) ? Number(((pPer-per)/pPer*100).toFixed(1)) : null;
@@ -797,10 +846,13 @@
       con.innerHTML = '<div class="text-center p-4">AI 診斷中...</div>';
       
       const [dSnap, mSnap] = await Promise.all([ getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))), getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)) ]);
-      const logs = dSnap.docs.map(d=>d.data()), menus = mSnap.exists() ? mSnap.data().days : {};
+      const logs = dSnap.docs.map(d=>d.data());
+      const menus = mSnap.exists() ? mSnap.data().days : {};
 
       let html = WEEKDAYS.map(day => {
-        let dl = logs.filter(l=>l.weekday===day.d), tw = dl.reduce((s,l)=>s+l.weightKg,0), tc = dl.reduce((s,l)=>s+l.eaterCount,0);
+        // 過濾掉停餐紀錄
+        let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && l.eaterCount > 0);
+        let tw = dl.reduce((s,l)=>s+l.weightKg,0), tc = dl.reduce((s,l)=>s+l.eaterCount,0);
         // 修改：異常分析計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
         let per = tc>0 ? (tw/tc).toFixed(1) : 0;
         let menu = menus[day.d] || null;
@@ -832,7 +884,8 @@
       const logs = snap.docs.map(d=>d.data());
 
       let stats = window.CLASSES.map(c => {
-        let l = logs.filter(x=>x.classId===c.id);
+        // 過濾掉停餐紀錄
+        let l = logs.filter(x=>x.classId===c.id && !x.isSkipped && x.eaterCount > 0);
         let tw = l.reduce((s,x)=>s+x.weightKg,0), tc = l.reduce((s,x)=>s+x.eaterCount,0);
         // 修改：月結算計算人均，tw(總重量)現在是公克，直接除以 tc(總人數)
         return { ...c, tw: tw.toFixed(0), tc, per: tc>0 ? Number((tw/tc).toFixed(1)) : null }; // tw 總重改顯示為沒有小數點的公克數
