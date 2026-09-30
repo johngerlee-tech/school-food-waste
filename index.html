@@ -708,14 +708,17 @@
           let b = document.getElementById(id);
           if (b) {
             b.disabled = false;
-            b.className = (id==='csv-import-btn') 
+            b.className = (id==='csv-import-btn' || id==='role-save-btn') 
               ? "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm"
               : "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
             if (id==='save-btn') b.innerText = '☁️ 儲存上傳';
             else if (id==='csv-import-btn') b.innerText = '🚀 開始匯入';
+            else if (id==='role-save-btn') b.innerText = '💾 儲存成員權限';
             else b.innerText = '💾 儲存設定';
           }
         });
+
+        window.unlockSettingsFields();
 
       } else if (role === 'staff') {
         // 👥 工作小組身分（可檢視 4. 菜單查詢、5. 菜單關聯分析，但不能編輯與儲存）
