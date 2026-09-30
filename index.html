@@ -350,22 +350,22 @@
     </section>
   </div>
 
-  <!-- 訪客權限拒絕提示 Modal -->
+  <!-- 訪客/未授權權限拒絕提示 Modal -->
   <div id="permission-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
       <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
         🔒
       </div>
       <h3 class="text-base font-bold text-slate-800 mb-1" id="permission-modal-title">權限不足</h3>
-      <p class="text-xs text-slate-600 mb-5 leading-relaxed" id="permission-modal-msg">
-        您目前處於「訪客模式」，此功能僅供授權成員操作維護喔！
+      <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line" id="permission-modal-msg">
+        您目前權限不足，無法使用此功能喔！
       </p>
       <div class="flex gap-2">
         <button onclick="window.closePermissionModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
           我知道了
         </button>
-        <button onclick="window.closePermissionModal(); window.openLoginModal('staff');" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition">
-          工作小組登入
+        <button id="permission-modal-action-btn" onclick="window.handlePermissionAction()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
+          管理員登入
         </button>
       </div>
     </div>
@@ -375,7 +375,7 @@
   <div id="notice-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
       <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl" id="notice-modal-icon">
-        ℹ️
+        ℹ️️
       </div>
       <h3 class="text-base font-bold text-slate-800 mb-2" id="notice-modal-title">系統提示</h3>
       <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line text-left bg-slate-50 p-3 rounded-lg border" id="notice-modal-msg"></p>
@@ -411,7 +411,7 @@
         <h3 class="text-base font-bold text-slate-800 flex items-center gap-1.5" id="login-modal-title">
           🔐 後臺管理登入
         </h3>
-        <button onclick="window.closeLoginModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
+        <button onclick="window.closeLoginModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
       </div>
 
       <!-- 登入身分引導提示 -->
@@ -433,18 +433,21 @@
       <!-- 任何 Email / 密碼 登入與註冊 -->
       <div class="space-y-3">
         <div>
+          <label class="block text-[11px] font-semibold text-slate-500 mb-1">電子信箱</label>
           <input type="email" id="login-email" placeholder="電子信箱 (Yahoo/教育局/@mail.edu.tw等)" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-emerald-500">
         </div>
         <div>
-          <input type="password" id="login-password" placeholder="密碼 (首次使用請輸入欲設定的密碼)" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-emerald-500">
+          <label class="block text-[11px] font-semibold text-slate-500 mb-1">登入密碼</label>
+          <input type="password" id="login-password" placeholder="請輸入欲設定或現有的 6 碼以上密碼" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-emerald-500">
         </div>
         
-        <div class="flex gap-2 pt-1">
-          <button onclick="window.loginWithEmail()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow transition">
-            登入
+        <!-- 操作按鈕群：首次設定密碼改為翠綠色高可辨識按鈕 -->
+        <div class="flex gap-2 pt-2">
+          <button onclick="window.loginWithEmail()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm transition">
+            🔑 密碼登入
           </button>
-          <button onclick="window.registerWithEmail()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition" title="非 Google 信箱首次使用，請點此設定密碼">
-            首次設定密碼
+          <button onclick="window.registerWithEmail()" id="btn-register-email" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition" title="非 Google 信箱首次使用，請輸入信箱與欲設定的密碼後點此">
+            🌱 首次設定密碼
           </button>
         </div>
 
@@ -509,6 +512,7 @@
     window.calculatedCurrentWeek = 1;
     window.systemThreshold = 120; // 預設 120g
     let confirmResolver = null;
+    window.pendingPermissionRole = 'admin';
 
     /* --- 彈出通知與自訂視窗 --- */
     window.showNotice = (title, message, isSuccess = true) => {
@@ -521,7 +525,7 @@
         icon.innerText = "✅";
       } else {
         icon.className = "w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold";
-        icon.innerText = "⚠️️";
+        icon.innerText = "⚠️";
       }
       modal.classList.remove('hidden');
     };
@@ -530,10 +534,29 @@
       document.getElementById('notice-modal').classList.add('hidden');
     };
 
-    window.showPermissionDenied = (tabName, requiredRole = '管理員') => {
+    window.showPermissionDenied = (tabName, requiredRole = '系統管理員') => {
+      window.pendingPermissionRole = (requiredRole === '系統管理員') ? 'admin' : 'staff';
+      const actionBtn = document.getElementById('permission-modal-action-btn');
+
       document.getElementById('permission-modal-title').innerText = `🔒「${tabName}」權限不足`;
-      document.getElementById('permission-modal-msg').innerText = `您目前身分為「${window.userRole === 'staff' ? '工作小組' : '訪客模式'}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方登入。`;
+      
+      const currentIdentity = (window.userRole === 'staff') ? '工作小組' : '訪客模式';
+      document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;
+      
+      if (requiredRole === '系統管理員') {
+        actionBtn.innerText = '🔐 管理員登入';
+        actionBtn.className = 'flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition';
+      } else {
+        actionBtn.innerText = '👥 工作小組登入';
+        actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';
+      }
+
       document.getElementById('permission-modal').classList.remove('hidden');
+    };
+
+    window.handlePermissionAction = () => {
+      window.closePermissionModal();
+      window.openLoginModal(window.pendingPermissionRole || 'admin');
     };
 
     window.closePermissionModal = () => {
@@ -647,9 +670,8 @@
       if (adminList) {
         adminList.innerHTML = window.ADMIN_EMAILS.map((email, idx) => `
           <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 text-xs">
-            <span class="font-medium text-slate-700 truncate">${email}</span>
-            ${isAdm && window.ADMIN_EMAILS.length > 1 ? `
-              <button onclick="window.removeMemberRole('admin', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none" title="移除管理員">&times;</button>
+            <span class="font-medium text-slate-700 truncate">${email}</span>${isAdm && window.ADMIN_EMAILS.length > 1 ? `
+              <button onclick="window.removeMemberRole('admin', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none" title="移除管理員">×</button>
             ` : ''}
           </div>
         `).join('') || '<div class="text-xs text-slate-400 p-2">暫無管理員</div>';
@@ -658,9 +680,8 @@
       if (staffList) {
         staffList.innerHTML = window.STAFF_EMAILS.map((email, idx) => `
           <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-indigo-100 text-xs">
-            <span class="font-medium text-slate-700 truncate">${email}</span>
-            ${isAdm ? `
-              <button onclick="window.removeMemberRole('staff', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none" title="移除成員">&times;</button>
+            <span class="font-medium text-slate-700 truncate">${email}</span>${isAdm ? `
+              <button onclick="window.removeMemberRole('staff', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none" title="移除成員">×</button>
             ` : ''}
           </div>
         `).join('') || '<div class="text-xs text-slate-400 p-2">暫無工作小組成員</div>';
@@ -813,12 +834,10 @@
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${window.currentUser.displayName || window.currentUser.email}`;
         
-        // 隱藏登入按鈕群，顯示登出按鈕
         btnStaffLogin.classList.add('hidden');
         btnLoginModal.classList.add('hidden');
         btnLogout.classList.remove('hidden');
 
-        // 4. 菜單維護
         tabMenuText.innerText = "4. 🤖 AI 菜單維護";
         tabMenuBadge.classList.remove('hidden');
         tabMenuBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
@@ -828,15 +847,12 @@
         if (menuSaveBtn) menuSaveBtn.classList.remove('hidden');
         if (menuAiSection) menuAiSection.classList.remove('hidden');
 
-        // 5. 菜單關聯分析
         tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
         tabAnalysisBadge.innerText = "🔓";
 
-        // ⚙️ 系統設定
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
         tabSettingsBadge.innerText = "🔓";
 
-        // 開啟所有儲存與匯入按鈕
         ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
@@ -859,12 +875,10 @@
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-indigo-100 text-indigo-800";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span>工作小組：${window.currentUser.displayName || window.currentUser.email}`;
         
-        // 隱藏登入按鈕群，顯示登出按鈕
         btnStaffLogin.classList.add('hidden');
         btnLoginModal.classList.add('hidden');
         btnLogout.classList.remove('hidden');
 
-        // 4. 菜單查詢（純文字卡片，無鎖頭）
         tabMenuText.innerText = "4. 菜單查詢";
         tabMenuBadge.classList.add('hidden');
 
@@ -872,15 +886,12 @@
         if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
         if (menuAiSection) menuAiSection.classList.add('hidden');
 
-        // 5. 菜單關聯分析（工作小組可檢視）
         tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium";
         tabAnalysisBadge.innerText = "👀 檢視";
 
-        // ⚙️ 系統設定（鎖住）
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
         tabSettingsBadge.innerText = "🔒";
 
-        // 鎖定所有管理按鈕
         ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
@@ -898,7 +909,6 @@
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
         
-        // 顯示登入按鈕群，隱藏登出按鈕
         btnStaffLogin.classList.remove('hidden');
         btnLoginModal.classList.remove('hidden');
         btnLogout.classList.add('hidden');
@@ -937,11 +947,13 @@
       const modal = document.getElementById('login-modal');
       const title = document.getElementById('login-modal-title');
       const hint = document.getElementById('login-modal-hint');
+      const emailInput = document.getElementById('login-email');
+      const pwdInput = document.getElementById('login-password');
 
       if (targetRole === 'staff') {
         title.innerHTML = `👥 工作小組登入`;
         hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-indigo-50 border border-indigo-100 text-indigo-800 leading-relaxed";
-        hint.innerHTML = `💡 <strong>工作小組專屬入口</strong>：登入後可查看「菜單關聯分析」與完整菜單。請使用已被授權登記之電子信箱登入。`;
+        hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用（如 Yahoo/教育局信箱），請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
       } else {
         title.innerHTML = `🔐 後臺管理登入`;
         hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-emerald-50 border border-emerald-100 text-emerald-800 leading-relaxed";
@@ -949,6 +961,9 @@
       }
 
       modal.classList.remove('hidden');
+      if (emailInput && !emailInput.value) {
+        setTimeout(() => emailInput.focus(), 150);
+      }
     };
 
     window.closeLoginModal = () => document.getElementById('login-modal').classList.add('hidden');
@@ -970,7 +985,9 @@
       const email = document.getElementById('login-email').value.trim();
       const pwd = document.getElementById('login-password').value;
       if (!email || !pwd) {
-        return window.showNotice('請填寫完整', '請輸入電子信箱與密碼！', false);
+        if (!email) document.getElementById('login-email').focus();
+        else document.getElementById('login-password').focus();
+        return window.showNotice('請填寫完整', '請先輸入電子信箱與密碼！', false);
       }
       try { 
         await signInWithEmailAndPassword(auth, email, pwd); 
@@ -978,7 +995,7 @@
       } catch (e) { 
         let tip = e.message;
         if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-          tip = '帳號或密碼不正確。若您是第一次使用此信箱，請點擊「首次設定密碼」按鈕設定密碼！';
+          tip = '帳號尚未建立密碼或密碼不正確。\n若您是首次使用，請在密碼欄位輸入自訂密碼後，點擊綠色「🌱 首次設定密碼」按鈕！';
         } else if (e.code === 'auth/wrong-password') {
           tip = '密碼錯誤，請重新確認或點擊下方「寄送重設密碼信」。';
         }
@@ -988,13 +1005,22 @@
 
     // 任何 Email 首次設定密碼 (註冊)
     window.registerWithEmail = async () => {
-      const email = document.getElementById('login-email').value.trim().toLowerCase();
-      const pwd = document.getElementById('login-password').value;
+      const emailEl = document.getElementById('login-email');
+      const pwdEl = document.getElementById('login-password');
+      const email = emailEl.value.trim().toLowerCase();
+      const pwd = pwdEl.value;
+
       if (!email || !email.includes('@')) {
-        return window.showNotice('信箱格式不正確', '請先輸入有效的電子信箱！', false);
+        emailEl.focus();
+        return window.showNotice('請先輸入信箱', '請先於上方欄位填寫您的電子信箱（如 Yahoo、教育局信箱等）！', false);
       }
-      if (!pwd || pwd.length < 6) {
-        return window.showNotice('密碼過短', '請設定至少 6 位數以上的登入密碼！', false);
+      if (!pwd) {
+        pwdEl.focus();
+        return window.showNotice('請輸入自訂密碼', '請在密碼欄位輸入您想要設定的密碼（至少 6 位數）！', false);
+      }
+      if (pwd.length < 6) {
+        pwdEl.focus();
+        return window.showNotice('密碼過短', '為了帳號安全，請自訂至少 6 位數以上的密碼！', false);
       }
 
       // 先行檢查此信箱是否已經被管理員加入授權名單中
@@ -1012,7 +1038,7 @@
         window.showNotice('密碼設定成功', `🎉 歡迎！【${email}】密碼設定完成，系統已自動為您登入！`);
       } catch (e) {
         if (e.code === 'auth/email-already-in-use') {
-          window.showNotice('信箱已註冊過', '此信箱先前已經設定過密碼囉！請直接點擊「登入」，或點擊下方「寄送重設密碼信」。', false);
+          window.showNotice('信箱已註冊過', '此信箱先前已經設定過密碼囉！\n請直接點擊黑色「🔑 密碼登入」按鈕，或點擊下方「寄送重設密碼信」。', false);
         } else {
           window.showNotice('設定失敗', e.message, false);
         }
@@ -1023,6 +1049,7 @@
     window.sendPasswordReset = async () => {
       const email = document.getElementById('login-email').value.trim();
       if (!email || !email.includes('@')) {
+        document.getElementById('login-email').focus();
         return window.showNotice('請輸入信箱', '請在上方電子信箱欄位輸入您要重設密碼的 Email！', false);
       }
       try {
@@ -1335,7 +1362,7 @@
         const menuSnap = await getDoc(doc(db, "weekly_menus", `${year}_1_${week}`));
         if (menuSnap.exists() && menuSnap.data().days[weekday]) {
           const d = menuSnap.data().days[weekday];
-          hint.innerHTML = `🍱 <strong>今日菜單</strong>：${d.main}, ${d.dish1}, ${d.vege}, ${d.soup}`;
+          hint.innerHTML = `🍱 <strong>今日菜單</strong>：${d.main},${d.dish1}, ${d.vege},${d.soup}`;
         } else { hint.innerHTML = '🍱 今日無菜單紀錄'; }
       } catch (e) {}
 
@@ -1597,7 +1624,7 @@
             const isDemandMsg = retryErr.message && (retryErr.message.includes('high demand') || retryErr.message.includes('overloaded'));
             if (isDemandMsg && attempt < maxRetries) {
               const waitSec = attempt * 3;
-              if (hint) hint.innerText = `⚠️️ 伺服器忙碌中，等待 ${waitSec} 秒後自動重試...`;
+              if (hint) hint.innerText = `⚠️ 伺服器忙碌中，等待 ${waitSec} 秒後自動重試...`;
               await new Promise(r => setTimeout(r, waitSec * 1000));
             } else {
               throw retryErr;
@@ -1809,7 +1836,7 @@
               <span class="${isSpike ? 'text-rose-600 font-bold' : 'text-emerald-600 font-semibold'}">${per} g/人</span>
             </div>
             <div class="text-xs text-slate-600 mb-2">
-              🍱 <strong>菜單內容</strong>：${hasMenu ? `${menu.main || '-'}, ${menu.dish1 || '-'}, ${menu.dish2 || '-'}, ${menu.vege || '-'}, ${menu.soup || '-'}` : '<span class="text-slate-400">無紀錄</span>'}
+              🍱 <strong>菜單內容</strong>：${hasMenu ? `${menu.main || '-'}, ${menu.dish1 \vert{}\vert{} '-'},${menu.dish2 || '-'}, ${menu.vege \vert{}\vert{} '-'},${menu.soup || '-'}` : '<span class="text-slate-400">無紀錄</span>'}
             </div>
             ${diagnosticHtml}
           </div>`;
