@@ -40,7 +40,7 @@
       </div>
     </header>
 
-    <!-- 分頁導覽列 (前面為公開查詢，後方為管理功能) -->
+    <!-- 分頁導覽列 (1~3 為公開常規，4 為雙模態，5~6 為管理選單) -->
     <nav class="flex flex-wrap border-b border-slate-200 mb-6 gap-1 no-print">
       <button onclick="window.switchTab('daily')" id="tab-daily" class="px-4 py-2 tab-active">1. 每日登記</button>
       <button onclick="window.switchTab('weekly')" id="tab-weekly" class="px-4 py-2 tab-inactive">2. 週評比/進步獎</button>
@@ -51,11 +51,11 @@
       </button>
       <button onclick="window.switchTab('analysis')" id="tab-analysis" class="px-4 py-2 tab-inactive flex items-center gap-1.5">
         <span>5. 菜單關聯分析 🔍</span>
-        <span class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">🔒</span>
+        <span id="tab-analysis-badge" class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">🔒</span>
       </button>
       <button onclick="window.switchTab('settings')" id="tab-settings" class="px-4 py-2 tab-inactive flex items-center gap-1.5">
         <span>⚙️ 系統與匯入設定</span>
-        <span class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">🔒</span>
+        <span id="tab-settings-badge" class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">🔒</span>
       </button>
     </nav>
 
@@ -206,7 +206,7 @@
         <div id="menu-ai-section" class="hidden bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start md:items-center">
           <div class="flex-1 space-y-2">
             <h3 class="font-bold text-indigo-900 flex items-center gap-1">🤖 AI 自動菜單圖片辨識</h3>
-            <p class="text-xs text-indigo-700">上傳營養午餐菜單圖檔（JPG/PNG），系統將自動為您填入週一、二、四、五的菜色（含主食、主菜、副菜、青菜、湯）。</p>
+            <p class="text-xs text-indigo-700">上傳營養午餐菜單圖檔（JPG/PNG），系統將自動填入週一、二、四、五的菜色（含主食、主菜、副菜、青菜、湯）。</p>
             <div class="flex items-center gap-2 mt-2">
               <input type="password" id="gemini-api-key" placeholder="輸入 Gemini API Key" class="border border-indigo-200 rounded px-2 py-1 text-xs w-48 bg-white focus:outline-indigo-500">
               <input type="file" id="menu-image-upload" accept="image/*" class="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer text-indigo-800">
@@ -225,7 +225,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="menu-days-container"></div>
     </section>
 
-    <!-- 【頁面 5】菜單關聯異常分析 (管理員專屬) -->
+    <!-- 【頁面 5】菜單關聯異常分析 (管理員與工作小組專屬) -->
     <section id="page-analysis" class="space-y-6 hidden">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
         <div class="flex items-center gap-3">
@@ -250,7 +250,48 @@
     <!-- 【頁面 6】系統與匯入設定 (管理員專屬) -->
     <section id="page-settings" class="space-y-6 hidden">
       
-      <!-- 學期行事曆與門檻參數設定 -->
+      <!-- 【區塊 1】👥 系統成員與權限控管 (實體介面) -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex flex-wrap justify-between items-center mb-4 border-b pb-2 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">👥 系統成員與權限控管</h2>
+            <p class="text-xs text-slate-500">透過 Google 帳號 Email 控管成員權限，點擊「💾 儲存成員權限」立即同步至雲端資料庫。</p>
+          </div>
+          <button onclick="window.saveRoleSettings()" id="role-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+            🔒 需登入
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- 管理員清單 -->
+          <div class="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-emerald-800">🛡️ 系統管理員 (全權操作與設定)</span>
+              <span id="admin-count-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">2 位</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+              <input type="email" id="input-new-admin" placeholder="輸入 Google 信箱" class="border border-emerald-200 rounded px-2.5 py-1 text-xs flex-1 bg-white focus:outline-emerald-500">
+              <button onclick="window.addMemberRole('admin')" id="btn-add-admin" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded shadow transition">＋新增</button>
+            </div>
+            <div id="admin-list-container" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+          </div>
+
+          <!-- 工作小組清單 -->
+          <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-indigo-800">👥 工作小組 (可檢視菜單與關聯分析)</span>
+              <span id="staff-count-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">0 位</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+              <input type="email" id="input-new-staff" placeholder="輸入 Google 信箱" class="border border-indigo-200 rounded px-2.5 py-1 text-xs flex-1 bg-white focus:outline-indigo-500">
+              <button onclick="window.addMemberRole('staff')" id="btn-add-staff" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition">＋新增</button>
+            </div>
+            <div id="staff-list-container" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 【區塊 2】學期行事曆與門檻參數設定 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
         <div class="flex justify-between items-center mb-4 border-b pb-2">
           <div>
@@ -271,7 +312,7 @@
         </div>
       </div>
 
-      <!-- CSV 歷史資料批次匯入 -->
+      <!-- 【區塊 3】CSV 歷史資料批次匯入 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
         <div class="flex justify-between items-center mb-4 border-b pb-2">
           <div><h2 class="text-base font-bold text-slate-800">📂 歷史數據 CSV 批次匯入</h2><p class="text-xs text-slate-500">開學初或前幾週未登錄之歷史數據，可整理成 CSV 檔一鍵匯入（單位為公克 g）。</p></div>
@@ -283,7 +324,7 @@
         </div>
       </div>
 
-      <!-- 班級預設人數管理 -->
+      <!-- 【區塊 4】班級預設人數管理 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
         <div class="flex justify-between items-center mb-4 border-b pb-2">
           <div><h2 class="text-base font-bold text-slate-800">🧑‍🤝‍🧑 班級預設用餐人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值，節省登記時間。</p></div>
@@ -299,7 +340,7 @@
     </section>
   </div>
 
-  <!-- 訪客權限拒絕提示 Modal (替代 alert) -->
+  <!-- 訪客權限拒絕提示 Modal -->
   <div id="permission-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
       <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
@@ -307,7 +348,7 @@
       </div>
       <h3 class="text-base font-bold text-slate-800 mb-1" id="permission-modal-title">權限不足</h3>
       <p class="text-xs text-slate-600 mb-5 leading-relaxed" id="permission-modal-msg">
-        您目前處於「訪客模式」，此功能僅供系統管理員操作維護喔！
+        您目前處於「訪客模式」，此功能僅供授權成員操作維護喔！
       </p>
       <div class="flex gap-2">
         <button onclick="window.closePermissionModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
@@ -320,7 +361,7 @@
     </div>
   </div>
 
-  <!-- 系統通用通知 Modal (替代 alert) -->
+  <!-- 系統通用通知 Modal -->
   <div id="notice-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
       <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl" id="notice-modal-icon">
@@ -334,7 +375,7 @@
     </div>
   </div>
 
-  <!-- 確認對話框 Modal (替代 confirm) -->
+  <!-- 確認對話框 Modal -->
   <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
       <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
@@ -357,7 +398,7 @@
   <div id="login-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-bold">🔐 管理員登入</h3>
+        <h3 class="text-lg font-bold">🔐 後臺登入</h3>
         <button onclick="window.closeLoginModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
       </div>
       <button onclick="window.loginWithGoogle()" class="w-full py-2.5 px-4 border rounded-lg flex items-center justify-center gap-2 hover:bg-slate-50 text-slate-700 font-medium text-sm transition mb-4">
@@ -393,8 +434,7 @@
     const db = getFirestore(app);
 
     // ==========================================
-    // 🔐 預設管理者名單（系統第一次啟動時之預設值）
-    // 後續皆可在後台「⚙️ 系統與匯入設定」直接動態新增/刪除，並儲存至 Firestore
+    // 🔐 預設管理者名單（初始啟動保底名單，後台可隨時動態修改）
     // ==========================================
     window.ADMIN_EMAILS = [
       "johngerlee@gmail.com",
@@ -402,7 +442,7 @@
     ];
     window.STAFF_EMAILS = []; // 工作小組成員清單
 
-    // 當前使用者身分角色：'guest' (訪客) | 'staff' (工作小組) | 'admin' (系統管理員)
+    // 當前角色：'guest' (訪客) | 'staff' (工作小組) | 'admin' (系統管理員)
     window.userRole = 'guest';
 
     const WEEKDAYS = [{d:1, name:'週一'}, {d:2, name:'週二'}, {d:4, name:'週四'}, {d:5, name:'週五'}];
@@ -419,7 +459,7 @@
     window.systemThreshold = 120; // 預設 120g
     let confirmResolver = null;
 
-    /* --- 彈出通知與自訂視窗 (取代原生 alert 與 confirm) --- */
+    /* --- 彈出通知與自訂視窗 --- */
     window.showNotice = (title, message, isSuccess = true) => {
       const modal = document.getElementById('notice-modal');
       const icon = document.getElementById('notice-modal-icon');
@@ -470,6 +510,46 @@
       if (ok) await signOut(auth);
     };
 
+    /* --- 解鎖/鎖定設定頁面輸入框核心函式 (修復關鍵) --- */
+    window.unlockSettingsFields = () => {
+      const isAdm = (window.userRole === 'admin');
+      
+      const fieldIds = ['sys-year', 'sys-sem', 'sys-start', 'sys-end', 'sys-threshold', 'csv-upload', 'input-new-admin', 'input-new-staff'];
+      fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.disabled = !isAdm;
+          if (isAdm) {
+            el.removeAttribute('disabled');
+            el.classList.remove('bg-slate-100', 'cursor-not-allowed');
+            if (id === 'sys-threshold') {
+              el.className = "border border-rose-300 rounded w-full p-1.5 bg-rose-50 font-bold text-rose-800";
+            } else if (id !== 'csv-upload' && !id.startsWith('input-new')) {
+              el.className = "border border-slate-300 rounded w-full p-1.5 bg-white text-slate-800 focus:outline-emerald-500";
+            }
+          } else {
+            el.setAttribute('disabled', 'true');
+            el.classList.add('bg-slate-100', 'cursor-not-allowed');
+          }
+        }
+      });
+
+      // 班級預設人數欄位解鎖
+      window.CLASSES.forEach(c => {
+        const inp = document.getElementById(`set-${c.id}`);
+        if (inp) {
+          inp.disabled = !isAdm;
+          if (isAdm) {
+            inp.removeAttribute('disabled');
+            inp.className = "border rounded px-2 py-1 w-24 text-right bg-white text-slate-800 focus:outline-emerald-500";
+          } else {
+            inp.setAttribute('disabled', 'true');
+            inp.className = "border rounded px-2 py-1 w-24 text-right bg-slate-100 cursor-not-allowed text-slate-500";
+          }
+        }
+      });
+    };
+
     /* --- 雲端角色名單讀取與儲存 (Firestore 同步) --- */
     window.loadRoleSettings = async () => {
       try {
@@ -518,7 +598,7 @@
           <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 text-xs">
             <span class="font-medium text-slate-700 truncate">${email}</span>
             ${isAdm && window.ADMIN_EMAILS.length > 1 ? `
-              <button onclick="window.removeMemberRole('admin', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-xs" title="移除管理員">&times;</button>
+              <button onclick="window.removeMemberRole('admin', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none" title="移除管理員">&times;</button>
             ` : ''}
           </div>
         `).join('') || '<div class="text-xs text-slate-400 p-2">暫無管理員</div>';
@@ -529,7 +609,7 @@
           <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-indigo-100 text-xs">
             <span class="font-medium text-slate-700 truncate">${email}</span>
             ${isAdm ? `
-              <button onclick="window.removeMemberRole('staff', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-xs" title="移除成員">&times;</button>
+              <button onclick="window.removeMemberRole('staff', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none" title="移除成員">&times;</button>
             ` : ''}
           </div>
         `).join('') || '<div class="text-xs text-slate-400 p-2">暫無工作小組成員</div>';
@@ -549,7 +629,6 @@
       if (role === 'admin') {
         if (!window.ADMIN_EMAILS.includes(email)) {
           window.ADMIN_EMAILS.push(email);
-          // 若同時在 staff，予以移除
           window.STAFF_EMAILS = window.STAFF_EMAILS.filter(e => e !== email);
         }
       } else {
@@ -563,7 +642,7 @@
 
       input.value = '';
       window.renderRoleLists();
-      window.showNotice('已暫存清單', `已將【${email}】加入名單，請記得點擊「💾 儲存設定」儲存至資料庫！`);
+      window.showNotice('已暫存清單', `已將【${email}】加入名單，請記得點擊「💾 儲存成員權限」儲存至資料庫！`);
     };
 
     window.removeMemberRole = (role, idx) => {
@@ -577,7 +656,7 @@
         window.STAFF_EMAILS.splice(idx, 1);
       }
       window.renderRoleLists();
-      window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存設定」以生效至資料庫！');
+      window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存成員權限」儲存至資料庫！');
     };
 
     /* --- 日期區間計算核心工具 (週一至週五) --- */
@@ -642,11 +721,10 @@
         } else if (isStaff) {
           window.userRole = 'staff';
         } else {
-          // 非白名單授權帳號：拒絕並自動登出
           await signOut(auth);
           window.currentUser = null;
           window.userRole = 'guest';
-          window.showNotice('🚫 登入拒絕', `【${user.email}】\n您尚未被加入管理員或工作小組授權名單中。\n若需檢視菜單關聯分析或維護，請洽系統管理員新增！`, false);
+          window.showNotice('🚫 登入拒絕', `【${user.email}】\n您尚未被加入管理員或工作小組授權名單中。\n若需檢視或維護，請洽系統管理員新增！`, false);
           return;
         }
       } else {
@@ -703,11 +781,12 @@
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
         tabSettingsBadge.innerText = "🔓";
 
-        // 開啟管理按鈕
+        // 開啟所有儲存與匯入按鈕
         ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
             b.disabled = false;
+            b.removeAttribute('disabled');
             b.className = (id==='csv-import-btn' || id==='role-save-btn') 
               ? "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm"
               : "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
@@ -718,10 +797,11 @@
           }
         });
 
+        // 執行輸入框全面解鎖
         window.unlockSettingsFields();
 
       } else if (role === 'staff') {
-        // 👥 工作小組身分（可檢視 4. 菜單查詢、5. 菜單關聯分析，但不能編輯與儲存）
+        // 👥 工作小組身分
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-indigo-100 text-indigo-800";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span>工作小組：${window.currentUser.displayName || window.currentUser.email}`;
         btnLoginModal.classList.add('hidden');
@@ -729,29 +809,32 @@
 
         // 4. 菜單查詢（純文字卡片，無鎖頭）
         tabMenuText.innerText = "4. 菜單查詢";
-        tabMenuBadge.classList.add('hidden'); // 確保完全不顯示鎖頭
+        tabMenuBadge.classList.add('hidden');
 
         if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
         if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
         if (menuAiSection) menuAiSection.classList.add('hidden');
 
-        // 5. 菜單關聯分析（允許進入檢視）
+        // 5. 菜單關聯分析（工作小組可檢視）
         tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium";
         tabAnalysisBadge.innerText = "👀 檢視";
 
-        // ⚙️ 系統設定（工作小組不可進）
+        // ⚙️ 系統設定（鎖住）
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
         tabSettingsBadge.innerText = "🔒";
 
-        // 關閉儲存按鈕
+        // 鎖定所有管理按鈕
         ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
             b.disabled = true;
+            b.setAttribute('disabled', 'true');
             b.className = "px-4 py-1.5 bg-slate-200 text-slate-400 font-medium rounded shadow cursor-not-allowed transition text-sm";
             b.innerText = '🔒 僅供檢視 (唯讀)';
           }
         });
+
+        window.unlockSettingsFields();
 
       } else {
         // 🌐 訪客模式
@@ -760,19 +843,19 @@
         btnLoginModal.classList.remove('hidden');
         btnLogout.classList.add('hidden');
 
-        // 4. 菜單查詢：依要求完全不出現鎖的符號！
+        // 4. 菜單查詢：徹底隱藏鎖頭
         tabMenuText.innerText = "4. 菜單查詢";
-        tabMenuBadge.classList.add('hidden'); // 徹底隱藏鎖頭標記
+        tabMenuBadge.classList.add('hidden');
 
         if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
         if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
         if (menuAiSection) menuAiSection.classList.add('hidden');
 
-        // 5. 菜單關聯分析：訪客鎖住
+        // 5. 菜單關聯分析：鎖住
         tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
         tabAnalysisBadge.innerText = "🔒";
 
-        // ⚙️ 系統設定：訪客鎖住
+        // ⚙️ 系統設定：鎖住
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
         tabSettingsBadge.innerText = "🔒";
 
@@ -780,10 +863,13 @@
           let b = document.getElementById(id);
           if (b) {
             b.disabled = true;
+            b.setAttribute('disabled', 'true');
             b.className = "px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow cursor-not-allowed transition text-sm";
             b.innerText = '🔒 需登入操作';
           }
         });
+
+        window.unlockSettingsFields();
       }
 
       window.renderRoleLists();
@@ -828,10 +914,10 @@
 
       ['daily', 'menu', 'weekly', 'analysis', 'monthly', 'settings'].forEach(t => {
         document.getElementById(`page-${t}`).classList.add('hidden');
-        document.getElementById(`tab-${t}`).className = "px-4 py-2 tab-inactive flex items-center gap-1";
+        document.getElementById(`tab-${t}`).className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
       });
       document.getElementById(`page-${tabId}`).classList.remove('hidden');
-      document.getElementById(`tab-${tabId}`).className = "px-4 py-2 tab-active flex items-center gap-1";
+      document.getElementById(`tab-${tabId}`).className = "px-4 py-2 tab-active flex items-center gap-1.5";
 
       if (tabId === 'daily') window.loadDailyRecords();
       if (tabId === 'menu') { 
@@ -867,12 +953,13 @@
       if (tabId === 'settings') {
         window.renderSettings();
         window.renderRoleLists();
+        window.unlockSettingsFields();
       }
 
       window.refreshAllWeekLabels();
     };
 
-    /* --- System Calendar & Threshold Config --- */
+    /* --- 行事曆與門檻參數 --- */
     window.loadSystemConfig = async () => {
       try {
         const snap = await getDoc(doc(db, "system_config", "main"));
@@ -1026,7 +1113,7 @@
       reader.readAsText(file);
     };
 
-    /* --- Class Settings --- */
+    /* --- 班級預設人數管理 --- */
     window.loadClassSettings = async () => {
       try {
         const snap = await getDocs(collection(db, "class_settings"));
@@ -1042,7 +1129,7 @@
       document.getElementById('settings-rows').innerHTML = window.CLASSES.map(c => `
         <tr class="hover:bg-slate-50">
           <td class="p-3 text-slate-500">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
-          <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAdm?'':'disabled'} class="border rounded px-2 py-1 w-24 text-right bg-slate-50"> 人</td>
+          <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAdm ? '' : 'disabled'} class="border rounded px-2 py-1 w-24 text-right ${isAdm ? 'bg-white text-slate-800' : 'bg-slate-100 cursor-not-allowed text-slate-500'}"> 人</td>
         </tr>
       `).join('');
     };
@@ -1194,7 +1281,7 @@
       } catch (e) { window.showNotice('儲存失敗', e.message, false); }
     };
 
-    /* --- Menu Mgmt & AI Recognition (僅 admin 可編輯儲存；訪客與工作小組為優雅純文字卡片) --- */
+    /* --- Menu Mgmt & AI Recognition --- */
     window.loadWeeklyMenu = async () => {
       const y = parseInt(document.getElementById('daily-year').value) || 115;
       const w = parseInt(document.getElementById('menu-week').value) || 1;
@@ -1528,7 +1615,7 @@
 
           advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
 
-          // 3. 診斷(AI推論) - 深入交叉分析班級分佈與食材關聯
+          // 3. 診斷(AI推論) - 交叉分析
           let validClasses = dl.filter(l => (parseFloat(l.weightKg) || 0) >= 0);
           let spikeClasses = validClasses.filter(l => {
             let p = (parseInt(l.eaterCount) || 0) > 0 ? (parseFloat(l.weightKg) / parseInt(l.eaterCount)) : 0;
@@ -1539,7 +1626,6 @@
           let spikeCount = spikeClasses.length;
           let spikeRatio = totalCount > 0 ? Math.round((spikeCount / totalCount) * 100) : 0;
 
-          // 年段分布分析
           let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
           let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
           let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
