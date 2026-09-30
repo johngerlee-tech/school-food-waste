@@ -272,9 +272,14 @@
             </h2>
             <p class="text-xs text-slate-500">將您的 Google Gemini API Key 儲存於雲端資料庫後，所有工作小組同仁皆可直接進行深度營養師診斷，免於個別輸入。</p>
           </div>
-          <button onclick="window.saveGeminiApiKey()" id="key-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
-            🔒 需登入
-          </button>
+          <div class="flex gap-2">
+            <button onclick="window.testGeminiKey()" id="key-test-btn" disabled class="px-3 py-1.5 bg-slate-200 text-slate-600 font-medium rounded shadow text-xs hover:bg-slate-300 transition flex items-center gap-1">
+              🧪 測試連線
+            </button>
+            <button onclick="window.saveGeminiApiKey()" id="key-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+              🔒 需登入
+            </button>
+          </div>
         </div>
         <div class="max-w-xl space-y-2">
           <label class="block text-xs font-semibold text-slate-600">Gemini API Key</label>
@@ -405,7 +410,7 @@
         ℹ
       </div>
       <h3 class="text-base font-bold text-slate-800 mb-2" id="notice-modal-title">系統提示</h3>
-      <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line text-left bg-slate-50 p-3 rounded-lg border" id="notice-modal-msg"></p>
+      <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line text-left bg-slate-50 p-3 rounded-lg border font-mono" id="notice-modal-msg"></p>
       <button onclick="window.closeNoticeModal()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
         確定
       </button>
@@ -541,6 +546,7 @@
     window.calculatedCurrentWeek = 1;
     window.systemThreshold = 120; // 預設 120g
     window.cloudGeminiKey = '';   // 集中管理之雲端 Gemini API Key
+    window._cachedGeminiModel = null;
     let confirmResolver = null;
     window.pendingPermissionRole = 'admin';
 
@@ -661,6 +667,77 @@
       });
     };
 
+    /* --- 動態偵測最佳可用 Gemini 模型端點 (支援 3.8 / 3.7 / 3.5 系列) --- */
+    window.getAvailableGeminiModel = async (apiKey) => {
+      if (window._cachedGeminiModel) return window._cachedGeminiModel;
+      
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.models && Array.isArray(data.models)) {
+            const valid = data.models
+              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+              .map(m => m.name.replace(/^models\//, ''));
+
+            // 優先選擇 Flash 世代模型
+            const detected = valid.find(m => m.includes('3.8-flash')) ||
+                             valid.find(m => m.includes('3.7-flash')) ||
+                             valid.find(m => m.includes('3.5-flash')) ||
+                             valid.find(m => m.includes('flash') && !m.includes('image') && !m.includes('tts') && !m.includes('live')) ||
+                             valid.find(m => m.includes('gemini') && !m.includes('image') && !m.includes('tts') && !m.includes('live'));
+            
+            if (detected) {
+              window._cachedGeminiModel = detected;
+              return detected;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("自動抓取可用模型清單逾時或受限，啟用保底端點:", err);
+      }
+
+      // 保底標準端點名稱（2026 最新推薦端點）
+      return "gemini-3.8-flash";
+    };
+
+    /* --- 測試 Gemini API Key 連線 --- */
+    window.testGeminiKey = async () => {
+      const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
+      if (!keyVal) {
+        return window.showNotice('提示', '請先輸入欲測試的 Gemini API Key！', false);
+      }
+
+      const btn = document.getElementById('key-test-btn');
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 測試中..."; }
+
+      try {
+        window._cachedGeminiModel = null;
+        const model = await window.getAvailableGeminiModel(keyVal);
+        
+        // 發送極簡文字測試
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }]
+          })
+        });
+
+        const resData = await res.json();
+        if (!res.ok || resData.error) {
+          throw new Error(resData.error?.message || `HTTP ${res.status}`);
+        }
+
+        window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動偵測並綁定最佳模型端點：[${model}]`);
+        window.updateKeyStatusUI();
+      } catch (e) {
+        window.showNotice('連線失敗', `連線測試未通過：\n${e.message}\n\n建議確認：\n1. Google AI Studio 金鑰是否有效且未受限\n2. 專案是否有啟用 Generative Language API`, false);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = "🧪 測試連線"; }
+      }
+    };
+
     /* --- 集中 Gemini API Key 讀取與儲存 --- */
     window.toggleKeyVisibility = () => {
       const input = document.getElementById('sys-gemini-key');
@@ -679,6 +756,7 @@
         }, { merge: true });
 
         window.cloudGeminiKey = keyVal;
+        window._cachedGeminiModel = null;
         window.updateKeyStatusUI();
         window.showNotice('金鑰儲存成功', keyVal ? '✅ 雲端 Gemini API Key 已成功儲存！所有工作小組與管理員將共享此金鑰。' : 'ℹ️ 已清除雲端 Gemini API Key，系統將回退至在地專家推論模式。');
       } catch (e) {
@@ -717,7 +795,7 @@
 
       if (text) {
         text.className = hasKey ? "text-[11px] text-emerald-600 font-semibold" : "text-[11px] text-slate-400 font-medium";
-        text.innerText = hasKey ? "✅ 雲端金鑰已就緒，所有工作小組與管理員可直接調用 Gemini 2.5 Flash 深度診斷" : "尚未設定集中金鑰（系統目前運作於在地專家引擎模式）";
+        text.innerText = hasKey ? "✅ 雲端金鑰已就緒，所有工作小組與管理員可直接調用 Gemini 最新模型深度診斷" : "尚未設定集中金鑰（系統目前運作於在地專家引擎模式）";
       }
 
       if (engineBadge) {
@@ -746,7 +824,6 @@
             window.ADMIN_EMAILS = d.admins.map(e => (typeof e === 'string' ? e.trim().toLowerCase() : e.email?.trim().toLowerCase())).filter(Boolean);
           }
           if (Array.isArray(d.staffs)) {
-            // 兼容舊版純字串陣列與新版物件陣列 { email, name }
             window.STAFF_MEMBERS = d.staffs.map(item => {
               if (typeof item === 'string') {
                 return { email: item.trim().toLowerCase(), name: '' };
@@ -978,7 +1055,6 @@
       const role = window.userRole;
 
       if (role === 'admin') {
-        // 🛡️ 管理員身分
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${window.currentUser.displayName || window.currentUser.email}`;
         
@@ -1001,18 +1077,23 @@
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
         tabSettingsBadge.innerText = "🔓";
 
-        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn'].forEach(id => {
+        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
             b.disabled = false;
             b.removeAttribute('disabled');
-            b.className = (id==='csv-import-btn' || id==='role-save-btn' || id==='key-save-btn') 
-              ? "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm"
-              : "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+            if (id === 'key-test-btn') {
+              b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
+            } else if (id==='csv-import-btn' || id==='role-save-btn' || id==='key-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+            } else {
+              b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+            }
             if (id==='save-btn') b.innerText = '☁️ 儲存上傳';
             else if (id==='csv-import-btn') b.innerText = '🚀 開始匯入';
             else if (id==='role-save-btn') b.innerText = '💾 儲存成員權限';
             else if (id==='key-save-btn') b.innerText = '💾 儲存 AI 金鑰';
+            else if (id==='key-test-btn') b.innerText = '🧪 測試連線';
             else b.innerText = '💾 儲存設定';
           }
         });
@@ -1020,7 +1101,6 @@
         window.unlockSettingsFields();
 
       } else if (role === 'staff') {
-        // 👥 工作小組身分（優先顯示登記的中文姓名）
         const curEmail = (window.currentUser.email || '').trim().toLowerCase();
         const staffObj = window.STAFF_MEMBERS.find(s => s.email === curEmail);
         const staffDisplayName = staffObj?.name || window.currentUser.displayName || window.currentUser.email;
@@ -1045,7 +1125,7 @@
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
         tabSettingsBadge.innerText = "🔒";
 
-        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn'].forEach(id => {
+        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
             b.disabled = true;
@@ -1058,7 +1138,6 @@
         window.unlockSettingsFields();
 
       } else {
-        // 🌐 訪客模式
         badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
         
@@ -1079,7 +1158,7 @@
         tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
         tabSettingsBadge.innerText = "🔒";
 
-        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn'].forEach(id => {
+        ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
             b.disabled = true;
@@ -1096,7 +1175,7 @@
       window.updateKeyStatusUI();
     };
 
-    /* --- 開啟登入視窗 (可帶入身分導引) --- */
+    /* --- 開啟登入視窗 --- */
     window.openLoginModal = (targetRole = 'staff') => {
       const modal = document.getElementById('login-modal');
       const title = document.getElementById('login-modal-title');
@@ -1176,7 +1255,6 @@
         return window.showNotice('密碼過短', '為了帳號安全，請自訂至少 6 位數以上的密碼！', false);
       }
 
-      // 先行檢查此信箱是否已經被管理員加入授權名單中
       await window.loadRoleSettings();
       const isAuthAdmin = window.ADMIN_EMAILS.includes(email);
       const isAuthStaff = window.STAFF_MEMBERS.some(s => s.email === email);
@@ -1198,7 +1276,6 @@
       }
     };
 
-    // 寄送重設密碼信件
     window.sendPasswordReset = async () => {
       const email = document.getElementById('login-email').value.trim();
       if (!email || !email.includes('@')) {
@@ -1708,7 +1785,7 @@
           r.readAsDataURL(file);
         });
 
-        const selectedModel = 'gemini-2.5-flash';
+        const activeModel = await window.getAvailableGeminiModel(apiKey);
         const prompt = `請分析這張午餐菜單圖片，擷取週一、週二、週四、週五的菜色內容（週三若有請忽略）。
 菜單欄位對應說明：
 - 主食 (main)
@@ -1725,7 +1802,7 @@
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1750,7 +1827,7 @@
             }
 
             if (!res.ok || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-              throw new Error(data.error?.message || `模型 [${selectedModel}] 解析異常，請確認配額或圖檔解析度`);
+              throw new Error(data.error?.message || `模型 [${activeModel}] 解析異常，請確認配額或圖檔解析度`);
             }
 
             break;
@@ -1778,8 +1855,8 @@
             document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
           }
         });
-        if (hint) hint.innerText = `🎉 辨識成功！目前呼叫集中模型：${selectedModel}`;
-        window.showNotice('辨識完成', `✨ 菜單辨識完成！（已使用雲端模型：${selectedModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
+        if (hint) hint.innerText = `🎉 辨識成功！目前呼叫集中模型：${activeModel}`;
+        window.showNotice('辨識完成', `✨ 菜單辨識完成！（已使用雲端模型：${activeModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
       } catch (err) {
         window.showNotice('辨識失敗', err.message, false);
         if (hint) hint.innerText = `辨識失敗：${err.message}`;
@@ -1864,8 +1941,15 @@
 
     /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
-      // 依序嘗試的模型清單（優先使用 2.5 flash，備援 2.0/1.5/flash）
-      const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+      // 動態偵測最佳模型，並建立多重備援鏈 (3.8-flash, 3.7-flash, 3.5-flash)
+      const detected = await window.getAvailableGeminiModel(apiKey);
+      const candidateModels = [
+        detected,
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.5-flash",
+        "gemini-2.5-pro"
+      ].filter((v, i, a) => v && a.indexOf(v) === i);
 
       const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
 
@@ -1904,6 +1988,7 @@
           }
 
           if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
+            window._cachedGeminiModel = model;
             return {
               text: resJson.candidates[0].content.parts[0].text.trim(),
               modelUsed: model
@@ -1911,7 +1996,7 @@
           }
         } catch (e) {
           lastError = e;
-          console.warn(`Gemini 模型 [${model}] 呼叫失敗，嘗試下一個備援模型:`, e.message);
+          console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
         }
       }
 
@@ -1992,7 +2077,7 @@
                 advice = "依據營養師 AI 即時診斷建議執行。";
               } catch (aiErr) {
                 console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
-                cloudErrorReason = aiErr.message || "連線或授權異常";
+                cloudErrorReason = aiErr.message || "連線或端點異常";
               }
             } else {
               cloudErrorReason = "系統尚未設定 Gemini API Key";
@@ -2047,7 +2132,7 @@
           if (!hasRecordedData) {
             diagnosticHtml = `
               <div class="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200/60 mt-2 font-medium flex items-center gap-1.5">
-                <span>ℹ️️</span> 尚未輸入本日之人均廚餘量，無法進行統計分析。
+                <span>ℹ</span> 尚未輸入本日之人均廚餘量，無法進行統計分析。
               </div>`;
           } else if (!hasMenu) {
             diagnosticHtml = `<div class="text-xs text-slate-400 mt-2">請先於「4. 🤖 AI 菜單維護」登錄本日菜單，以利進行食材與廚餘交叉診斷。</div>`;
