@@ -77,23 +77,16 @@
           <div class="flex items-center gap-2 mt-1">
             <input type="number" id="daily-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50" value="115">
             <span class="text-xs">學年 第</span>
-            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.onDailyWeekOrDayChange()">
+            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.loadDailyRecords()">
             <span class="text-xs">週</span>
             <span id="daily-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium"></span>
           </div>
         </div>
-
-        <!-- 秤重星期選單與日期對照 -->
         <div>
-          <label class="text-xs font-semibold text-slate-500">秤重星期與日期</label>
-          <div class="flex items-center gap-2 mt-1">
-            <span id="daily-exact-date" class="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded">
-              09 / 01
-            </span>
-            <select id="daily-weekday" class="border rounded px-3 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" onchange="window.onDailyWeekOrDayChange()">
-              <option value="1">週一</option><option value="2">週二</option><option value="4">週四</option><option value="5">週五</option>
-            </select>
-          </div>
+          <label class="text-xs font-semibold text-slate-500">秤重星期</label>
+          <select id="daily-weekday" class="mt-1 block border rounded px-3 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" onchange="window.loadDailyRecords()">
+            <option value="1">週一</option><option value="2">週二</option><option value="4">週四</option><option value="5">週五</option>
+          </select>
         </div>
         
         <!-- 免秤重設定區塊 -->
@@ -155,7 +148,7 @@
           <button onclick="window.calcWeeklyReport()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded">🔄 重新讀取</button>
         </div>
         <div class="flex gap-2">
-          <button onclick="window.print()" class="px-4 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded">🖨 列印報表</button>
+          <button onclick="window.print()" class="px-4 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded">🖨️️ 列印報表</button>
           <button onclick="window.copyWeeklySpeech()" class="px-4 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded shadow">📋 複製廣播詞</button>
         </div>
       </div>
@@ -250,7 +243,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="menu-days-container"></div>
     </section>
 
-    <!-- 【頁面 5】菜單關聯異常分析 (含日期與事由備註) -->
+    <!-- 【頁面 5】菜單關聯異常分析 -->
     <section id="page-analysis" class="space-y-6 hidden">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
         <div class="flex items-center gap-3 flex-wrap">
@@ -507,7 +500,7 @@
     </div>
   </div>
 
-  <!-- 登入 Modal (支援跨平台與 LINE 提醒) -->
+  <!-- 登入 Modal (支援手機、平板與電腦全平台) -->
   <div id="login-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border">
       <div class="flex justify-between items-center mb-3">
@@ -604,6 +597,7 @@
     window.classSavedStatus = {}; 
     let isGoogleLoginInProgress = false;
 
+    // 檢測是否在 LINE / FB 內建瀏覽器環境
     const isInAppBrowser = () => {
       const ua = navigator.userAgent || navigator.vendor || window.opera || '';
       return (/Line|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua));
@@ -1141,33 +1135,6 @@
       window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存成員權限」儲存至資料庫！');
     };
 
-    /* --- 精準計算指定週次與星期的確切日期 (MM/DD) --- */
-    window.getExactDateForWeekDay = (weekNum, weekday) => {
-      const startEl = document.getElementById('sys-start');
-      const startStr = startEl ? startEl.value : '2026-08-31';
-      if (!startStr) return '';
-      const parts = startStr.split('-');
-      if (parts.length < 3) return '';
-      
-      const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-      const day = start.getDay();
-      const diffToMon = day === 0 ? -6 : (1 - day);
-      
-      const baseMonday = new Date(start);
-      baseMonday.setDate(start.getDate() + diffToMon);
-      
-      const targetMon = new Date(baseMonday);
-      targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
-      
-      const targetDay = new Date(targetMon);
-      targetDay.setDate(targetMon.getDate() + (parseInt(weekday) - 1));
-      
-      const pad = (n) => String(n).padStart(2, '0');
-      const m = pad(targetDay.getMonth() + 1);
-      const d = pad(targetDay.getDate());
-      return `${m} / ${d}`;
-    };
-
     window.getWeekDateRange = (weekNum) => {
       const startEl = document.getElementById('sys-start');
       const startStr = startEl ? startEl.value : '2026-08-31';
@@ -1199,16 +1166,12 @@
 
     window.refreshAllWeekLabels = () => {
       const dw = parseInt(document.getElementById('daily-week')?.value || 1);
-      const dWd = parseInt(document.getElementById('daily-weekday')?.value || 1);
       const mw = parseInt(document.getElementById('menu-week')?.value || 1);
       const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1);
       const aw = parseInt(document.getElementById('analysis-week')?.value || 1);
 
       const dSpan = document.getElementById('daily-week-range');
       if (dSpan) dSpan.innerText = window.getWeekDateRange(dw);
-
-      const dExact = document.getElementById('daily-exact-date');
-      if (dExact) dExact.innerText = window.getExactDateForWeekDay(dw, dWd);
 
       const mSpan = document.getElementById('menu-week-range');
       if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
@@ -1218,11 +1181,6 @@
 
       const aSpan = document.getElementById('analysis-week-range');
       if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
-    };
-
-    window.onDailyWeekOrDayChange = () => {
-      window.refreshAllWeekLabels();
-      window.loadDailyRecords();
     };
 
     /* --- 預設表格渲染防護保證 --- */
@@ -1527,6 +1485,7 @@
         }
 
         const provider = new GoogleAuthProvider();
+        // 乾淨的 Provider 配置，避免 URL 畸形引發 Google 400 錯誤
         await signInWithPopup(auth, provider); 
         window.closeLoginModal(); 
       } catch (e) { 
@@ -2160,11 +2119,10 @@
         container.innerHTML = WEEKDAYS.map(day => {
           let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
           let hasContent = d.main || d.dish1 || d.dish2 || d.vege || d.soup;
-          let exactD = window.getExactDateForWeekDay(w, day.d);
           return `
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition">
               <div class="flex items-center justify-between border-b pb-2 mb-3">
-                <h3 class="font-bold text-emerald-800 text-base">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
+                <h3 class="font-bold text-emerald-800 text-base">${day.name}午餐</h3>
                 <span class="text-[11px] px-2 py-0.5 rounded-full ${hasContent ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}">
                   ${hasContent ? '🍱 已公告' : '尚未登錄'}
                 </span>
@@ -2181,10 +2139,9 @@
       } else {
         container.innerHTML = WEEKDAYS.map(day => {
           let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
-          let exactD = window.getExactDateForWeekDay(w, day.d);
           return `
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 class="font-bold text-emerald-800 mb-2">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
+              <h3 class="font-bold text-emerald-800 mb-2">${day.name}菜單維護</h3>
               <div class="space-y-1.5 text-sm">
                 <label class="block text-xs text-slate-500 font-semibold">主食</label>
                 <input id="m-${day.d}-main" value="${d.main}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
@@ -2484,7 +2441,6 @@
       throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
     };
 
-    /* --- 菜單關聯異常分析 (支援讀取/儲存客觀事由) --- */
     window.loadOrRunAnalysis = async (forceReRun = false) => {
       const y = parseInt(document.getElementById('daily-year')?.value || 115);
       const w = parseInt(document.getElementById('analysis-week')?.value || 1);
@@ -2505,7 +2461,7 @@
           const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
           if (cacheSnap.exists() && cacheSnap.data().days) {
             const cachedData = cacheSnap.data();
-            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
+            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '');
             
             if (hint) {
               hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
@@ -2529,14 +2485,12 @@
       if (con) con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
       
       try {
-        const [dSnap, mSnap, oldSnap] = await Promise.all([
+        const [dSnap, mSnap] = await Promise.all([
           getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
-          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)),
-          getDoc(doc(db, "menu_diagnoses", cacheDocId)) // 保留先前的備註紀錄
+          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
         ]);
         const logs = dSnap.docs.map(d=>d.data());
         const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
-        const oldDays = oldSnap.exists() ? (oldSnap.data().days || {}) : {};
 
         let analysisDayResults = {};
 
@@ -2641,17 +2595,9 @@
             }
           }
 
-          // 保留先前已存在的客觀事由備註
-          const existingNote = oldDays[day.d]?.objectiveNote || '';
-          const existingAuthor = oldDays[day.d]?.noteAuthor || '';
-          const existingTime = oldDays[day.d]?.noteTime || '';
-
           analysisDayResults[day.d] = {
             hasRecordedData, hasMenu, isSpike, per, threshold,
             alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
-            objectiveNote: existingNote,
-            noteAuthor: existingAuthor,
-            noteTime: existingTime,
             menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
           };
         }
@@ -2681,7 +2627,7 @@
           if (hint) hint.innerText = "⚠️ 診斷完成（快取儲存受限）";
         }
 
-        window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
+        window.renderAnalysisCards(analysisDayResults, false, formattedDate);
 
       } catch (err) {
         if (con) con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
@@ -2693,19 +2639,13 @@
       }
     };
 
-    /* --- 渲染卡片 HTML 函式 (包含日期與事由備註操作) --- */
-    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
+    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr) => {
       const con = document.getElementById('analysis-results-container');
       if (!con) return;
       
-      const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
-
       const cardsHtml = WEEKDAYS.map(day => {
         const d = daysData[day.d] || {};
-        const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu, objectiveNote, noteAuthor, noteTime } = d;
-
-        // 動態計算當天確切日期
-        const exactDateStr = window.getExactDateForWeekDay(weekNum, day.d);
+        const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu } = d;
 
         let diagnosticHtml = '';
         if (!hasRecordedData) {
@@ -2750,46 +2690,10 @@
           ? `${menu.main || '-'}, ${menu.dish1 || '-'}, ${menu.dish2 || '-'}, ${menu.vege || '-'}, ${menu.soup || '-'}`
           : '<span class="text-slate-400">無紀錄</span>';
 
-        // 客觀事由補充說明區塊 (超標或有數據時顯現)
-        const hasSavedNote = Boolean(objectiveNote && objectiveNote.trim());
-        const noteBlockHtml = (hasRecordedData) ? `
-          <div class="mt-3 pt-3 border-t border-slate-100">
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
-                <span>📝</span> 客觀事由與補充說明 (如活動、參訪、停課等)
-              </label>
-              ${hasSavedNote ? `
-                <span class="text-[10px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
-                  ✏️ ${noteAuthor \vert{}\vert{} '工作成員'} (${noteTime || ''})
-                </span>
-              ` : ''}
-            </div>
-            <div class="flex gap-2 items-start">
-              <textarea id="note-input-${day.d}" rows="1" placeholder="填寫客觀事由（例如：本日辦理運動競賽活動，盛菜配置受活動行程影響）" ${hasSavedNote ? 'disabled' : ''} class="flex-1 text-xs border rounded-lg p-2 ${hasSavedNote ? 'bg-slate-100 text-slate-600' : 'bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500'}">${objectiveNote || ''}</textarea>
-              ${isAuthorized ? (
-                hasSavedNote ? `
-                  <button onclick="window.unlockDayNote('${day.d}')" id="note-btn-${day.d}" class="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 transition shrink-0">
-                    ✏️ 修改
-                  </button>
-                ` : `
-                  <button onclick="window.saveDayObjectiveNote('${day.d}', ${weekNum})" id="note-btn-${day.d}" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition shrink-0">
-                    💾 儲存說明
-                  </button>
-                `
-              ) : ''}
-            </div>
-          </div>
-        ` : '';
-
         return `
           <div class="p-4 bg-white border rounded-xl shadow-sm ${(hasRecordedData && isSpike && hasMenu) ? 'border-rose-300 bg-rose-50/20' : 'border-slate-100'}">
             <div class="flex justify-between items-center font-bold border-b pb-2 mb-2">
-              <span class="text-slate-800 flex items-center gap-2">
-                <span>${day.name}</span>
-                <span class="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
-                  ${exactDateStr}
-                </span>
-              </span>
+              <span class="text-slate-700">${day.name}</span>
               <span class="${!hasRecordedData ? 'text-slate-400 text-xs font-normal' : (isSpike ? 'text-rose-600 font-bold' : 'text-emerald-600 font-semibold')}">
                 ${hasRecordedData ? `${per} g/人` : '尚無秤重數據'}
               </span>
@@ -2798,74 +2702,10 @@
               🍱 <strong>菜單內容</strong>：${menuStr}
             </div>
             ${diagnosticHtml}
-            ${noteBlockHtml}
           </div>`;
       }).join('');
 
       con.innerHTML = cardsHtml;
-    };
-
-    /* --- 客觀事由儲存與修改機制 --- */
-    window.unlockDayNote = (dayNum) => {
-      const input = document.getElementById(`note-input-${dayNum}`);
-      const btn = document.getElementById(`note-btn-${dayNum}`);
-      const weekNum = parseInt(document.getElementById('analysis-week')?.value || 1);
-
-      if (input) {
-        input.removeAttribute('disabled');
-        input.className = "flex-1 text-xs border rounded-lg p-2 bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500";
-        input.focus();
-      }
-      if (btn) {
-        btn.innerText = "💾 儲存說明";
-        btn.className = "px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition shrink-0";
-        btn.setAttribute('onclick', `window.saveDayObjectiveNote('${dayNum}', ${weekNum})`);
-      }
-    };
-
-    window.saveDayObjectiveNote = async (dayNum, weekNum) => {
-      const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
-      if (!isAuthorized) {
-        return window.showNotice('權限不足', '只有管理員或工作小組可填寫補充事由！', false);
-      }
-
-      const input = document.getElementById(`note-input-${dayNum}`);
-      const btn = document.getElementById(`note-btn-${dayNum}`);
-      const noteVal = input ? input.value.trim() : '';
-
-      const y = parseInt(document.getElementById('daily-year')?.value || 115);
-      const cacheDocId = `${y}_1_${weekNum}`;
-
-      if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
-
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
-      const timeStr = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-      let authorName = '管理員';
-      if (window.userRole === 'staff') {
-        const staffObj = window.STAFF_MEMBERS.find(s => s.email === window.currentUser?.email);
-        authorName = staffObj?.name || window.currentUser?.displayName || '工作小組';
-      } else {
-        authorName = window.currentUser?.displayName || window.currentUser?.email || '系統管理員';
-      }
-
-      try {
-        const docRef = doc(db, "menu_diagnoses", cacheDocId);
-        const updatePayload = {};
-        updatePayload[`days.${dayNum}.objectiveNote`] = noteVal;
-        updatePayload[`days.${dayNum}.noteAuthor`] = authorName;
-        updatePayload[`days.${dayNum}.noteTime`] = timeStr;
-        updatePayload[`updatedAt`] = serverTimestamp();
-
-        await setDoc(docRef, updatePayload, { merge: true });
-
-        window.showNotice('儲存成功', `✅ 已成功儲存【週次第 ${weekNum} 週】的客觀事由說明！`);
-        window.loadOrRunAnalysis(false); // 重新載入快取更新畫面
-      } catch (err) {
-        window.showNotice('儲存失敗', err.message, false);
-        if (btn) { btn.disabled = false; btn.innerText = "💾 儲存說明"; }
-      }
     };
 
     /* --- 每月榮譽榜計算 --- */
@@ -2963,7 +2803,6 @@
       window.renderInitialEmptyTable();
       await window.loadSystemConfig();
       await window.loadClassSettings();
-      window.refreshAllWeekLabels();
       window.loadDailyRecords();
     })();
 
