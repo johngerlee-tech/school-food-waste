@@ -106,13 +106,14 @@
             <span>🍱 廚餘長登錄資料</span>
           </button>
 
+          <!-- 全校一鍵儲存上傳按鈕 -->
           <button onclick="window.saveAllDailyRecords()" id="save-btn" disabled class="px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition flex items-center gap-1">
             🔒 需登入方可儲存
           </button>
         </div>
       </div>
       
-      <!-- 每日清單 -->
+      <!-- 每日清單 (支援單班儲存狀態指示) -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto" id="daily-table-container">
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
@@ -122,7 +123,8 @@
               <th class="p-3">廚餘重量 (g)</th>
               <th class="p-3">用餐人數 (人)</th>
               <th class="p-3 text-right">今日人均 (g/人)</th>
-              <th class="p-3 text-center text-rose-600">班級免秤重</th>
+              <th class="p-3 text-center text-rose-600">班級停餐</th>
+              <th class="p-3 text-center w-28">操作/狀態</th>
             </tr>
           </thead>
           <tbody id="daily-rows" class="divide-y divide-slate-100"></tbody>
@@ -250,7 +252,6 @@
           <span class="text-sm font-semibold">週</span>
           <span id="analysis-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
           
-          <!-- 主要診斷 / 重新產生按鈕 -->
           <button onclick="window.loadOrRunAnalysis(true)" id="btn-run-analysis" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition flex items-center gap-1.5">
             <span id="analysis-btn-text">🚀 啟動菜單與廚餘關聯診斷</span>
           </button>
@@ -345,23 +346,23 @@
         </div>
       </div>
 
-      <!-- 【區塊 1.5】🍱 廚餘長快速登錄密碼設定 -->
+      <!-- 【區塊 1.5】🍱 廚餘長快速登錄密碼安全設定 (密碼保存在雲端資料庫) -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
         <div class="flex justify-between items-center mb-3 border-b pb-2">
           <div>
             <h2 class="text-base font-bold text-amber-800 flex items-center gap-1.5">
               <span>🍱 廚餘長快速登錄密碼設定</span>
             </h2>
-            <p class="text-xs text-slate-500">供值日生或廚餘長在免登入帳號情況下快速解鎖填報過磅數據；管理員可在此自訂修改。</p>
+            <p class="text-xs text-slate-500">此密碼僅保存在雲端資料庫中，供廚餘長或值日生在免登入帳號情況下快速驗證進入過磅登記。</p>
           </div>
           <button onclick="window.saveWasteMonitorPass()" id="waste-pass-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
             🔒 需登入
           </button>
         </div>
         <div class="max-w-md space-y-1.5">
-          <label class="block text-xs font-semibold text-slate-600">廚餘長專用通行密碼 (預設：w6341106)</label>
-          <input type="text" id="sys-waste-pass" value="w6341106" class="border border-amber-300 rounded px-3 py-1.5 text-xs w-full bg-slate-50 focus:bg-white focus:outline-amber-500 font-mono font-bold text-amber-900">
-          <p class="text-[11px] text-slate-400">儲存後將同步至雲端，每日登記畫面的「廚餘長登錄資料」按鈕將使用此密碼驗證。</p>
+          <label class="block text-xs font-semibold text-slate-600">廚餘長專用通行密碼 (雲端集中管理)</label>
+          <input type="password" id="sys-waste-pass" placeholder="輸入新的通行密碼" class="border border-amber-300 rounded px-3 py-1.5 text-xs w-full bg-slate-50 focus:bg-white focus:outline-amber-500 font-mono font-bold text-amber-900">
+          <p class="text-[11px] text-slate-400">儲存後即時生效，前台介面不會顯示任何明文密碼。</p>
         </div>
       </div>
 
@@ -414,7 +415,7 @@
     </section>
   </div>
 
-  <!-- 🍱 廚餘長專用認證 Modal -->
+  <!-- 🍱 廚餘長專用認證 Modal (移除所有預設密碼字串) -->
   <div id="waste-monitor-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
       <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
@@ -422,18 +423,18 @@
       </div>
       <h3 class="text-base font-bold text-slate-800 mb-1">廚餘長登錄認證</h3>
       <p class="text-xs text-slate-500 mb-4 leading-relaxed">
-        請輸入廚餘長認證密碼，驗證成功後將開放今日廚餘重量登錄與上傳功能。
+        請輸入廚餘長通行密碼，驗證成功後將開放今日廚餘重量登錄與上傳功能。
       </p>
       <div class="mb-4 text-left">
         <label class="block text-[11px] font-semibold text-slate-600 mb-1">通行密碼</label>
-        <input type="password" id="waste-modal-pass-input" placeholder="請輸入密碼 (預設: w6341106)" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-amber-500">
+        <input type="password" id="waste-modal-pass-input" placeholder="請輸入通行密碼" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-amber-500">
         <div id="waste-modal-err" class="text-xs text-rose-600 font-semibold mt-1.5 hidden"></div>
       </div>
       <div class="flex gap-2">
         <button onclick="window.closeWasteMonitorModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
           取消
         </button>
-        <button onclick="window.verifyWasteMonitorPass()" class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg shadow transition">
+        <button onclick="window.verifyWasteMonitorPass()" id="btn-waste-modal-submit" class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg shadow transition">
           驗證進入
         </button>
       </div>
@@ -504,12 +505,10 @@
         <button onclick="window.closeLoginModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
       </div>
 
-      <!-- 登入身分引導提示 -->
       <div id="login-modal-hint" class="text-xs p-2.5 rounded-lg mb-4 bg-slate-50 border border-slate-200 text-slate-600 leading-relaxed">
         授權成員請使用登記於系統之 Email 登入。
       </div>
 
-      <!-- Google 帳號快速登入 -->
       <button onclick="window.loginWithGoogle()" class="w-full py-2.5 px-4 border rounded-lg flex items-center justify-center gap-2 hover:bg-slate-50 text-slate-700 font-medium text-sm transition mb-4">
         <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.9c2.27-2.1 3.65-5.2 3.65-9.15z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.72-2.1-6.66-4.93H1.27v3.15C3.25 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.34 14.27c-.24-.72-.37-1.49-.37-2.27s.13-1.55.37-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.07-3.15z"/><path fill="#EA4335" d="M12 4.77c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.58l4.07 3.15c.94-2.83 3.56-4.96 6.66-4.96z"/></svg>
         使用 Google 帳號快速登入
@@ -520,7 +519,6 @@
         <div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-slate-400">或使用任何 Email 密碼</span></div>
       </div>
 
-      <!-- 任何 Email / 密碼 登入與註冊 -->
       <div class="space-y-3">
         <div>
           <label class="block text-[11px] font-semibold text-slate-500 mb-1">電子信箱</label>
@@ -531,7 +529,6 @@
           <input type="password" id="login-password" placeholder="請輸入欲設定或現有的 6 碼以上密碼" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-emerald-500">
         </div>
         
-        <!-- 操作按鈕群：首次設定密碼為翠綠色按鈕 -->
         <div class="flex gap-2 pt-2">
           <button onclick="window.loginWithEmail()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm transition">
             🔑 密碼登入
@@ -578,20 +575,19 @@
     const db = getFirestore(app);
 
     // ==========================================
-    // 🔐 預設管理者名單（初始啟動保底名單，後台可隨時動態修改）
+    // 🔐 管理者名單（保底名單，後台可隨時動態修改）
     // ==========================================
     window.ADMIN_EMAILS = [
       "johngerlee@gmail.com",
       "rodyg103022@gmail.com"
     ];
 
-    // 工作小組成員清單（格式：[{ email: '...', name: '...', canDaily: true/false }]）
     window.STAFF_MEMBERS = []; 
-
-    // 當前角色：'guest' (訪客) | 'waste_monitor' (廚餘長) | 'staff' (工作小組) | 'admin' (系統管理員)
-    window.userRole = 'guest';
+    window.userRole = 'guest'; // 'guest' | 'waste_monitor' | 'staff' | 'admin'
     window.currentStaffCanDaily = false;
-    window.wasteMonitorPass = 'w6341106'; // 預設認證密碼
+    
+    // 儲存各班當前是否為已儲存鎖定狀態
+    window.classSavedStatus = {}; 
 
     const WEEKDAYS = [{d:1, name:'週一'}, {d:2, name:'週二'}, {d:4, name:'週四'}, {d:5, name:'週五'}];
     window.CLASSES = [
@@ -604,8 +600,8 @@
     ];
     window.currentUser = null;
     window.calculatedCurrentWeek = 1;
-    window.systemThreshold = 120; // 預設 120g
-    window.cloudGeminiKey = '';   // 集中管理之雲端 Gemini API Key
+    window.systemThreshold = 120;
+    window.cloudGeminiKey = '';
     window._cachedGeminiModel = null;
     let confirmResolver = null;
     window.pendingPermissionRole = 'admin';
@@ -689,7 +685,7 @@
       }
     };
 
-    /* --- 🍱 廚餘長專用認證視窗 --- */
+    /* --- 🍱 廚餘長專用認證視窗 (資安升級：向 Firestore 即時驗證) --- */
     window.openWasteMonitorModal = () => {
       const modal = document.getElementById('waste-monitor-modal');
       const input = document.getElementById('waste-modal-pass-input');
@@ -704,23 +700,47 @@
       document.getElementById('waste-monitor-modal').classList.add('hidden');
     };
 
-    window.verifyWasteMonitorPass = () => {
+    window.verifyWasteMonitorPass = async () => {
       const input = document.getElementById('waste-modal-pass-input');
       const err = document.getElementById('waste-modal-err');
+      const submitBtn = document.getElementById('btn-waste-modal-submit');
       const val = (input?.value || '').trim();
 
-      if (val === window.wasteMonitorPass) {
-        window.userRole = 'waste_monitor';
-        window.closeWasteMonitorModal();
-        window.updateUIForRole();
-        window.loadDailyRecords();
-        window.showNotice('認證成功', '🍱 廚餘長快速登錄模式已啟動！\n您現在可以填報今日廚餘重量並點選「儲存上傳」。');
-      } else {
+      if (!val) {
+        if (err) { err.innerText = '請輸入通行密碼！'; err.classList.remove('hidden'); }
+        input?.focus();
+        return;
+      }
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = '驗證中...'; }
+
+      try {
+        const snap = await getDoc(doc(db, "system_config", "waste_monitor"));
+        let correctPass = '';
+        if (snap.exists() && snap.data().password) {
+          correctPass = snap.data().password.trim();
+        }
+
+        if (val === correctPass) {
+          window.userRole = 'waste_monitor';
+          window.closeWasteMonitorModal();
+          window.updateUIForRole();
+          window.loadDailyRecords();
+          window.showNotice('認證成功', '🍱 廚餘長快速登錄模式已啟動！\n您現在可逐班填報廚餘重量並點選「💾 儲存」。');
+        } else {
+          if (err) {
+            err.innerText = '⚠️ 密碼錯誤，請重新確認！';
+            err.classList.remove('hidden');
+          }
+          input?.focus();
+        }
+      } catch (e) {
         if (err) {
-          err.innerText = '⚠️ 密碼錯誤，請重新確認！';
+          err.innerText = `連線驗證失敗：${e.message}`;
           err.classList.remove('hidden');
         }
-        input?.focus();
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = '驗證進入'; }
       }
     };
 
@@ -757,7 +777,6 @@
         }
       });
 
-      // 班級預設人數欄位解鎖
       window.CLASSES.forEach(c => {
         const inp = document.getElementById(`set-${c.id}`);
         if (inp) {
@@ -773,10 +792,9 @@
       });
     };
 
-    /* --- 動態偵測最佳可用 Gemini 模型端點 (支援 3.8 / 3.7 / 3.5 系列) --- */
+    /* --- 動態偵測最佳可用 Gemini 模型端點 --- */
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
-      
       try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
         if (res.ok) {
@@ -801,11 +819,9 @@
       } catch (err) {
         console.warn("自動抓取可用模型清單逾時或受限，啟用保底端點:", err);
       }
-
       return "gemini-3.8-flash";
     };
 
-    /* --- 測試 Gemini API Key 連線 --- */
     window.testGeminiKey = async () => {
       const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
       if (!keyVal) {
@@ -841,12 +857,9 @@
       }
     };
 
-    /* --- 集中 Gemini API Key 讀取與儲存 --- */
     window.toggleKeyVisibility = () => {
       const input = document.getElementById('sys-gemini-key');
-      if (input) {
-        input.type = (input.type === 'password') ? 'text' : 'password';
-      }
+      if (input) input.type = (input.type === 'password') ? 'text' : 'password';
     };
 
     window.saveGeminiApiKey = async () => {
@@ -877,7 +890,6 @@
           if (localKey) window.cloudGeminiKey = localKey.trim();
         }
       } catch (e) {
-        console.warn("載入雲端 Gemini Key 失敗，檢查本機快取:", e);
         const localKey = localStorage.getItem('food_waste_gemini_key');
         if (localKey) window.cloudGeminiKey = localKey.trim();
       }
@@ -891,10 +903,7 @@
       const menuKeyInd = document.getElementById('menu-key-status-indicator');
 
       const hasKey = Boolean(window.cloudGeminiKey);
-
-      if (input && window.cloudGeminiKey) {
-        input.value = window.cloudGeminiKey;
-      }
+      if (input && window.cloudGeminiKey) input.value = window.cloudGeminiKey;
 
       if (text) {
         text.className = hasKey ? "text-[11px] text-emerald-600 font-semibold" : "text-[11px] text-slate-400 font-medium";
@@ -912,23 +921,24 @@
       }
 
       if (menuKeyInd) {
-        menuKeyInd.innerText = hasKey ? "🔑 已自動調用集中金鑰" : "⚠️️ 未設定集中金鑰";
+        menuKeyInd.innerText = hasKey ? "🔑 已自動調用集中金鑰" : "⚠ 未設定集中金鑰";
         menuKeyInd.className = hasKey ? "text-[11px] text-emerald-700 font-semibold" : "text-[11px] text-amber-600";
       }
     };
 
-    /* --- 廚餘長密碼讀取與儲存 --- */
+    /* --- 廚餘長密碼讀取與儲存 (資安保護：僅在後台可檢視編輯) --- */
     window.loadWasteMonitorPass = async () => {
       try {
         const snap = await getDoc(doc(db, "system_config", "waste_monitor"));
         if (snap.exists() && snap.data().password) {
-          window.wasteMonitorPass = snap.data().password.trim();
+          const passInp = document.getElementById('sys-waste-pass');
+          if (passInp && window.userRole === 'admin') {
+            passInp.value = snap.data().password.trim();
+          }
         }
       } catch (e) {
-        console.warn("載入廚餘長密碼失敗，維持預設:", e);
+        console.warn("載入廚餘長密碼設定失敗:", e);
       }
-      const passInp = document.getElementById('sys-waste-pass');
-      if (passInp) passInp.value = window.wasteMonitorPass;
     };
 
     window.saveWasteMonitorPass = async () => {
@@ -944,14 +954,13 @@
           updatedAt: serverTimestamp()
         }, { merge: true });
 
-        window.wasteMonitorPass = passVal;
-        window.showNotice('儲存成功', `🍱 廚餘長快速登錄密碼已更新為：${passVal}`);
+        window.showNotice('儲存成功', `🍱 廚餘長快速登錄密碼已成功更新！`);
       } catch (e) {
         window.showNotice('儲存失敗', e.message, false);
       }
     };
 
-    /* --- 雲端角色名單讀取與儲存 (Firestore 同步，支援姓名、Email 與 canDaily) --- */
+    /* --- 雲端角色名單讀取與儲存 --- */
     window.loadRoleSettings = async () => {
       try {
         const snap = await getDoc(doc(db, "system_roles", "main"));
@@ -1110,7 +1119,6 @@
       window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存成員權限」儲存至資料庫！');
     };
 
-    /* --- 日期區間計算核心工具 (週一至週五) --- */
     window.getWeekDateRange = (weekNum) => {
       const startStr = document.getElementById('sys-start')?.value || '2026-08-31';
       if (!startStr) return '';
@@ -1158,11 +1166,10 @@
       if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
     };
 
-    /* --- Auth State & 三層權限判斷 (訪客 / 廚餘長 / 工作小組 / 管理員) --- */
+    /* --- Auth State & 三層權限判斷 --- */
     onAuthStateChanged(auth, async (user) => {
       await window.loadRoleSettings();
       await window.loadGeminiApiKey();
-      await window.loadWasteMonitorPass();
 
       if (user) {
         const userEmail = (user.email || "").trim().toLowerCase();
@@ -1172,6 +1179,7 @@
         if (isAdmin) {
           window.userRole = 'admin';
           window.currentStaffCanDaily = true;
+          await window.loadWasteMonitorPass();
         } else if (staffObj) {
           window.userRole = 'staff';
           window.currentStaffCanDaily = Boolean(staffObj.canDaily);
@@ -1217,14 +1225,13 @@
       const role = window.userRole;
       const canEditDaily = (role === 'admin') || (role === 'waste_monitor') || (role === 'staff' && window.currentStaffCanDaily);
 
-      // 每日登記儲存按鈕狀態處理
       const saveBtn = document.getElementById('save-btn');
       if (saveBtn) {
         if (canEditDaily) {
           saveBtn.disabled = false;
           saveBtn.removeAttribute('disabled');
           saveBtn.className = "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition flex items-center gap-1";
-          saveBtn.innerText = '☁️ 儲存上傳';
+          saveBtn.innerText = '☁️ 儲存上傳當日全部班級';
         } else {
           saveBtn.disabled = true;
           saveBtn.setAttribute('disabled', 'true');
@@ -1387,7 +1394,6 @@
       window.updateKeyStatusUI();
     };
 
-    /* --- 開啟登入視窗 --- */
     window.openLoginModal = (targetRole = 'staff') => {
       const modal = document.getElementById('login-modal');
       const title = document.getElementById('login-modal-title');
@@ -1397,7 +1403,7 @@
       if (targetRole === 'staff') {
         title.innerHTML = `👥 工作小組登入`;
         hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-indigo-50 border border-indigo-100 text-indigo-800 leading-relaxed";
-        hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用（如 Yahoo/教育局信箱），請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
+        hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用，請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
       } else {
         title.innerHTML = `🔐 後臺管理登入`;
         hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-emerald-50 border border-emerald-100 text-emerald-800 leading-relaxed";
@@ -1412,7 +1418,6 @@
 
     window.closeLoginModal = () => document.getElementById('login-modal').classList.add('hidden');
     
-    // Google 快速登入
     window.loginWithGoogle = async () => { 
       try { 
         await signInWithPopup(auth, new GoogleAuthProvider()); 
@@ -1424,7 +1429,6 @@
       } 
     };
 
-    // 任何 Email 密碼登入
     window.loginWithEmail = async () => { 
       const email = document.getElementById('login-email').value.trim();
       const pwd = document.getElementById('login-password').value;
@@ -1447,7 +1451,6 @@
       } 
     };
 
-    // 任何 Email 首次設定密碼 (註冊)
     window.registerWithEmail = async () => {
       const emailEl = document.getElementById('login-email');
       const pwdEl = document.getElementById('login-password');
@@ -1456,15 +1459,11 @@
 
       if (!email || !email.includes('@')) {
         emailEl.focus();
-        return window.showNotice('請先輸入信箱', '請先於上方欄位填寫您的電子信箱（如 Yahoo、教育局信箱等）！', false);
+        return window.showNotice('請先輸入信箱', '請先於上方欄位填寫您的電子信箱！', false);
       }
-      if (!pwd) {
+      if (!pwd || pwd.length < 6) {
         pwdEl.focus();
-        return window.showNotice('請輸入自訂密碼', '請在密碼欄位輸入您想要設定的密碼（至少 6 位數）！', false);
-      }
-      if (pwd.length < 6) {
-        pwdEl.focus();
-        return window.showNotice('密碼過短', '為了帳號安全，請自訂至少 6 位數以上的密碼！', false);
+        return window.showNotice('密碼過短', '請在密碼欄位輸入至少 6 位數以上的密碼！', false);
       }
 
       await window.loadRoleSettings();
@@ -1502,7 +1501,7 @@
       }
     };
 
-    /* --- Navigation & 權限保護路由 --- */
+    /* --- Navigation & 路由 --- */
     window.switchTab = (tabId) => {
       const role = window.userRole;
 
@@ -1546,7 +1545,7 @@
           analysisInput.value = pastWeek;
         }
         window.updateKeyStatusUI();
-        window.loadOrRunAnalysis(false); // 預設優先讀取快取
+        window.loadOrRunAnalysis(false);
       }
       if (tabId === 'monthly') {
         const curYear = document.getElementById('sys-year')?.value || 115;
@@ -1609,7 +1608,6 @@
           window.calculatedCurrentWeek = currentWeek;
 
           const pastWeek = Math.max(1, currentWeek - 1);
-
           document.getElementById('daily-year').value = document.getElementById('sys-year').value;
           document.getElementById('daily-week').value = currentWeek;
           document.getElementById('menu-week').value = currentWeek;
@@ -1647,7 +1645,6 @@
       } catch (e) { window.showNotice('儲存失敗', e.message, false); }
     };
 
-    /* --- CSV Import --- */
     window.downloadCsvTemplate = () => {
       const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n" +
                          "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,201,1500,24\n";
@@ -1718,7 +1715,6 @@
       reader.readAsText(file);
     };
 
-    /* --- 班級預設人數管理 --- */
     window.loadClassSettings = async () => {
       try {
         const snap = await getDocs(collection(db, "class_settings"));
@@ -1751,7 +1747,7 @@
       } catch (e){ window.showNotice('更新失敗', e.message, false); }
     };
 
-    /* --- Daily Entry --- */
+    /* --- Daily Entry (支援單班儲存、已存變灰、修改解鎖) --- */
     window.toggleSkipDay = () => {
       const isSkipped = document.getElementById('daily-skip-cb').checked;
       const tableCon = document.getElementById('daily-table-container');
@@ -1798,7 +1794,7 @@
       window.refreshAllWeekLabels();
 
       const tbody = document.getElementById('daily-rows');
-      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">讀取中...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">讀取中...</td></tr>';
       
       const hint = document.getElementById('today-menu-hint');
       try {
@@ -1823,6 +1819,8 @@
         let map = {}; snap.forEach(d => map[d.data().classId] = d.data());
         
         const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
+        window.classSavedStatus = {}; // 重設儲存快取狀態
+
         tbody.innerHTML = window.CLASSES.map(c => {
           let rec = map[c.id] || {};
           let isClassSkipped = rec.isSkipped || false;
@@ -1830,19 +1828,46 @@
           let count = rec.eaterCount || c.defaultCount;
           let per = (w !== '' && count > 0) ? (w/count).toFixed(1) : '-';
           
-          let rowHtml = `
-            <tr>
-              <td class="p-3">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
-              <td class="p-3"><input type="number" id="w-${c.id}" value="${isClassSkipped ? '' : w}" oninput="window.calcRow('${c.id}')" ${!canEdit || isClassSkipped ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isClassSkipped ? 'bg-slate-100' : ''}"> g</td>
-              <td class="p-3"><input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${!canEdit || isClassSkipped ? 'disabled' : ''} class="border rounded px-2 w-16 text-right ${isClassSkipped ? 'bg-slate-100' : ''}"> 人</td>
+          // 若雲端已有數據，預設為「已儲存」狀態
+          let isAlreadySaved = (w !== '' || isClassSkipped);
+          window.classSavedStatus[c.id] = isAlreadySaved;
+
+          const rowBgClass = isAlreadySaved ? 'bg-slate-100/70 text-slate-500' : 'bg-white hover:bg-emerald-50/20';
+
+          return `
+            <tr id="row-${c.id}" class="${rowBgClass} transition">
+              <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
+              <td class="p-3 font-semibold">${c.name}</td>
+              <td class="p-3">
+                <input type="number" id="w-${c.id}" value="${isClassSkipped ? '' : w}" oninput="window.calcRow('${c.id}')" ${!canEdit || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> g
+              </td>
+              <td class="p-3">
+                <input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${!canEdit || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-16 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> 人
+              </td>
               <td class="p-3 text-right font-bold ${isClassSkipped ? 'text-slate-400' : 'text-emerald-700'}" id="per-${c.id}">${isClassSkipped ? '停餐' : per}</td>
               <td class="p-3 text-center">
-                <input type="checkbox" id="skip-row-${c.id}" onchange="window.toggleRowSkip('${c.id}')" ${isClassSkipped ? 'checked' : ''} ${!canEdit ? 'disabled' : ''} class="w-4 h-4 text-rose-600 rounded cursor-pointer">
+                <input type="checkbox" id="skip-row-${c.id}" onchange="window.toggleRowSkip('${c.id}')" ${isClassSkipped ? 'checked' : ''} ${!canEdit || isAlreadySaved ? 'disabled' : ''} class="w-4 h-4 text-rose-600 rounded cursor-pointer">
+              </td>
+              <td class="p-3 text-center">
+                ${canEdit ? (
+                  isAlreadySaved ? `
+                    <button onclick="window.toggleEditRow('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition">
+                      ✏️ 修改
+                    </button>
+                  ` : `
+                    <button onclick="window.saveSingleClassRecord('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
+                      💾 儲存
+                    </button>
+                  `
+                ) : `
+                  <span class="text-xs text-slate-400">唯讀</span>
+                `}
               </td>
             </tr>`;
-          return rowHtml;
         }).join('');
-      } catch (e) { tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-red-500">讀取失敗</td></tr>'; }
+      } catch (e) { 
+        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-red-500">讀取失敗：${e.message}</td></tr>`; 
+      }
     };
 
     window.calcRow = (id) => {
@@ -1851,6 +1876,93 @@
       document.getElementById(`per-${id}`).innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
     };
 
+    /* --- 單班儲存邏輯 (儲存後變灰，解鎖變綠) --- */
+    window.saveSingleClassRecord = async (classId) => {
+      const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
+      if (!canEdit) return;
+
+      const year = parseInt(document.getElementById('daily-year').value);
+      const week = parseInt(document.getElementById('daily-week').value);
+      const weekday = parseInt(document.getElementById('daily-weekday').value);
+      const cInfo = window.CLASSES.find(c => c.id === classId);
+      if (!cInfo) return;
+
+      const btn = document.getElementById(`btn-action-${classId}`);
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
+
+      const isRowSkipped = document.getElementById(`skip-row-${classId}`).checked;
+      const docId = `${year}_1_${week}_${weekday}_${classId}`;
+
+      try {
+        if (isRowSkipped) {
+          await setDoc(doc(db, "daily_records", docId), {
+            academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
+            isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+          }, { merge: true });
+        } else {
+          let wStr = document.getElementById(`w-${classId}`).value;
+          let w = parseFloat(wStr);
+          let count = parseInt(document.getElementById(`c-${classId}`).value) || cInfo.defaultCount;
+          
+          if (wStr === '' || isNaN(w)) {
+            if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
+            return window.showNotice('提示', `請先輸入【${cInfo.name}】的廚餘重量！`, false);
+          }
+
+          let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
+          await setDoc(doc(db, "daily_records", docId), {
+            academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
+            isSkipped: false, weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+
+        // 視覺化切換：變灰鎖定
+        window.classSavedStatus[classId] = true;
+        const row = document.getElementById(`row-${classId}`);
+        const wInp = document.getElementById(`w-${classId}`);
+        const cInp = document.getElementById(`c-${classId}`);
+        const sCb = document.getElementById(`skip-row-${classId}`);
+
+        if (row) row.className = "bg-slate-100/70 text-slate-500 transition";
+        if (wInp) { wInp.disabled = true; wInp.className = "border rounded px-2 w-24 text-right bg-slate-200/60 text-slate-600"; }
+        if (cInp) { cInp.disabled = true; cInp.className = "border rounded px-2 w-16 text-right bg-slate-200/60 text-slate-600"; }
+        if (sCb) sCb.disabled = true;
+
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = "✏️ 修改";
+          btn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition";
+          btn.setAttribute('onclick', `window.toggleEditRow('${classId}')`);
+        }
+
+      } catch (err) {
+        window.showNotice('儲存失敗', `權限不足或連線異常：${err.message}`, false);
+        if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
+      }
+    };
+
+    /* --- 解鎖單班修改 --- */
+    window.toggleEditRow = (classId) => {
+      window.classSavedStatus[classId] = false;
+      const row = document.getElementById(`row-${classId}`);
+      const wInp = document.getElementById(`w-${classId}`);
+      const cInp = document.getElementById(`c-${classId}`);
+      const sCb = document.getElementById(`skip-row-${classId}`);
+      const btn = document.getElementById(`btn-action-${classId}`);
+
+      if (row) row.className = "bg-white hover:bg-emerald-50/20 transition";
+      if (wInp) { wInp.disabled = false; wInp.className = "border rounded px-2 w-24 text-right bg-white"; wInp.focus(); }
+      if (cInp) { cInp.disabled = false; cInp.className = "border rounded px-2 w-16 text-right bg-white"; }
+      if (sCb) sCb.disabled = false;
+
+      if (btn) {
+        btn.innerText = "💾 儲存";
+        btn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition";
+        btn.setAttribute('onclick', `window.saveSingleClassRecord('${classId}')`);
+      }
+    };
+
+    /* --- 全校一鍵儲存上傳當日全部班級 --- */
     window.saveAllDailyRecords = async () => {
       const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
       if (!canEdit) return;
@@ -1859,6 +1971,9 @@
       const week = parseInt(document.getElementById('daily-week').value);
       const weekday = parseInt(document.getElementById('daily-weekday').value);
       const isSkipped = document.getElementById('daily-skip-cb').checked;
+
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = "⏳ 儲存中..."; }
 
       try {
         await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
@@ -1884,8 +1999,14 @@
           });
           await Promise.all(promises); 
         }
-        window.showNotice('儲存成功', isSkipped ? '🚫 已將本日設定為停餐/免秤重並儲存！' : '✅ 廚餘數據儲存成功！');
-      } catch (e) { window.showNotice('儲存失敗', e.message, false); }
+
+        window.showNotice('儲存成功', isSkipped ? '🚫 已將本日設定為停餐/免秤重並儲存！' : '✅ 當日全校廚餘數據已全數儲存完成！');
+        window.loadDailyRecords();
+      } catch (e) { 
+        window.showNotice('儲存失敗', `儲存異常：${e.message}`, false); 
+      } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "☁️ 儲存上傳當日全部班級"; }
+      }
     };
 
     /* --- Menu Mgmt & AI Recognition --- */
@@ -2153,7 +2274,6 @@
       document.body.removeChild(textArea);
     };
 
-    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
       const candidateModels = [
@@ -2193,7 +2313,6 @@
           });
 
           const resJson = await response.json();
-
           if (!response.ok || resJson.error) {
             const errDetail = resJson.error?.message || `HTTP ${response.status}`;
             throw new Error(`[${model}] ${errDetail}`);
@@ -2215,7 +2334,6 @@
       throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
     };
 
-    /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構) --- */
     window.loadOrRunAnalysis = async (forceReRun = false) => {
       const y = parseInt(document.getElementById('daily-year').value);
       const w = parseInt(document.getElementById('analysis-week').value);
@@ -2230,7 +2348,6 @@
 
       const cacheDocId = `${y}_1_${w}`;
 
-      // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
       if (!forceReRun) {
         con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
         try {
@@ -2255,10 +2372,9 @@
         }
       }
 
-      // 2. 若無快取或管理者點擊「重新執行」，則啟動運算
-      if (btn) { btn.disabled = true; }
-      if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
-      if (hint) { hint.innerText = "正在執行即時運算..."; }
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.innerText = "⏳ 交叉診斷中...";
+      if (hint) hint.innerText = "正在執行即時運算...";
       con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
       
       try {
@@ -2309,7 +2425,6 @@
             const midAvg = calcStageAvg('中年級');
             const highAvg = calcStageAvg('高年級');
 
-            // 呼叫雲端 Gemini LLM 深度診斷
             if (window.cloudGeminiKey) {
               try {
                 const aiResult = await window.callGeminiMenuDiagnosis(
@@ -2329,7 +2444,6 @@
               cloudErrorReason = "系統尚未設定集中 Gemini API Key";
             }
 
-            // 在地專家啟發式推論引擎保底
             if (!aiDeduction) {
               let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
               let specificAdvice = '';
@@ -2381,7 +2495,6 @@
           };
         }
 
-        // 3. 儲存快取至 Firestore (menu_diagnoses)
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -2404,23 +2517,21 @@
           }
         } catch (saveErr) {
           console.warn("診斷結果存入快取資料庫失敗:", saveErr);
-          if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
+          if (hint) hint.innerText = "⚠️ 診斷完成（快取儲存受限）";
         }
 
-        // 4. 渲染畫面
         window.renderAnalysisCards(analysisDayResults, false, formattedDate);
 
       } catch (err) {
         con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
       } finally {
-        if (btn) { btn.disabled = false; }
+        if (btn) btn.disabled = false;
         if (btnText) {
           btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
         }
       }
     };
 
-    /* --- 渲染卡片 HTML 函式 --- */
     window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr) => {
       const con = document.getElementById('analysis-results-container');
       
@@ -2489,7 +2600,7 @@
       con.innerHTML = cardsHtml;
     };
 
-    /* --- 每月榮譽榜計算 (前端精確過濾) --- */
+    /* --- 每月榮譽榜計算 --- */
     window.calcMonthlyReport = async () => {
       const yearInput = document.getElementById('monthly-year') || document.getElementById('daily-year') || document.getElementById('sys-year');
       const y = parseInt(yearInput?.value) || 115;
@@ -2570,7 +2681,6 @@
         }).join('');
 
       } catch (err) {
-        console.error("每月榮譽榜計算異常:", err);
         tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">❌ 彙整數據失敗：${err.message}</td></tr>`;
         if (hint) hint.innerText = '讀取發生錯誤';
       }
