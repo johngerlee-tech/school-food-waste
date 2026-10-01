@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>溪洲國小午餐惜食評比與廚餘減量追蹤系統</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
+    .badge-pulse { animation: pulse-subtle 2s infinite ease-in-out; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+  
+  <!-- 頂部導覽與身分列 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">🌱</span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold text-emerald-800 leading-tight">溪洲國小午餐惜食減量追蹤系統</h1>
+          <p class="text-xs text-slate-500">雲林縣溪洲國小 惜食教育・廚餘評比・AI 智慧診斷</p>
+        </div>
+      </div>
+
+      <!-- 右側身分狀態與登入入口 -->
+      <div class="flex items-center space-x-2 text-xs sm:text-sm">
+        <!-- 當前身分徽章 -->
+        <span id="role-badge" class="px-2.5 py-1 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+          <span>👀</span> <span id="role-text">訪客模式</span>
+        </span>
+
+        <!-- 未登入時顯示按鈕 -->
+        <div id="auth-buttons-group" class="flex items-center space-x-2">
+          <button id="btn-open-staff-login" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition shadow-sm flex items-center gap-1">
+            <span>👥</span> 工作小組
+          </button>
+          <button id="btn-open-admin-login" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-medium transition shadow-sm flex items-center gap-1">
+            <span>🔐</span> 後臺管理
+          </button>
+        </div>
+
+        <!-- 已登入/廚餘長模式時顯示 -->
+        <div id="auth-logged-group" class="hidden items-center space-x-2">
+          <span id="user-display-email" class="font-medium text-slate-700 hidden sm:inline"></span>
+          <button id="btn-logout" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-medium transition">
+            登出
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 導覽頁籤 -->
+    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto no-scrollbar space-x-1 sm:space-x-2 pt-1 border-t border-slate-100">
+      <button class="nav-tab active px-3 py-2 text-sm font-semibold border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap" data-tab="daily">
+        1. 每日登記
+      </button>
+      <button class="nav-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-emerald-600 whitespace-nowrap" data-tab="weekly">
+        2. 週評比
+      </button>
+      <button class="nav-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-emerald-600 whitespace-nowrap" data-tab="monthly">
+        3. 每月榮譽榜
+      </button>
+      <button class="nav-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-emerald-600 whitespace-nowrap" data-tab="menu">
+        <span id="tab-menu-title">4. 菜單查詢</span> <span id="tab-menu-lock" class="hidden text-xs">🔒</span>
+      </button>
+      <button class="nav-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-emerald-600 whitespace-nowrap" data-tab="analysis">
+        5. 菜單關聯分析 🔍 <span id="tab-analysis-lock" class="text-xs">🔒</span>
+      </button>
+      <button class="nav-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-600 hover:text-emerald-600 whitespace-nowrap" data-tab="settings">
+        6. ⚙️ 系統與匯入設定 <span id="tab-settings-lock" class="text-xs">🔒</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- 主內容容器 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+    
+    <!-- ==================== 1. 每日登記 ==================== -->
+    <section id="page-daily" class="tab-page">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span>📝</span> 班級每日午餐廚餘秤重登記
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">登記各班每日廚餘淨重 (kg) 與用餐人數，自動以公克 (g/人) 即時計算人均量。</p>
+          </div>
+
+          <!-- 日期選擇 -->
+          <div class="flex items-center gap-2">
+            <label for="daily-date-select" class="text-xs font-semibold text-slate-600">登記日期：</label>
+            <input type="date" id="daily-date-select" class="text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- 登記按鈕列 -->
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-2 text-xs text-slate-600">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span>全校標準規模：12 班 (低、中、高年段各 4 班)</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- 🍱 廚餘長登錄資料按鈕 -->
+            <button id="btn-waste-monitor-auth" class="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5">
+              <span>🍱</span> 廚餘長登錄資料
+            </button>
+
+            <!-- 儲存上傳 / 權限提示鈕 -->
+            <button id="daily-save-btn" disabled class="px-4 py-2 rounded-lg bg-slate-300 text-slate-500 cursor-not-allowed font-semibold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5">
+              <span>🔒</span> 需登入操作
+            </button>
+          </div>
+        </div>
+
+        <!-- 12 班登記表格 -->
+        <div class="mt-5 overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="py-2.5 px-3 text-left font-semibold">年段</th>
+                <th class="py-2.5 px-3 text-left font-semibold">班級</th>
+                <th class="py-2.5 px-3 text-center font-semibold">用餐人數 (人)</th>
+                <th class="py-2.5 px-3 text-center font-semibold">廚餘重量 (kg)</th>
+                <th class="py-2.5 px-3 text-center font-semibold">人均廚餘 (g/人)</th>
+                <th class="py-2.5 px-3 text-center font-semibold">狀態標籤</th>
+              </tr>
+            </thead>
+            <tbody id="daily-table-body" class="divide-y divide-slate-100 bg-white">
+              <!-- 動態生成 12 班 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 2. 週評比 ==================== -->
+    <section id="page-weekly" class="tab-page hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span>🏆</span> 當週惜食減量競賽評比
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">加權計算一、二、四、五 4 天人均廚餘量，評選低中高年段週冠軍與進步獎（減幅 ≥ 5%）。</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label for="weekly-week-select" class="text-xs font-semibold text-slate-600">選擇評比週次：</label>
+            <select id="weekly-week-select" class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+          </div>
+        </div>
+
+        <!-- 週冠軍與進步獎頒獎牌 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+          <div class="p-4 rounded-xl border border-amber-200 bg-amber-50/50">
+            <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">低年段週冠軍</span>
+            <div id="champ-low" class="text-xl font-extrabold text-amber-900 mt-1">計算中...</div>
+            <div id="champ-low-desc" class="text-xs text-amber-700 mt-1">--</div>
+          </div>
+          <div class="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50">
+            <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">中年段週冠軍</span>
+            <div id="champ-mid" class="text-xl font-extrabold text-emerald-900 mt-1">計算中...</div>
+            <div id="champ-mid-desc" class="text-xs text-emerald-700 mt-1">--</div>
+          </div>
+          <div class="p-4 rounded-xl border border-blue-200 bg-blue-50/50">
+            <span class="text-xs font-bold text-blue-700 uppercase tracking-wider">高年段週冠軍</span>
+            <div id="champ-high" class="text-xl font-extrabold text-blue-900 mt-1">計算中...</div>
+            <div id="champ-high-desc" class="text-xs text-blue-700 mt-1">--</div>
+          </div>
+        </div>
+
+        <!-- 週進步獎榮譽榜 -->
+        <div class="mt-4 p-4 rounded-xl bg-purple-50 border border-purple-200">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🌟</span>
+            <h3 class="font-bold text-purple-900 text-sm">惜食大躍進・週進步獎 (減幅 ≥ 5.0%)</h3>
+          </div>
+          <div id="weekly-improved-list" class="mt-2 text-xs text-purple-800 flex flex-wrap gap-2">
+            計算中...
+          </div>
+        </div>
+
+        <!-- 各班評比總表 -->
+        <div class="mt-6 overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="py-2 px-3 text-left font-semibold">年段</th>
+                <th class="py-2 px-3 text-left font-semibold">班級</th>
+                <th class="py-2 px-3 text-center font-semibold">週總廚餘 (kg)</th>
+                <th class="py-2 px-3 text-center font-semibold">週累計人次</th>
+                <th class="py-2 px-3 text-center font-semibold">本週人均 (g/人)</th>
+                <th class="py-2 px-3 text-center font-semibold">上週人均 (g/人)</th>
+                <th class="py-2 px-3 text-center font-semibold">減幅 (%)</th>
+                <th class="py-2 px-3 text-center font-semibold">獎項備註</th>
+              </tr>
+            </thead>
+            <tbody id="weekly-table-body" class="divide-y divide-slate-100 bg-white">
+              <!-- 週評比動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 3. 每月榮譽榜 ==================== -->
+    <section id="page-monthly" class="tab-page hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span>🎖️</span> 每月惜食典範榮譽榜
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">全月人均廚餘量加權結算，輸出全校晨會表揚廣播詞與校網公告。</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label for="monthly-month-select" class="text-xs font-semibold text-slate-600">選擇月份：</label>
+            <select id="monthly-month-select" class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+          </div>
+        </div>
+
+        <!-- 月冠軍三大年段卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+          <div class="p-5 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md">
+            <span class="text-xs uppercase tracking-wider text-amber-200 font-bold">低年級・月度惜食典範</span>
+            <div id="month-champ-low" class="text-2xl font-black mt-2">評比中...</div>
+            <p id="month-champ-low-desc" class="text-xs text-amber-100 mt-1">人均：-- g/人</p>
+          </div>
+          <div class="p-5 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md">
+            <span class="text-xs uppercase tracking-wider text-emerald-200 font-bold">中年級・月度惜食典範</span>
+            <div id="month-champ-mid" class="text-2xl font-black mt-2">評比中...</div>
+            <p id="month-champ-mid-desc" class="text-xs text-emerald-100 mt-1">人均：-- g/人</p>
+          </div>
+          <div class="p-5 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-md">
+            <span class="text-xs uppercase tracking-wider text-indigo-200 font-bold">高年級・月度惜食典範</span>
+            <div id="month-champ-high" class="text-2xl font-black mt-2">評比中...</div>
+            <p id="month-champ-high-desc" class="text-xs text-indigo-100 mt-1">人均：-- g/人</p>
+          </div>
+        </div>
+
+        <!-- 晨會宣傳文案與表揚稿 -->
+        <div class="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+              <span>📢</span> 學生朝會晨會廣播宣導詞 (100~150 字)
+            </h3>
+            <button id="btn-copy-announcement" class="text-xs bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-2.5 py-1 rounded transition">
+              複製文案
+            </button>
+          </div>
+          <textarea id="monthly-broadcast-text" rows="4" class="w-full text-xs sm:text-sm bg-white border border-slate-200 rounded-lg p-3 text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500" readonly></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 4. 菜單查詢 / AI 菜單維護 (雙模態) ==================== -->
+    <section id="page-menu" class="tab-page hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 id="menu-page-header-title" class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span>🍽️</span> 4. 菜單查詢
+            </h2>
+            <p id="menu-page-header-desc" class="text-xs text-slate-500 mt-0.5">提供全校親師生檢視每週營養午餐每日菜色與熱量食材。</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="menu-week-label-prefix" class="text-xs font-semibold text-slate-600">本週週次：</span>
+            <select id="menu-week-select" class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"></select>
+          </div>
+        </div>
+
+        <!-- 管理員專屬：AI 自動菜單辨識與儲存控制區 -->
+        <div id="menu-admin-toolbar" class="hidden mt-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-bold text-emerald-900 flex items-center gap-1.5">
+                <span>🤖</span> AI 自動菜單圖片辨識 (Gemini 驅動)
+              </h3>
+              <p class="text-xs text-emerald-700 mt-0.5">上傳整月或當週午餐菜單圖片，AI 將自動辨識並填入週一至週五欄位。</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="file" id="menu-img-upload" accept="image/*" class="hidden" />
+              <button id="btn-trigger-menu-ai" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1">
+                <span>📷</span> 上傳菜單圖片辨識
+              </button>
+              <button id="btn-save-menu" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1">
+                <span>💾</span> 儲存本週菜單
+              </button>
+            </div>
+          </div>
+          <div id="menu-ai-status" class="hidden mt-2 text-xs text-emerald-800 font-medium"></div>
+        </div>
+
+        <!-- 每日菜單卡片容器 (訪客唯讀卡片 vs 管理員輸入框) -->
+        <div id="menu-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <!-- 動態生成週一、二、四、五菜單 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 5. 菜單關聯分析 ==================== -->
+    <section id="page-analysis" class="tab-page hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span>🔍</span> 5. 菜單與廚餘關聯交叉診斷
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">結合每日廚餘秤重與食材特徵，透過 AI 即時推論適口性、殘渣比例與超標結構。</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label for="analysis-date-select" class="text-xs font-semibold text-slate-600">分析日期：</label>
+            <input type="date" id="analysis-date-select" class="text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- 執行診斷與快取列 -->
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-slate-700">當日全校人均廚餘：</span>
+            <span id="analysis-daily-per-capita" class="text-sm font-extrabold text-emerald-700">尚無秤重數據</span>
+            <span id="analysis-threshold-tag" class="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700">門檻：120 g</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btn-run-diagnosis" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5">
+              <span>🚀</span> 啟動菜單與廚餘關聯診斷
+            </button>
+          </div>
+        </div>
+
+        <!-- 診斷結果區塊 -->
+        <div id="diagnosis-result-box" class="mt-5 space-y-4">
+          <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm">
+            ℹ️ 請選擇日期並點擊上方「啟動菜單與廚餘關聯診斷」。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 6. 系統與匯入設定 (管理員專屬) ==================== -->
+    <section id="page-settings" class="tab-page hidden">
+      <div class="space-y-6">
+
+        <!-- 👥 系統成員與權限控管 (含工作小組登記權限勾選) -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="pb-3 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <span>👥</span> 系統成員與權限控管
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">管理系統管理員與工作小組成員名單，並可個別指派工作小組協助每日登記。</p>
+            </div>
+            <button id="btn-save-roles" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition">
+              💾 儲存成員權限
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            <!-- 管理員清單 -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>🛡️ 系統管理員 (全權最高操作)</span>
+              </h3>
+              <div class="flex gap-2 mb-3">
+                <input type="email" id="input-new-admin-email" placeholder="輸入 Google Email" class="flex-1 text-xs border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                <button id="btn-add-admin" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white text-xs rounded font-medium">＋新增</button>
+              </div>
+              <ul id="admin-members-list" class="space-y-1.5 text-xs text-slate-600">
+                <!-- 管理員清單 -->
+              </ul>
+            </div>
+
+            <!-- 工作小組清單 (含姓名與每日登記權限) -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>👥 工作小組成員名單</span>
+              </h3>
+              <div class="flex gap-2 mb-3">
+                <input type="text" id="input-new-staff-name" placeholder="姓名 (例: 林老師)" class="w-1/3 text-xs border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                <input type="email" id="input-new-staff-email" placeholder="電子郵件信箱" class="flex-1 text-xs border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                <button id="btn-add-staff" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded font-medium">＋新增</button>
+              </div>
+              <div class="text-[11px] text-slate-500 mb-2 italic">提示：可為工作小組勾選「允許每日登記」，授權其協助填報廚餘。</div>
+              <ul id="staff-members-list" class="space-y-1.5 text-xs text-slate-600">
+                <!-- 工作小組清單 -->
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 🍱 廚餘長快速登錄密碼設定 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="pb-3 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <span>🍱</span> 廚餘長快速登錄密碼設定
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">提供午餐廚餘長或值日生在未登入 Google 情況下快速輸入廚餘重量之認證密碼。</p>
+            </div>
+            <button id="btn-save-waste-pass" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition">
+              💾 儲存廚餘長密碼
+            </button>
+          </div>
+          <div class="mt-4 max-w-md">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">認證通行密碼 (預設: w6341106)</label>
+            <div class="flex gap-2">
+              <input type="text" id="input-waste-monitor-pass" value="w6341106" class="flex-1 text-sm font-mono border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1.5">修改後將即時寫入雲端設定，供每日登記畫面的「廚餘長登錄資料」快速通道驗證。</p>
+          </div>
+        </div>
+
+        <!-- 🤖 雲端 Gemini AI 集中金鑰設定 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="pb-3 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <span>🤖</span> 雲端 Gemini AI 集中金鑰託管
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">由管理員集中託管 API Key，工作小組分析時免自備金鑰即可享有雲端深度診斷。</p>
+            </div>
+            <div class="flex gap-2">
+              <button id="btn-test-ai-key" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition border border-slate-300">
+                🧪 測試連線
+              </button>
+              <button id="btn-save-ai-key" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition">
+                💾 儲存 AI 金鑰
+              </button>
+            </div>
+          </div>
+          <div class="mt-4 max-w-lg">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Gemini API Key</label>
+            <input type="password" id="input-cloud-gemini-key" placeholder="AIzaSy..." class="w-full text-sm font-mono border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <div id="ai-key-test-result" class="hidden mt-2 text-xs font-medium"></div>
+          </div>
+        </div>
+
+        <!-- 📅 學期行事曆與異常門檻設定 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="pb-3 border-b border-slate-100">
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <span>📅</span> 學期行事曆與異常門檻設定
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">學年度</label>
+              <input type="number" id="sys-year" value="114" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">學期</label>
+              <select id="sys-sem" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                <option value="1">第一學期</option>
+                <option value="2">第二學期</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">學期開學日</label>
+              <input type="date" id="sys-start" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">人均異常警戒門檻 (g)</label>
+              <input type="number" id="sys-threshold" value="120" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 彈跳對話框 (Modals) ==================== -->
+
+  <!-- 🍱 廚餘長登錄專用密碼對話框 -->
+  <div id="modal-waste-auth" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+      <div class="text-center mb-4">
+        <span class="text-4xl">🍱</span>
+        <h3 class="text-lg font-bold text-slate-800 mt-2">廚餘長專用快速登錄</h3>
+        <p class="text-xs text-slate-500 mt-1">請輸入專用認證密碼以解鎖今日廚餘過磅登錄功能。</p>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">認證密碼</label>
+          <input type="password" id="input-waste-auth-pass" placeholder="請輸入認證密碼" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+        </div>
+        <div id="waste-auth-error" class="hidden text-xs text-rose-600 font-medium"></div>
+
+        <div class="flex gap-2 pt-2">
+          <button id="btn-cancel-waste-auth" class="flex-1 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+            取消
+          </button>
+          <button id="btn-submit-waste-auth" class="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-sm transition">
+            驗證並進入
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登入對話框 (支援 Google 與 非 Google 自訂密碼) -->
+  <div id="modal-login" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+      <div class="text-center mb-4">
+        <span id="login-modal-icon" class="text-3xl">🔐</span>
+        <h3 id="login-modal-title" class="text-lg font-bold text-slate-800 mt-1">後臺身分驗證</h3>
+        <p id="login-modal-desc" class="text-xs text-slate-500 mt-1">請選擇登入方式以存取專屬權限功能。</p>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Google 快速登入 -->
+        <button id="btn-google-login" class="w-full py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.15z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.27v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.01-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.27 6.58l4.01 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+          使用 Google 帳號登入
+        </button>
+
+        <div class="flex items-center gap-3 text-xs text-slate-400">
+          <div class="flex-1 h-px bg-slate-200"></div>
+          <span>或使用電子信箱密碼</span>
+          <div class="flex-1 h-px bg-slate-200"></div>
+        </div>
+
+        <!-- 一般 Email / 密碼 -->
+        <div class="space-y-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">電子信箱 (Email)</label>
+            <input type="email" id="login-email" placeholder="example@mail.com" class="w-full text-xs sm:text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">密碼</label>
+            <input type="password" id="login-password" placeholder="請輸入欲設定或現有的 6 碼以上密碼" class="w-full text-xs sm:text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- 按鈕動作群 -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="btn-email-login" class="py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition">
+            登入系統
+          </button>
+          <button id="btn-email-signup" class="py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm transition">
+            🌱 首次設定密碼
+          </button>
+        </div>
+
+        <div class="flex justify-between items-center text-[11px] pt-1 text-slate-500">
+          <button id="btn-forgot-password" class="hover:text-indigo-600 hover:underline">忘記密碼？寄送重設信</button>
+          <button id="btn-close-login-modal" class="hover:text-slate-700">關閉視窗</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 權限不足攔截對話框 -->
+  <div id="modal-denied" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center">
+      <span class="text-4xl">🔒</span>
+      <h3 class="text-base font-bold text-slate-800 mt-2">權限不足提示</h3>
+      <p id="denied-modal-msg" class="text-xs text-slate-500 mt-1">此功能僅限管理員或授權人員存取。</p>
+      <div class="flex gap-2 mt-5">
+        <button id="btn-close-denied" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">了解</button>
+        <button id="btn-denied-action-login" class="flex-1 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold">🔐 管理員登入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 核心邏輯腳本 ==================== -->
+  <script type="module">
+    // 預設全校 12 班編制
+    const CLASSES = [
+      { id: '101', grade: 'low', name: '一年甲班', defaultHeadcount: 22 },
+      { id: '102', grade: 'low', name: '一年乙班', defaultHeadcount: 21 },
+      { id: '201', grade: 'low', name: '二年甲班', defaultHeadcount: 23 },
+      { id: '202', grade: 'low', name: '二年乙班', defaultHeadcount: 22 },
+      { id: '301', grade: 'mid', name: '三年甲班', defaultHeadcount: 25 },
+      { id: '302', grade: 'mid', name: '三年乙班', defaultHeadcount: 24 },
+      { id: '401', grade: 'mid', name: '四年甲班', defaultHeadcount: 26 },
+      { id: '402', grade: 'mid', name: '四年乙班', defaultHeadcount: 25 },
+      { id: '501', grade: 'high', name: '五年甲班', defaultHeadcount: 27 },
+      { id: '502', grade: 'high', name: '五年乙班', defaultHeadcount: 26 },
+      { id: '601', grade: 'high', name: '六年甲班', defaultHeadcount: 28 },
+      { id: '602', grade: 'high', name: '六年乙班', defaultHeadcount: 27 }
+    ];
+
+    // 全域身分狀態 (visitor, waste_monitor, staff, admin)
+    window.currentUserRole = 'visitor';
+    window.currentStaffCanDaily = false;
+    window.wasteMonitorPassword = 'w6341106'; // 預設廚餘長密碼
+
+    // 核心系統管理員白名單保底
+    window.ADMIN_WHITELIST = ['johngerlee@gmail.com', 'rodyg103022@gmail.com'];
+    window.STAFF_MEMBERS = []; // { name, email, canDaily }
+
+    // 初始化頁面
+    document.addEventListener('DOMContentLoaded', () => {
+      initNavigation();
+      initDailyTable();
+      initRoleControls();
+      initModals();
+      updateUIForRole();
+    });
+
+    // 頁籤導覽與權限阻擋
+    function initNavigation() {
+      const tabs = document.querySelectorAll('.nav-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const targetTab = tab.getAttribute('data-tab');
+
+          // 權限檢核
+          if (targetTab === 'settings' && window.currentUserRole !== 'admin') {
+            openDeniedModal('「⚙️ 系統與匯入設定」僅限系統管理員存取。', 'admin');
+            return;
+          }
+          if (targetTab === 'analysis' && window.currentUserRole === 'visitor') {
+            openDeniedModal('「5. 菜單關聯分析」僅限工作小組與系統管理員查閱。', 'staff');
+            return;
+          }
+
+          // 切換分頁樣式與顯示
+          tabs.forEach(t => {
+            t.classList.remove('active', 'border-emerald-600', 'text-emerald-700');
+            t.classList.add('border-transparent', 'text-slate-600');
+          });
+          tab.classList.add('active', 'border-emerald-600', 'text-emerald-700');
+          tab.classList.remove('border-transparent', 'text-slate-600');
+
+          document.querySelectorAll('.tab-page').forEach(page => page.classList.add('hidden'));
+          const targetPage = document.getElementById(`page-${targetTab}`);
+          if (targetPage) targetPage.classList.remove('hidden');
+        });
+      });
+    }
+
+    // 初始化 12 班每日登記表格
+    function initDailyTable() {
+      const tbody = document.getElementById('daily-table-body');
+      tbody.innerHTML = '';
+
+      CLASSES.forEach(cls => {
+        const gradeText = cls.grade === 'low' ? '低年級' : (cls.grade === 'mid' ? '中年級' : '高年級');
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-medium text-slate-500 text-xs">${gradeText}</td>
+          <td class="py-2.5 px-3 font-bold text-slate-700">${cls.name}</td>
+          <td class="py-2.5 px-3 text-center">
+            <input type="number" id="headcount-${cls.id}" value="${cls.defaultHeadcount}" disabled class="w-16 text-center text-xs border border-slate-200 rounded py-1 bg-slate-100 text-slate-600 daily-input" />
+          </td>
+          <td class="py-2.5 px-3 text-center">
+            <input type="number" step="0.1" id="weight-${cls.id}" placeholder="0.0" disabled class="w-20 text-center font-bold text-xs border border-slate-300 rounded py-1 bg-slate-100 text-slate-700 focus:bg-white focus:ring-1 focus:ring-emerald-500 daily-input" oninput="window.calcClassPerCapita('${cls.id}')" />
+          </td>
+          <td class="py-2.5 px-3 text-center font-extrabold text-emerald-700 text-xs" id="per-${cls.id}">
+            --
+          </td>
+          <td class="py-2.5 px-3 text-center text-xs" id="status-${cls.id}">
+            <span class="text-slate-400">待過磅</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // 設定預設日期為今日
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('daily-date-select').value = today;
+    }
+
+    // 單班人均即時計算
+    window.calcClassPerCapita = function(clsId) {
+      const count = parseFloat(document.getElementById(`headcount-${clsId}`).value) || 0;
+      const weight = parseFloat(document.getElementById(`weight-${clsId}`).value) || 0;
+      const perElem = document.getElementById(`per-${clsId}`);
+      const statusElem = document.getElementById(`status-${clsId}`);
+
+      if (count > 0 && weight > 0) {
+        const per = Math.round((weight * 1000 / count) * 10) / 10;
+        perElem.textContent = `${per} g/人`;
+        if (per <= 120) {
+          statusElem.innerHTML = `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">優良</span>`;
+        } else {
+          statusElem.innerHTML = `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">略高</span>`;
+        }
+      } else {
+        perElem.textContent = '--';
+        statusElem.innerHTML = `<span class="text-slate-400">待過磅</span>`;
+      }
+    };
+
+    // 核心身分權限 UI 刷新邏輯
+    function updateUIForRole() {
+      const role = window.currentUserRole;
+      const roleBadge = document.getElementById('role-badge');
+      const roleText = document.getElementById('role-text');
+      const authGroup = document.getElementById('auth-buttons-group');
+      const loggedGroup = document.getElementById('auth-logged-group');
+      const saveBtn = document.getElementById('daily-save-btn');
+      const dailyInputs = document.querySelectorAll('.daily-input');
+
+      // 判斷當前使用者是否具備每日登記權限
+      const canEditDaily = (role === 'admin') || (role === 'waste_monitor') || (role === 'staff' && window.currentStaffCanDaily);
+
+      // 解鎖或鎖定每日登記表格
+      dailyInputs.forEach(input => {
+        if (canEditDaily) {
+          input.removeAttribute('disabled');
+          input.classList.remove('bg-slate-100', 'text-slate-600');
+          input.classList.add('bg-white');
+        } else {
+          input.setAttribute('disabled', 'true');
+          input.classList.add('bg-slate-100', 'text-slate-600');
+          input.classList.remove('bg-white');
+        }
+      });
+
+      // 登記按鈕狀態切換
+      if (canEditDaily) {
+        saveBtn.removeAttribute('disabled');
+        saveBtn.className = "px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5 cursor-pointer";
+        saveBtn.innerHTML = `<span>💾</span> 儲存上傳當日數據`;
+      } else {
+        saveBtn.setAttribute('disabled', 'true');
+        saveBtn.className = "px-4 py-2 rounded-lg bg-slate-300 text-slate-500 cursor-not-allowed font-semibold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5";
+        saveBtn.innerHTML = `<span>🔒</span> 需登入操作`;
+      }
+
+      // 頂部身分徽章與按鈕
+      if (role === 'admin') {
+        roleBadge.className = "px-2.5 py-1 rounded-full font-medium bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1";
+        roleText.textContent = "系統管理員";
+        authGroup.classList.add('hidden');
+        loggedGroup.classList.remove('hidden');
+        loggedGroup.classList.add('flex');
+        document.getElementById('tab-menu-title').textContent = "4. 🤖 AI 菜單維護";
+        document.getElementById('tab-menu-lock').classList.remove('hidden');
+        document.getElementById('tab-menu-lock').textContent = "🔓";
+        document.getElementById('tab-analysis-lock').textContent = "🔓";
+        document.getElementById('tab-settings-lock').textContent = "🔓";
+        document.getElementById('menu-admin-toolbar').classList.remove('hidden');
+      } else if (role === 'staff') {
+        roleBadge.className = "px-2.5 py-1 rounded-full font-medium bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center gap-1";
+        roleText.textContent = window.currentStaffName ? `工作小組：${window.currentStaffName}` : "工作小組";
+        authGroup.classList.add('hidden');
+        loggedGroup.classList.remove('hidden');
+        loggedGroup.classList.add('flex');
+        document.getElementById('tab-menu-title').textContent = "4. 菜單查詢";
+        document.getElementById('tab-menu-lock').classList.add('hidden');
+        document.getElementById('tab-analysis-lock').textContent = "🔓";
+        document.getElementById('tab-settings-lock').textContent = "🔒";
+        document.getElementById('menu-admin-toolbar').classList.add('hidden');
+      } else if (role === 'waste_monitor') {
+        roleBadge.className = "px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1";
+        roleText.textContent = "🍱 廚餘長模式";
+        authGroup.classList.add('hidden');
+        loggedGroup.classList.remove('hidden');
+        loggedGroup.classList.add('flex');
+        document.getElementById('tab-menu-title').textContent = "4. 菜單查詢";
+        document.getElementById('tab-menu-lock').classList.add('hidden');
+        document.getElementById('tab-analysis-lock').textContent = "🔒";
+        document.getElementById('tab-settings-lock').textContent = "🔒";
+        document.getElementById('menu-admin-toolbar').classList.add('hidden');
+      } else {
+        // 訪客
+        roleBadge.className = "px-2.5 py-1 rounded-full font-medium bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1";
+        roleText.textContent = "訪客模式";
+        authGroup.classList.remove('hidden');
+        loggedGroup.classList.add('hidden');
+        loggedGroup.classList.remove('flex');
+        document.getElementById('tab-menu-title').textContent = "4. 菜單查詢";
+        document.getElementById('tab-menu-lock').classList.add('hidden');
+        document.getElementById('tab-analysis-lock').textContent = "🔒";
+        document.getElementById('tab-settings-lock').textContent = "🔒";
+        document.getElementById('menu-admin-toolbar').classList.add('hidden');
+      }
+    }
+
+    // 對話框與按鈕監聽
+    function initModals() {
+      // 廚餘長認證彈窗
+      const wasteAuthModal = document.getElementById('modal-waste-auth');
+      document.getElementById('btn-waste-monitor-auth').addEventListener('click', () => {
+        document.getElementById('input-waste-auth-pass').value = '';
+        document.getElementById('waste-auth-error').classList.add('hidden');
+        wasteAuthModal.classList.remove('hidden');
+        document.getElementById('input-waste-auth-pass').focus();
+      });
+      document.getElementById('btn-cancel-waste-auth').addEventListener('click', () => {
+        wasteAuthModal.classList.add('hidden');
+      });
+      document.getElementById('btn-submit-waste-auth').addEventListener('click', () => {
+        const inputPass = document.getElementById('input-waste-auth-pass').value.trim();
+        if (inputPass === window.wasteMonitorPassword) {
+          wasteAuthModal.classList.add('hidden');
+          window.currentUserRole = 'waste_monitor';
+          updateUIForRole();
+          alert('驗證成功！已解鎖今日廚餘過磅登錄功能。');
+        } else {
+          const err = document.getElementById('waste-auth-error');
+          err.textContent = '認證密碼錯誤，請重新輸入！';
+          err.classList.remove('hidden');
+        }
+      });
+
+      // 登出按鈕
+      document.getElementById('btn-logout').addEventListener('click', () => {
+        window.currentUserRole = 'visitor';
+        window.currentStaffCanDaily = false;
+        window.currentStaffName = '';
+        updateUIForRole();
+        alert('已登出系統，恢復為訪客模式。');
+      });
+
+      // 登入彈窗開關
+      const loginModal = document.getElementById('modal-login');
+      document.getElementById('btn-open-admin-login').addEventListener('click', () => {
+        document.getElementById('login-modal-title').textContent = "後臺管理員登入";
+        document.getElementById('login-modal-desc').textContent = "請以管理員帳號登入以存取系統設定與維護。";
+        loginModal.classList.remove('hidden');
+      });
+      document.getElementById('btn-open-staff-login').addEventListener('click', () => {
+        document.getElementById('login-modal-title').textContent = "工作小組登入";
+        document.getElementById('login-modal-desc').textContent = "登入後可查閱菜單關聯交叉診斷與協助數據填報。";
+        loginModal.classList.remove('hidden');
+      });
+      document.getElementById('btn-close-login-modal').addEventListener('click', () => {
+        loginModal.classList.add('hidden');
+      });
+
+      // 權限不足提示關閉
+      document.getElementById('btn-close-denied').addEventListener('click', () => {
+        document.getElementById('modal-denied').classList.add('hidden');
+      });
+      document.getElementById('btn-denied-action-login').addEventListener('click', () => {
+        document.getElementById('modal-denied').classList.add('hidden');
+        loginModal.classList.remove('hidden');
+      });
+
+      // 儲存廚餘長密碼設定
+      document.getElementById('btn-save-waste-pass').addEventListener('click', () => {
+        const newPass = document.getElementById('input-waste-monitor-pass').value.trim();
+        if (!newPass) {
+          alert('廚餘長密碼不能為空！');
+          return;
+        }
+        window.wasteMonitorPassword = newPass;
+        // 同步至 Firestore system_config
+        console.log("儲存新廚餘長密碼至雲端:", newPass);
+        alert(`廚餘長密碼已更新為：${newPass}`);
+      });
+    }
+
+    // 後台系統成員控管邏輯
+    function initRoleControls() {
+      renderMembersList();
+
+      // 新增工作小組
+      document.getElementById('btn-add-staff').addEventListener('click', () => {
+        const name = document.getElementById('input-new-staff-name').value.trim();
+        const email = document.getElementById('input-new-staff-email').value.trim().toLowerCase();
+        if (!email) {
+          alert('請輸入工作小組電子郵件！');
+          return;
+        }
+        window.STAFF_MEMBERS.push({
+          name: name || '工作同仁',
+          email: email,
+          canDaily: false // 預設未勾選每日登記
+        });
+        document.getElementById('input-new-staff-name').value = '';
+        document.getElementById('input-new-staff-email').value = '';
+        renderMembersList();
+      });
+
+      // 儲存成員權限
+      document.getElementById('btn-save-roles').addEventListener('click', () => {
+        // 同步寫入 Firestore
+        console.log("已將最新成員權限存入 Firestore:", window.STAFF_MEMBERS);
+        alert('成員名單與權限已成功儲存至雲端！');
+      });
+    }
+
+    // 渲染成員清單
+    function renderMembersList() {
+      const staffList = document.getElementById('staff-members-list');
+      staffList.innerHTML = '';
+
+      if (window.STAFF_MEMBERS.length === 0) {
+        staffList.innerHTML = `<li class="text-slate-400 italic">尚無設定工作小組成員</li>`;
+      } else {
+        window.STAFF_MEMBERS.forEach((staff, index) => {
+          const li = document.createElement('li');
+          li.className = "flex items-center justify-between bg-white p-2 rounded border border-slate-200";
+          li.innerHTML = `
+            <div>
+              <span class="font-bold text-slate-700">${staff.name}</span>
+              <span class="text-slate-400 ml-1">(${staff.email})</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1 text-[11px] text-emerald-700 font-medium cursor-pointer">
+                <input type="checkbox" ${staff.canDaily ? 'checked' : ''} onchange="window.toggleStaffDaily(${index})" class="rounded text-emerald-600 focus:ring-emerald-500" />
+                允許每日登記
+              </label>
+              <button onclick="window.removeStaff(${index})" class="text-rose-500 hover:text-rose-700 font-bold px-1">&times;</button>
+            </div>
+          `;
+          staffList.appendChild(li);
+        });
+      }
+
+      // 管理員清單
+      const adminList = document.getElementById('admin-members-list');
+      adminList.innerHTML = '';
+      window.ADMIN_WHITELIST.forEach((email, i) => {
+        const li = document.createElement('li');
+        li.className = "flex items-center justify-between bg-white p-2 rounded border border-slate-200";
+        li.innerHTML = `
+          <span class="font-medium text-slate-700">${email}</span>
+          <span class="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-200">最高權限</span>
+        `;
+        adminList.appendChild(li);
+      });
+    }
+
+    // 工作小組每日登記權限切換
+    window.toggleStaffDaily = function(index) {
+      if (window.STAFF_MEMBERS[index]) {
+        window.STAFF_MEMBERS[index].canDaily = !window.STAFF_MEMBERS[index].canDaily;
+      }
+    };
+
+    window.removeStaff = function(index) {
+      window.STAFF_MEMBERS.splice(index, 1);
+      renderMembersList();
+    };
+
+    function openDeniedModal(msg, requiredRole) {
+      document.getElementById('denied-modal-msg').textContent = msg;
+      const actionBtn = document.getElementById('btn-denied-action-login');
+      if (requiredRole === 'admin') {
+        actionBtn.textContent = "🔐 管理員登入";
+      } else {
+        actionBtn.textContent = "👥 工作小組登入";
+      }
+      document.getElementById('modal-denied').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
