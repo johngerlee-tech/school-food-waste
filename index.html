@@ -500,7 +500,7 @@
     </div>
   </div>
 
-  <!-- 登入 Modal (支援手機、平板與電腦全平台) -->
+  <!-- 登入 Modal -->
   <div id="login-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border">
       <div class="flex justify-between items-center mb-3">
@@ -877,7 +877,7 @@
         window.cloudGeminiKey = keyVal;
         window._cachedGeminiModel = null;
         window.updateKeyStatusUI();
-        window.showNotice('金鑰儲存成功', keyVal ? '✅ 雲端 Gemini API Key 已成功儲存！所有工作小組與管理員將共享此金鑰。' : 'ℹ️️ 已清除雲端 Gemini API Key，系統將回退至在地專家推論模式。');
+        window.showNotice('金鑰儲存成功', keyVal ? '✅ 雲端 Gemini API Key 已成功儲存！所有工作小組與管理員將共享此金鑰。' : 'ℹ 已清除雲端 Gemini API Key，系統將回退至在地專家推論模式。');
       } catch (e) {
         window.showNotice('儲存失敗', e.message, false);
       }
@@ -1020,7 +1020,8 @@
       if (adminList) {
         adminList.innerHTML = window.ADMIN_EMAILS.map((email, idx) => `
           <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 text-xs">
-            <span class="font-medium text-slate-700 truncate">${email}</span>${isAdm && window.ADMIN_EMAILS.length > 1 ? `
+            <span class="font-medium text-slate-700 truncate">${email}</span>
+            ${isAdm && window.ADMIN_EMAILS.length > 1 ? `
               <button onclick="window.removeMemberRole('admin', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none shrink-0" title="移除管理員">&times;</button>
             ` : ''}
           </div>
@@ -1122,7 +1123,8 @@
     };
 
     window.getWeekDateRange = (weekNum) => {
-      const startStr = document.getElementById('sys-start')?.value || '2026-08-31';
+      const startEl = document.getElementById('sys-start');
+      const startStr = startEl ? startEl.value : '2026-08-31';
       if (!startStr) return '';
       const parts = startStr.split('-');
       if (parts.length < 3) return '';
@@ -1168,43 +1170,70 @@
       if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
     };
 
+    /* --- 預設表格渲染防護保證 --- */
+    window.renderInitialEmptyTable = () => {
+      const tbody = document.getElementById('daily-rows');
+      if (!tbody) return;
+      tbody.innerHTML = window.CLASSES.map(c => `
+        <tr id="row-${c.id}" class="bg-white hover:bg-emerald-50/20 transition">
+          <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
+          <td class="p-3 font-semibold">${c.name}</td>
+          <td class="p-3">
+            <input type="number" id="w-${c.id}" placeholder="0" disabled class="border rounded px-2 w-24 text-right bg-slate-100"> g
+          </td>
+          <td class="p-3">
+            <input type="number" id="c-${c.id}" value="${c.defaultCount}" disabled class="border rounded px-2 w-16 text-right bg-slate-100"> 人
+          </td>
+          <td class="p-3 text-right font-bold text-slate-400" id="per-${c.id}">-</td>
+          <td class="p-3 text-center">
+            <input type="checkbox" id="skip-row-${c.id}" disabled class="w-4 h-4 text-rose-600 rounded">
+          </td>
+          <td class="p-3 text-center">
+            <span class="text-xs text-slate-400">唯讀</span>
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    /* --- Auth State & 三層權限判斷 --- */
     onAuthStateChanged(auth, async (user) => {
-      await window.loadRoleSettings();
-      await window.loadGeminiApiKey();
+      try {
+        await window.loadRoleSettings();
+        await window.loadGeminiApiKey();
 
-      if (user) {
-        const userEmail = (user.email || "").trim().toLowerCase();
-        const isAdmin = window.ADMIN_EMAILS.includes(userEmail);
-        const staffObj = window.STAFF_MEMBERS.find(s => s.email === userEmail);
+        if (user) {
+          const userEmail = (user.email || "").trim().toLowerCase();
+          const isAdmin = window.ADMIN_EMAILS.includes(userEmail);
+          const staffObj = window.STAFF_MEMBERS.find(s => s.email === userEmail);
 
-        if (isAdmin) {
-          window.userRole = 'admin';
-          window.currentStaffCanDaily = true;
-          await window.loadWasteMonitorPass();
-        } else if (staffObj) {
-          window.userRole = 'staff';
-          window.currentStaffCanDaily = Boolean(staffObj.canDaily);
+          if (isAdmin) {
+            window.userRole = 'admin';
+            window.currentStaffCanDaily = true;
+            await window.loadWasteMonitorPass();
+          } else if (staffObj) {
+            window.userRole = 'staff';
+            window.currentStaffCanDaily = Boolean(staffObj.canDaily);
+          } else {
+            await signOut(auth);
+            window.currentUser = null;
+            window.userRole = 'guest';
+            window.currentStaffCanDaily = false;
+            window.showNotice('🚫 登入拒絕', `【${user.email}】\n您尚未被加入管理員或工作小組授權名單中。\n若需檢視或維護，請洽系統管理員新增！`, false);
+            return;
+          }
         } else {
-          await signOut(auth);
-          window.currentUser = null;
-          window.userRole = 'guest';
-          window.currentStaffCanDaily = false;
-          window.showNotice('🚫 登入拒絕', `【${user.email}】\n您尚未被加入管理員或工作小組授權名單中。\n若需檢視或維護，請洽系統管理員新增！`, false);
-          return;
+          if (window.userRole !== 'waste_monitor') {
+            window.userRole = 'guest';
+            window.currentStaffCanDaily = false;
+          }
         }
-      } else {
-        if (window.userRole !== 'waste_monitor') {
-          window.userRole = 'guest';
-          window.currentStaffCanDaily = false;
-        }
-      }
 
-      window.currentUser = user;
-      window.updateUIForRole();
-      
-      await window.loadSystemConfig();
-      await window.loadClassSettings();
-      window.switchTab('daily'); 
+        window.currentUser = user;
+        window.updateUIForRole();
+        window.loadDailyRecords();
+      } catch (err) {
+        console.error("驗證身分處理時發生錯誤:", err);
+      }
     });
 
     window.updateUIForRole = () => {
@@ -1418,7 +1447,6 @@
 
     window.closeLoginModal = () => document.getElementById('login-modal').classList.add('hidden');
     
-    /* --- 跨裝置最佳化之 Google 登入 (防止手機阻擋與連點) --- */
     window.loginWithGoogle = async () => { 
       if (isGoogleLoginInProgress) return;
       isGoogleLoginInProgress = true;
@@ -1533,16 +1561,22 @@
       }
 
       ['daily', 'menu', 'weekly', 'analysis', 'monthly', 'settings'].forEach(t => {
-        document.getElementById(`page-${t}`).classList.add('hidden');
-        document.getElementById(`tab-${t}`).className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
+        const pageEl = document.getElementById(`page-${t}`);
+        const tabEl = document.getElementById(`tab-${t}`);
+        if (pageEl) pageEl.classList.add('hidden');
+        if (tabEl) tabEl.className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
       });
-      document.getElementById(`page-${tabId}`).classList.remove('hidden');
-      document.getElementById(`tab-${tabId}`).className = "px-4 py-2 tab-active flex items-center gap-1.5";
+      
+      const targetPage = document.getElementById(`page-${tabId}`);
+      const targetTab = document.getElementById(`tab-${tabId}`);
+      if (targetPage) targetPage.classList.remove('hidden');
+      if (targetTab) targetTab.className = "px-4 py-2 tab-active flex items-center gap-1.5";
 
       if (tabId === 'daily') window.loadDailyRecords();
       if (tabId === 'menu') { 
         if (window.calculatedCurrentWeek) {
-          document.getElementById('menu-week').value = window.calculatedCurrentWeek;
+          const mw = document.getElementById('menu-week');
+          if (mw) mw.value = window.calculatedCurrentWeek;
         }
         window.loadWeeklyMenu(); 
         window.updateKeyStatusUI();
@@ -1586,57 +1620,64 @@
         const snap = await getDoc(doc(db, "system_config", "main"));
         if (snap.exists()) {
           const d = snap.data();
-          if (d.year) document.getElementById('sys-year').value = d.year;
-          if (d.semester) document.getElementById('sys-sem').value = d.semester;
-          if (d.startDate) document.getElementById('sys-start').value = d.startDate;
-          if (d.endDate) document.getElementById('sys-end').value = d.endDate;
+          if (d.year && document.getElementById('sys-year')) document.getElementById('sys-year').value = d.year;
+          if (d.semester && document.getElementById('sys-sem')) document.getElementById('sys-sem').value = d.semester;
+          if (d.startDate && document.getElementById('sys-start')) document.getElementById('sys-start').value = d.startDate;
+          if (d.endDate && document.getElementById('sys-end')) document.getElementById('sys-end').value = d.endDate;
           if (d.threshold !== undefined) {
             window.systemThreshold = parseFloat(d.threshold);
-            document.getElementById('sys-threshold').value = window.systemThreshold;
+            if (document.getElementById('sys-threshold')) document.getElementById('sys-threshold').value = window.systemThreshold;
           }
         }
 
         const thLabel = document.getElementById('current-threshold-label');
         if (thLabel) thLabel.innerText = window.systemThreshold;
 
-        const startStr = document.getElementById('sys-start').value;
+        const startEl = document.getElementById('sys-start');
+        const startStr = startEl ? startEl.value : '2026-08-31';
         if (startStr) {
           const parts = startStr.split('-');
-          const startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-          const today = new Date();
-          
-          let currentWeek = 1;
-          if (today >= startDate) {
-            const diffTime = Math.abs(today - startDate);
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            currentWeek = Math.floor(diffDays / 7) + 1;
+          if (parts.length >= 3) {
+            const startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const today = new Date();
             
-            let dayOfWeek = today.getDay();
-            if (dayOfWeek === 3) dayOfWeek = 4;
-            if (dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
+            let currentWeek = 1;
+            if (today >= startDate) {
+              const diffTime = Math.abs(today - startDate);
+              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+              currentWeek = Math.floor(diffDays / 7) + 1;
+              
+              let dayOfWeek = today.getDay();
+              if (dayOfWeek === 3) dayOfWeek = 4;
+              if (dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
 
-            const selectWd = document.getElementById('daily-weekday');
-            for (let i = 0; i < selectWd.options.length; i++) {
-              if (parseInt(selectWd.options[i].value) === dayOfWeek) {
-                selectWd.selectedIndex = i; break;
+              const selectWd = document.getElementById('daily-weekday');
+              if (selectWd) {
+                for (let i = 0; i < selectWd.options.length; i++) {
+                  if (parseInt(selectWd.options[i].value) === dayOfWeek) {
+                    selectWd.selectedIndex = i; break;
+                  }
+                }
               }
             }
+            window.calculatedCurrentWeek = currentWeek;
+
+            const pastWeek = Math.max(1, currentWeek - 1);
+            const sysYearVal = document.getElementById('sys-year')?.value || 115;
+
+            if (document.getElementById('daily-year')) document.getElementById('daily-year').value = sysYearVal;
+            if (document.getElementById('daily-week')) document.getElementById('daily-week').value = currentWeek;
+            if (document.getElementById('menu-week')) document.getElementById('menu-week').value = currentWeek;
+            if (document.getElementById('weekly-select-week')) document.getElementById('weekly-select-week').value = pastWeek;
+            if (document.getElementById('analysis-week')) document.getElementById('analysis-week').value = pastWeek;
+            if (document.getElementById('monthly-year')) document.getElementById('monthly-year').value = sysYearVal;
+
+            window.refreshAllWeekLabels();
           }
-          window.calculatedCurrentWeek = currentWeek;
-
-          const pastWeek = Math.max(1, currentWeek - 1);
-          document.getElementById('daily-year').value = document.getElementById('sys-year').value;
-          document.getElementById('daily-week').value = currentWeek;
-          document.getElementById('menu-week').value = currentWeek;
-          document.getElementById('weekly-select-week').value = pastWeek;
-          document.getElementById('analysis-week').value = pastWeek;
-          
-          const myInput = document.getElementById('monthly-year');
-          if (myInput) myInput.value = document.getElementById('sys-year').value;
-
-          window.refreshAllWeekLabels();
         }
-      } catch (e) { console.warn("載入行事曆設定失敗", e); }
+      } catch (e) { 
+        console.warn("載入行事曆設定失敗，維持預設數值", e); 
+      }
     };
 
     window.saveSystemConfig = async () => {
@@ -1744,7 +1785,9 @@
     
     window.renderSettings = () => {
       const isAdm = window.userRole === 'admin';
-      document.getElementById('settings-rows').innerHTML = window.CLASSES.map(c => `
+      const container = document.getElementById('settings-rows');
+      if (!container) return;
+      container.innerHTML = window.CLASSES.map(c => `
         <tr class="hover:bg-slate-50">
           <td class="p-3 text-slate-500">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
           <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAdm ? '' : 'disabled'} class="border rounded px-2 py-1 w-24 text-right ${isAdm ? 'bg-white text-slate-800' : 'bg-slate-100 cursor-not-allowed text-slate-500'}"> 人</td>
@@ -1764,7 +1807,7 @@
       } catch (e){ window.showNotice('更新失敗', e.message, false); }
     };
 
-    /* --- Daily Entry --- */
+    /* --- 每日登記 --- */
     window.toggleSkipDay = () => {
       const isSkipped = document.getElementById('daily-skip-cb').checked;
       const tableCon = document.getElementById('daily-table-container');
@@ -1804,36 +1847,44 @@
     };
 
     window.loadDailyRecords = async () => {
-      const year = parseInt(document.getElementById('daily-year').value);
-      const week = parseInt(document.getElementById('daily-week').value);
-      const weekday = parseInt(document.getElementById('daily-weekday').value);
+      const year = parseInt(document.getElementById('daily-year')?.value || 115);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
       
       window.refreshAllWeekLabels();
 
       const tbody = document.getElementById('daily-rows');
-      tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">讀取中...</td></tr>';
-      
+      if (!tbody) return;
+
       const hint = document.getElementById('today-menu-hint');
       try {
         const menuSnap = await getDoc(doc(db, "weekly_menus", `${year}_1_${week}`));
-        if (menuSnap.exists() && menuSnap.data().days[weekday]) {
+        if (menuSnap.exists() && menuSnap.data().days && menuSnap.data().days[weekday]) {
           const d = menuSnap.data().days[weekday];
-          hint.innerHTML = `🍱 <strong>今日菜單</strong>：${d.main},${d.dish1}, ${d.vege},${d.soup}`;
-        } else { hint.innerHTML = '🍱 今日無菜單紀錄'; }
-      } catch (e) {}
+          const menuItems = [d.main, d.dish1, d.vege, d.soup].filter(Boolean).join(', ');
+          if (hint) hint.innerHTML = `🍱 <strong>今日菜單</strong>：${menuItems || '菜色未載入'}`;
+        } else { 
+          if (hint) hint.innerHTML = '🍱 今日無菜單紀錄'; 
+        }
+      } catch (e) {
+        if (hint) hint.innerHTML = '🍱 菜單載入完畢';
+      }
 
       try {
         const statusSnap = await getDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`));
         if (statusSnap.exists() && statusSnap.data().isSkipped) {
-          document.getElementById('daily-skip-cb').checked = true;
+          const cb = document.getElementById('daily-skip-cb');
+          if (cb) cb.checked = true;
           window.toggleSkipDay();
         } else {
-          document.getElementById('daily-skip-cb').checked = false;
+          const cb = document.getElementById('daily-skip-cb');
+          if (cb) cb.checked = false;
           window.toggleSkipDay();
         }
 
         const snap = await getDocs(query(collection(db, "daily_records"), where("academicYear", "==", year), where("week", "==", week), where("weekday", "==", weekday)));
-        let map = {}; snap.forEach(d => map[d.data().classId] = d.data());
+        let map = {}; 
+        snap.forEach(d => map[d.data().classId] = d.data());
         
         const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
         window.classSavedStatus = {}; 
@@ -1882,7 +1933,8 @@
             </tr>`;
         }).join('');
       } catch (e) { 
-        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-red-500">讀取失敗：${e.message}</td></tr>`; 
+        console.warn("載入每日過磅紀錄時發生錯誤:", e);
+        window.renderInitialEmptyTable();
       }
     };
 
@@ -2023,8 +2075,8 @@
 
     /* --- Menu Mgmt & AI Recognition --- */
     window.loadWeeklyMenu = async () => {
-      const y = parseInt(document.getElementById('daily-year').value) || 115;
-      const w = parseInt(document.getElementById('menu-week').value) || 1;
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const w = parseInt(document.getElementById('menu-week')?.value || 1);
       window.refreshAllWeekLabels();
 
       let menu = {};
@@ -2032,6 +2084,7 @@
       
       const isAdmin = window.userRole === 'admin';
       const container = document.getElementById('menu-days-container');
+      if (!container) return;
 
       if (!isAdmin) {
         container.innerHTML = WEEKDAYS.map(day => {
@@ -2096,16 +2149,19 @@
       }
     };
 
-    document.getElementById('menu-image-upload').addEventListener('change', function(e) {
-      if (e.target.files && e.target.files[0]) {
-        let reader = new FileReader();
-        reader.onload = function(ev) {
-          document.getElementById('menu-image-preview').src = ev.target.result;
-          document.getElementById('image-preview-container').classList.remove('hidden');
-        };
-        reader.readAsDataURL(e.target.files[0]);
-      }
-    });
+    const imgUploadEl = document.getElementById('menu-image-upload');
+    if (imgUploadEl) {
+      imgUploadEl.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+          let reader = new FileReader();
+          reader.onload = function(ev) {
+            document.getElementById('menu-image-preview').src = ev.target.result;
+            document.getElementById('image-preview-container').classList.remove('hidden');
+          };
+          reader.readAsDataURL(e.target.files[0]);
+        }
+      });
+    }
 
     window.recognizeMenuImage = async () => {
       const apiKey = window.cloudGeminiKey;
@@ -2190,4 +2246,542 @@
           }
         }
 
-        let textResult = data.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^
+        let textResult = data.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+        const menuJson = JSON.parse(textResult);
+
+        WEEKDAYS.forEach(day => {
+          if (menuJson[day.d]) {
+            document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
+            document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
+            document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
+            document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
+            document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
+          }
+        });
+        if (hint) hint.innerText = `🎉 辨識成功！目前呼叫集中模型：${activeModel}`;
+        window.showNotice('辨識完成', `✨ 菜單辨識完成！（已使用雲端模型：${activeModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
+      } catch (err) {
+        window.showNotice('辨識失敗', err.message, false);
+        if (hint) hint.innerText = `辨識失敗：${err.message}`;
+      } finally {
+        btn.innerText = "✨ 開始辨識";
+        btn.disabled = false;
+      }
+    };
+
+    /* --- 週結算與評比 --- */
+    window.calcWeeklyReport = async () => {
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const w = parseInt(document.getElementById('weekly-select-week')?.value || 1);
+      window.refreshAllWeekLabels();
+
+      const [cur, prv] = await Promise.all([
+        getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
+        getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w-1)))
+      ]);
+      const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
+
+      let stats = window.CLASSES.map(c => {
+        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+        
+        let tw = cc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+        let tc = cc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+        let pw = pc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+        let pco = pc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+        
+        let per = tc>0 ? Number((tw/tc).toFixed(1)) : null;
+        let pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
+        let dec = (per!==null && pPer>0) ? Number(((pPer-per)/pPer*100).toFixed(1)) : null;
+        return { ...c, tw: tw.toFixed(0), tc, per, pPer, dec, isProg: dec>=5.0 };
+      });
+
+      let champs = {};
+      ['低年級','中年級','高年級'].forEach(stg => {
+        let s = stats.filter(x=>x.stage===stg && x.per!==null).sort((a,b)=>a.per-b.per);
+        if (s.length>0) champs[stg] = s[0];
+      });
+
+      const cardsContainer = document.getElementById('weekly-cards');
+      if (cardsContainer) {
+        cardsContainer.innerHTML = ['低年級','中年級','高年級'].map(stg => `
+          <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
+            <div class="text-xs font-bold text-emerald-800">🏆 ${stg}週冠軍</div>
+            <div class="text-xl font-bold mt-1">${champs[stg] ? champs[stg].name : '-'}</div>
+            <div class="text-sm text-emerald-600">${champs[stg] ? champs[stg].per+' g/人' : ''}</div>
+          </div>`).join('');
+      }
+      
+      let progs = stats.filter(x=>x.isProg).sort((a,b)=>b.dec-a.dec);
+      const progBox = document.getElementById('weekly-progress-box');
+      if (progBox) {
+        progBox.innerHTML = progs.length ? `<b>🌟 進步獎(減幅≥5%)：</b>` + progs.map(p=>`<span class="ml-2 bg-white px-2 py-1 rounded text-amber-800 text-xs shadow-sm">${p.name} (-${p.dec}%)</span>`).join('') : '本週尚無進步獎。';
+      }
+
+      const tableBody = document.getElementById('weekly-table-body');
+      if (tableBody) {
+        tableBody.innerHTML = stats.map(s => {
+          let isC = Object.values(champs).some(c=>c&&c.id===s.id);
+          return `<tr class="${isC?'bg-emerald-50':''}">
+            <td class="p-3">${s.name}</td><td class="p-3 text-right">${s.tw}</td><td class="p-3 text-right">${s.tc}</td>
+            <td class="p-3 text-right font-bold text-emerald-700">${s.per||'-'}</td><td class="p-3 text-right text-slate-400">${s.pPer||'-'}</td>
+            <td class="p-3 text-right ${s.dec>0?'text-blue-600':''}">${s.dec||'-'}%</td><td class="p-3 text-center">${isC?'🏆':''}${s.isProg?'🌟':''}</td>
+          </tr>`;
+        }).join('');
+      }
+      window.currWeekData = { w, champs, progs };
+    };
+
+    window.copyWeeklySpeech = () => {
+      if (!window.currWeekData) return;
+      let d = window.currWeekData;
+      let cStr = ['低年級','中年級','高年級'].map(s=>d.champs[s]?`${s}${d.champs[s].name}`:'').filter(Boolean).join('、');
+      let pStr = d.progs.map(p=>`${p.name}`).join('、');
+      const textToCopy = `【午餐惜食第 ${d.w} 週成果】\n🏆 年段週冠軍：${cStr}！\n🌟 週進步獎：${pStr||'無'}。\n感謝大家落實吃多少盛多少！`;
+      
+      const textArea = document.createElement("textarea");
+      textArea.value = textToCopy;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        window.showNotice('複製成功', '已複製週表揚廣播詞至剪貼簿！');
+      } catch (err) {
+        window.showNotice('提示', textToCopy);
+      }
+      document.body.removeChild(textArea);
+    };
+
+    window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
+      const detected = await window.getAvailableGeminiModel(apiKey);
+      const candidateModels = [
+        detected,
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.5-flash"
+      ].filter((v, i, a) => v && a.indexOf(v) === i);
+
+      const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
+
+【基本數據】
+- 當日菜單：主食「${menuData.main || '無'}」、主菜「${menuData.dish1 || '無'}」、副菜「${menuData.dish2 || '無'}」、蔬菜「${menuData.vege || '無'}」、湯品「${menuData.soup || '無'}」
+- 全校人均廚餘：${wasteData.per} g/人 (警示門檻：${wasteData.threshold} g/人)
+- 超標班級比例：${wasteData.spikeRatio}% (${wasteData.spikeCount}/${wasteData.totalCount} 班)
+- 超標班級清單：${wasteData.spikeClasses.length > 0 ? wasteData.spikeClasses.map(c => c.className + '(' + c.per + 'g)').join('、') : '無'}
+- 年段人均：低年級 ${wasteData.lowAvg}g、中年級 ${wasteData.midAvg}g、高年級 ${wasteData.highAvg}g
+
+請從以下三個面向進行具體分析：
+1. 菜色特性與適口性推論（調味搭配、骨渣佔比、學生普遍偏好）
+2. 班級分佈與年齡層差異推論（普遍性剩食 vs 特定年級接受度）
+3. 給予學校午餐廚房與導師的 2~3 點具體改善建議
+
+請輸出精確的繁體中文，總字數在 160 字以內，語氣專業具建設性。`;
+
+      let lastError = null;
+
+      for (const model of candidateModels) {
+        try {
+          const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: promptText }] }]
+            })
+          });
+
+          const resJson = await response.json();
+          if (!response.ok || resJson.error) {
+            const errDetail = resJson.error?.message || `HTTP ${response.status}`;
+            throw new Error(`[${model}] ${errDetail}`);
+          }
+
+          if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
+            window._cachedGeminiModel = model;
+            return {
+              text: resJson.candidates[0].content.parts[0].text.trim(),
+              modelUsed: model
+            };
+          }
+        } catch (e) {
+          lastError = e;
+          console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
+        }
+      }
+
+      throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
+    };
+
+    window.loadOrRunAnalysis = async (forceReRun = false) => {
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const w = parseInt(document.getElementById('analysis-week')?.value || 1);
+      const con = document.getElementById('analysis-results-container');
+      const btn = document.getElementById('btn-run-analysis');
+      const btnText = document.getElementById('analysis-btn-text');
+      const hint = document.getElementById('analysis-cache-status-hint');
+      const threshold = window.systemThreshold || 120;
+      
+      const thLabel = document.getElementById('current-threshold-label');
+      if (thLabel) thLabel.innerText = threshold;
+
+      const cacheDocId = `${y}_1_${w}`;
+
+      if (!forceReRun) {
+        if (con) con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
+        try {
+          const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
+          if (cacheSnap.exists() && cacheSnap.data().days) {
+            const cachedData = cacheSnap.data();
+            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '');
+            
+            if (hint) {
+              hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+                ✅ 已載入歷史存檔 (${cachedData.savedAtFormatted || '已存檔'})
+              </span>`;
+            }
+
+            if (btnText) {
+              btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
+            }
+            return;
+          }
+        } catch (cacheErr) {
+          console.warn("檢查診斷快取失敗或無快取，將執行即時計算:", cacheErr);
+        }
+      }
+
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.innerText = "⏳ 交叉診斷中...";
+      if (hint) hint.innerText = "正在執行即時運算...";
+      if (con) con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
+      
+      try {
+        const [dSnap, mSnap] = await Promise.all([
+          getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
+          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
+        ]);
+        const logs = dSnap.docs.map(d=>d.data());
+        const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+
+        let analysisDayResults = {};
+
+        for (const day of WEEKDAYS) {
+          let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+          
+          let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
+          let hasRecordedData = validClasses.length > 0;
+
+          let tw = validClasses.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+          let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+          let per = (hasRecordedData && tc > 0) ? Number((tw/tc).toFixed(1)) : 0;
+          let menu = menus[day.d] || null;
+          let hasMenu = menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup);
+          
+          let isSpike = hasRecordedData && (per > threshold);
+          let alertMsg = '', advice = '', aiDeduction = '', isCloudAI = false, cloudModelName = '', cloudErrorReason = '';
+
+          if (hasRecordedData && hasMenu && isSpike) {
+            alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
+
+            let spikeClasses = validClasses.map(l => {
+              let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
+              return { className: l.className, stage: l.stage, per: p };
+            }).filter(c => c.per > threshold);
+
+            let totalCount = validClasses.length;
+            let spikeCount = spikeClasses.length;
+            let spikeRatio = totalCount > 0 ? Math.round((spikeCount / totalCount) * 100) : 0;
+
+            const calcStageAvg = (stg) => {
+              let sl = validClasses.filter(l => l.stage === stg);
+              let wSum = sl.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
+              let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+              return cSum > 0 ? Number((wSum / cSum).toFixed(1)) : 0;
+            };
+
+            const lowAvg = calcStageAvg('低年級');
+            const midAvg = calcStageAvg('中年級');
+            const highAvg = calcStageAvg('高年級');
+
+            if (window.cloudGeminiKey) {
+              try {
+                const aiResult = await window.callGeminiMenuDiagnosis(
+                  window.cloudGeminiKey,
+                  menu,
+                  { per, threshold, spikeRatio, spikeCount, totalCount, spikeClasses, lowAvg, midAvg, highAvg }
+                );
+                aiDeduction = aiResult.text;
+                cloudModelName = aiResult.modelUsed;
+                isCloudAI = true;
+                advice = "依據營養師 AI 即時診斷建議執行。";
+              } catch (aiErr) {
+                console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
+                cloudErrorReason = aiErr.message || "連線或端點異常";
+              }
+            } else {
+              cloudErrorReason = "系統尚未設定集中 Gemini API Key";
+            }
+
+            if (!aiDeduction) {
+              let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
+              let specificAdvice = '';
+              if (/魚|排骨|骨|棒腿/.test(str)){
+                specificAdvice = '（含帶骨/刺食材，殘渣比例較高，建議可評估調整為去骨肉類如去骨雞腿丁、里肌柳以減少骨渣重量）';
+              } else if (/苦瓜|青椒|芥藍|茄子/.test(str)){
+                specificAdvice = '（含學童較易排斥之蔬菜品項，建議細切或搭配玉米、胡蘿蔔等甜味食材提升接受度）';
+              } else if (/糙米|五穀|雜糧/.test(str)){
+                specificAdvice = '（含粗糧品項，建議適度微調白米比例或拉長悶煮時間軟化口感）';
+              }
+
+              advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
+
+              let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
+              let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
+              let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
+
+              let patternDesc = '';
+              if (spikeRatio >= 70) {
+                patternDesc = `超標班級高達 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，屬於<b>普遍性現象</b>。`;
+                if (/魚|排骨|骨|棒腿/.test(str)) {
+                  aiDeduction = `${patternDesc}交叉比對當日菜單含帶骨/刺料理（如魚、排骨），推論全校多數廚餘重量主要來自骨頭殘渣與剔刺難度，而非學生大量剩食，屬物理殘渣加成所致。`;
+                } else if (/苦瓜|青椒|芥藍|茄子/.test(str)) {
+                  aiDeduction = `${patternDesc}交叉比對菜單含有明顯低偏好度蔬菜，且全校各年段均同步超標，推論當日蔬菜品項之整體調味或口感普遍未能迎合學生口味，造成全校性剩菜偏高。`;
+                } else {
+                  aiDeduction = `${patternDesc}全校各年段均呈現高人均廚餘，推論可能為整體供餐份量偏多、主食主菜整體調味偏重/偏淡，或是菜色整體組合之接受度偏低。`;
+                }
+              } else if (spikeRatio > 0 && spikeRatio < 35) {
+                let targetStage = (lowSpike > midSpike && lowSpike > highSpike) ? '低年級' :
+                                  (highSpike > lowSpike && highSpike > midSpike) ? '高年級' : '特定少數班級';
+                patternDesc = `超標班級僅佔 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，非全校普遍現象，而是<b>高度集中於${targetStage}</b>。`;
+                
+                if (targetStage === '低年級' && /魚|排骨|骨|棒腿|糙米|五穀/.test(str)) {
+                  aiDeduction = `${patternDesc}推論低年級學童咀嚼能力較弱、食用帶骨刺或高纖粗糧時較易放棄食用，建議導師於用餐時加強巡視與個別關懷盛菜量。`;
+                } else {
+                  aiDeduction = `${patternDesc}全校多數班級均在正常門檻內，推論並非菜色品質問題，可能為少數班級當日盛飯菜份量掌控、班級打菜習慣或班級活動時程延宕影響用餐所致。`;
+                }
+              } else {
+                patternDesc = `超標班級比例為 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，呈現中度分散。`;
+                aiDeduction = `${patternDesc}推論當日菜單之接受度存在班級個別差異，建議針對人均較高之班級（如：${spikeClasses.slice(0, 3).map(c=>c.className).join('、')}等）進一步了解個別剩菜最多的品項。`;
+              }
+            }
+          }
+
+          analysisDayResults[day.d] = {
+            hasRecordedData, hasMenu, isSpike, per, threshold,
+            alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
+            menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
+          };
+        }
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+        try {
+          await setDoc(doc(db, "menu_diagnoses", cacheDocId), {
+            academicYear: y,
+            semester: 1,
+            week: w,
+            days: analysisDayResults,
+            savedAtFormatted: formattedDate,
+            updatedAt: serverTimestamp(),
+            updatedBy: window.currentUser ? window.currentUser.email : 'system'
+          }, { merge: true });
+
+          if (hint) {
+            hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+              ✨ 已自動儲存最新診斷結果 (${formattedDate})
+            </span>`;
+          }
+        } catch (saveErr) {
+          console.warn("診斷結果存入快取資料庫失敗:", saveErr);
+          if (hint) hint.innerText = "⚠️ 診斷完成（快取儲存受限）";
+        }
+
+        window.renderAnalysisCards(analysisDayResults, false, formattedDate);
+
+      } catch (err) {
+        if (con) con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) {
+          btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
+        }
+      }
+    };
+
+    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr) => {
+      const con = document.getElementById('analysis-results-container');
+      if (!con) return;
+      
+      const cardsHtml = WEEKDAYS.map(day => {
+        const d = daysData[day.d] || {};
+        const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu } = d;
+
+        let diagnosticHtml = '';
+        if (!hasRecordedData) {
+          diagnosticHtml = `
+            <div class="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200/60 mt-2 font-medium flex items-center gap-1.5">
+              <span>ℹ</span> 尚未輸入本日之人均廚餘量，無法進行統計分析。
+            </div>`;
+        } else if (!hasMenu) {
+          diagnosticHtml = `<div class="text-xs text-slate-400 mt-2">請先於「4. 🤖 AI 菜單維護」登錄本日菜單，以利進行食材與廚餘交叉診斷。</div>`;
+        } else {
+          if (isSpike && alertMsg) {
+            diagnosticHtml = `
+              <div class="bg-rose-50 p-3.5 rounded-lg text-xs text-rose-800 mt-2 border border-rose-100 space-y-2 leading-relaxed">
+                <div><b>🚨 警示:</b> ${alertMsg}</div>
+                ${!isCloudAI && advice ? `<div><b>💡 建議:</b> ${advice}</div>` : ''}
+                <div class="pt-2 border-t border-rose-200/60 text-slate-800">
+                  <div class="flex items-center justify-between flex-wrap gap-1">
+                    <span class="inline-flex items-center gap-1 font-bold ${isCloudAI ? 'text-indigo-800' : 'text-slate-800'}">
+                      ${isCloudAI ? `✨ 營養師 AI 雲端深度診斷 (${cloudModelName || 'Gemini'}):` : '🤖 診斷(在地啟發式推論):'}
+                    </span>
+                    ${isFromCache && cacheDateStr ? `
+                      <span class="text-[10px] text-slate-500 bg-white/80 border border-slate-200 px-1.5 py-0.5 rounded font-mono">
+                        📌 歷史存檔 (${cacheDateStr})
+                      </span>
+                    ` : ''}
+                  </div>
+                  <p class="mt-1 whitespace-pre-line leading-relaxed text-slate-700">${aiDeduction || ''}</p>
+                  ${!isCloudAI && cloudErrorReason ? `
+                    <div class="mt-2 text-[10px] text-amber-700 bg-amber-100/70 p-1.5 rounded border border-amber-200/60 flex items-center justify-between">
+                      <span>ℹ️ 雲端 AI 備援觸發原因：${cloudErrorReason}</span>
+                      <span class="font-bold text-slate-500">已自動切換在地引擎</span>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>`;
+          } else {
+            diagnosticHtml = `<div class="text-xs text-emerald-600 mt-2 font-medium">✅ 人均於標準範圍內 (${per} g ≤ ${threshold} g)，菜色接受度良好。</div>`;
+          }
+        }
+
+        const menuStr = (menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup))
+          ? `${menu.main || '-'}, ${menu.dish1 || '-'}, ${menu.dish2 || '-'}, ${menu.vege || '-'}, ${menu.soup || '-'}`
+          : '<span class="text-slate-400">無紀錄</span>';
+
+        return `
+          <div class="p-4 bg-white border rounded-xl shadow-sm ${(hasRecordedData && isSpike && hasMenu) ? 'border-rose-300 bg-rose-50/20' : 'border-slate-100'}">
+            <div class="flex justify-between items-center font-bold border-b pb-2 mb-2">
+              <span class="text-slate-700">${day.name}</span>
+              <span class="${!hasRecordedData ? 'text-slate-400 text-xs font-normal' : (isSpike ? 'text-rose-600 font-bold' : 'text-emerald-600 font-semibold')}">
+                ${hasRecordedData ? `${per} g/人` : '尚無秤重數據'}
+              </span>
+            </div>
+            <div class="text-xs text-slate-600 mb-2">
+              🍱 <strong>菜單內容</strong>：${menuStr}
+            </div>
+            ${diagnosticHtml}
+          </div>`;
+      }).join('');
+
+      con.innerHTML = cardsHtml;
+    };
+
+    /* --- 每月榮譽榜計算 --- */
+    window.calcMonthlyReport = async () => {
+      const yearInput = document.getElementById('monthly-year') || document.getElementById('daily-year') || document.getElementById('sys-year');
+      const y = parseInt(yearInput?.value || 115);
+      const m = parseInt(document.getElementById('monthly-select-month')?.value || 9);
+      
+      const tbody = document.getElementById('monthly-table-body');
+      const cards = document.getElementById('monthly-cards');
+      const hint = document.getElementById('monthly-status-hint');
+
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">⏳ 正在彙整全月數據，請稍候...</td></tr>';
+      if (cards) cards.innerHTML = '';
+      if (hint) hint.innerText = `正在讀取 ${y} 學年度資料...`;
+
+      let weekRanges = { 9: [1, 4], 10: [5, 8], 11: [9, 12], 12: [13, 17] };
+      let [wStart, wEnd] = weekRanges[m] || [1, 4];
+
+      try {
+        const snap = await getDocs(query(
+          collection(db, "daily_records"),
+          where("academicYear", "==", y)
+        ));
+
+        const allLogs = snap.docs.map(d => d.data());
+        const logs = allLogs.filter(d => {
+          const wk = parseInt(d.week);
+          return !isNaN(wk) && wk >= wStart && wk <= wEnd;
+        });
+
+        if (hint) {
+          hint.innerText = `統計範圍：第 ${wStart} ~ ${wEnd} 週 (共納入 ${logs.length} 筆當月秤重紀錄)`;
+        }
+
+        if (logs.length === 0) {
+          if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">
+            ℹ 目前在 <b>${y} 學年度 第 ${wStart} ~ ${wEnd} 週</b> 尚未查詢到有效的秤重登記資料。<br>
+            <span class="text-xs text-slate-400 mt-1 block">（請至「1. 每日登記」檢查該學年度與週次是否已「☁️ 儲存上傳」數據）</span>
+          </td></tr>`;
+          if (cards) cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
+              <div class="text-xs font-bold text-slate-500">👑 ${m}月 ${stg}惜食總冠軍</div>
+              <div class="text-xl font-bold mt-1 text-slate-400">-</div>
+              <div class="text-sm font-semibold text-slate-400">尚無資料</div>
+            </div>`).join('');
+          return;
+        }
+
+        let stats = window.CLASSES.map(c => {
+          let classLogs = logs.filter(l => l.classId === c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+          let tw = classLogs.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
+          let tc = classLogs.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+          let per = tc > 0 ? Number((tw / tc).toFixed(1)) : null;
+          return { ...c, tw: tw.toFixed(0), tc, per };
+        });
+
+        let champs = {};
+        ['低年級', '中年級', '高年級'].forEach(stg => {
+          let s = stats.filter(x => x.stage === stg && x.per !== null).sort((a, b) => a.per - b.per);
+          if (s.length > 0) champs[stg] = s[0];
+        });
+
+        if (cards) {
+          cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+            <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center shadow-sm">
+              <div class="text-xs font-bold text-indigo-800">👑 ${m}月 ${stg}惜食總冠軍</div>
+              <div class="text-xl font-bold mt-1 text-slate-800">${champs[stg] ? champs[stg].name : '-'}</div>
+              <div class="text-sm font-semibold text-indigo-600">${champs[stg] ? champs[stg].per + ' g/人' : '無有效人均'}</div>
+            </div>`).join('');
+        }
+
+        if (tbody) {
+          tbody.innerHTML = stats.map(s => {
+            let isC = Object.values(champs).some(c => c && c.id === s.id);
+            return `
+              <tr class="${isC ? 'bg-indigo-50/50 font-semibold' : 'hover:bg-slate-50'}">
+                <td class="p-3">${s.name}</td>
+                <td class="p-3 text-right">${s.tw}</td>
+                <td class="p-3 text-right">${s.tc}</td>
+                <td class="p-3 text-right font-bold text-indigo-700">${s.per !== null ? s.per : '-'}</td>
+                <td class="p-3 text-center">${isC ? '👑 月冠軍' : '-'}</td>
+              </tr>`;
+          }).join('');
+        }
+
+      } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">❌ 彙整數據失敗：${err.message}</td></tr>`;
+        if (hint) hint.innerText = '讀取發生錯誤';
+      }
+    };
+
+    /* --- 系統開機安全啟動管線 --- */
+    (async function initSystem() {
+      // 1. 立即輸出 12 班表格與預設人數，避免等待網路卡死
+      window.renderInitialEmptyTable();
+
+      // 2. 載入基本行事曆與班級人數
+      await window.loadSystemConfig();
+      await window.loadClassSettings();
+
+      // 3. 執行每日登記資料裝填
+      window.loadDailyRecords();
+    })();
+
+  </script>
+</body>
+</html>
