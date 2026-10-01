@@ -77,16 +77,23 @@
           <div class="flex items-center gap-2 mt-1">
             <input type="number" id="daily-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50" value="115">
             <span class="text-xs">學年 第</span>
-            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.loadDailyRecords()">
+            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.onDailyWeekOrDayChange()">
             <span class="text-xs">週</span>
             <span id="daily-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium"></span>
           </div>
         </div>
+
+        <!-- 秤重星期選單與日期對照 -->
         <div>
-          <label class="text-xs font-semibold text-slate-500">秤重星期</label>
-          <select id="daily-weekday" class="mt-1 block border rounded px-3 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" onchange="window.loadDailyRecords()">
-            <option value="1">週一</option><option value="2">週二</option><option value="4">週四</option><option value="5">週五</option>
-          </select>
+          <label class="text-xs font-semibold text-slate-500">秤重星期與日期</label>
+          <div class="flex items-center gap-2 mt-1">
+            <span id="daily-exact-date" class="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded">
+              -- / --
+            </span>
+            <select id="daily-weekday" class="border rounded px-3 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" onchange="window.onDailyWeekOrDayChange()">
+              <option value="1">週一</option><option value="2">週二</option><option value="4">週四</option><option value="5">週五</option>
+            </select>
+          </div>
         </div>
         
         <!-- 免秤重設定區塊 -->
@@ -148,7 +155,7 @@
           <button onclick="window.calcWeeklyReport()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded">🔄 重新讀取</button>
         </div>
         <div class="flex gap-2">
-          <button onclick="window.print()" class="px-4 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded">🖨️️ 列印報表</button>
+          <button onclick="window.print()" class="px-4 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded">🖨 列印報表</button>
           <button onclick="window.copyWeeklySpeech()" class="px-4 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded shadow">📋 複製廣播詞</button>
         </div>
       </div>
@@ -243,7 +250,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="menu-days-container"></div>
     </section>
 
-    <!-- 【頁面 5】菜單關聯異常分析 -->
+    <!-- 【頁面 5】菜單關聯異常分析 (含日期與事由備註) -->
     <section id="page-analysis" class="space-y-6 hidden">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
         <div class="flex items-center gap-3 flex-wrap">
@@ -500,7 +507,7 @@
     </div>
   </div>
 
-  <!-- 登入 Modal (支援手機、平板與電腦全平台) -->
+  <!-- 登入 Modal (支援跨平台與 LINE 提醒) -->
   <div id="login-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border">
       <div class="flex justify-between items-center mb-3">
@@ -597,7 +604,6 @@
     window.classSavedStatus = {}; 
     let isGoogleLoginInProgress = false;
 
-    // 檢測是否在 LINE / FB 內建瀏覽器環境
     const isInAppBrowser = () => {
       const ua = navigator.userAgent || navigator.vendor || window.opera || '';
       return (/Line|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua));
@@ -620,9 +626,109 @@
     let confirmResolver = null;
     window.pendingPermissionRole = 'admin';
 
+    /* ========================================================
+       🛡️ 安全防護第一步：提升所有按鈕與 input 會用到的函式至 window
+       ======================================================== */
+
+    window.getExactDateForWeekDay = (weekNum, weekday) => {
+      try {
+        const startEl = document.getElementById('sys-start');
+        const startStr = startEl ? startEl.value : '2026-08-31';
+        if (!startStr) return '-- / --';
+        const parts = startStr.split('-');
+        if (parts.length < 3) return '-- / --';
+        
+        const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        const day = start.getDay();
+        const diffToMon = day === 0 ? -6 : (1 - day);
+        
+        const baseMonday = new Date(start);
+        baseMonday.setDate(start.getDate() + diffToMon);
+        
+        const targetMon = new Date(baseMonday);
+        targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
+        
+        const targetDay = new Date(targetMon);
+        targetDay.setDate(targetMon.getDate() + (parseInt(weekday) - 1));
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const m = pad(targetDay.getMonth() + 1);
+        const d = pad(targetDay.getDate());
+        return `${m} / ${d}`;
+      } catch (e) {
+        return '-- / --';
+      }
+    };
+
+    window.getWeekDateRange = (weekNum) => {
+      try {
+        const startEl = document.getElementById('sys-start');
+        const startStr = startEl ? startEl.value : '2026-08-31';
+        if (!startStr) return '';
+        const parts = startStr.split('-');
+        if (parts.length < 3) return '';
+        
+        const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        const day = start.getDay();
+        const diffToMon = day === 0 ? -6 : (1 - day);
+        
+        const baseMonday = new Date(start);
+        baseMonday.setDate(start.getDate() + diffToMon);
+        
+        const targetMon = new Date(baseMonday);
+        targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
+        
+        const targetFri = new Date(targetMon);
+        targetFri.setDate(targetMon.getDate() + 4);
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const m1 = pad(targetMon.getMonth() + 1);
+        const d1 = pad(targetMon.getDate());
+        const m2 = pad(targetFri.getMonth() + 1);
+        const d2 = pad(targetFri.getDate());
+        
+        return `${m1}/${d1} ~ ${m2}/${d2}`;
+      } catch (e) {
+        return '';
+      }
+    };
+
+    window.refreshAllWeekLabels = () => {
+      try {
+        const dw = parseInt(document.getElementById('daily-week')?.value || 1);
+        const dWd = parseInt(document.getElementById('daily-weekday')?.value || 1);
+        const mw = parseInt(document.getElementById('menu-week')?.value || 1);
+        const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1);
+        const aw = parseInt(document.getElementById('analysis-week')?.value || 1);
+
+        const dSpan = document.getElementById('daily-week-range');
+        if (dSpan) dSpan.innerText = window.getWeekDateRange(dw);
+
+        const dExact = document.getElementById('daily-exact-date');
+        if (dExact) dExact.innerText = window.getExactDateForWeekDay(dw, dWd);
+
+        const mSpan = document.getElementById('menu-week-range');
+        if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
+
+        const wSpan = document.getElementById('weekly-week-range');
+        if (wSpan) wSpan.innerText = window.getWeekDateRange(ww);
+
+        const aSpan = document.getElementById('analysis-week-range');
+        if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
+      } catch (e) {
+        console.warn("更新週次標籤例外:", e);
+      }
+    };
+
+    window.onDailyWeekOrDayChange = () => {
+      window.refreshAllWeekLabels();
+      window.loadDailyRecords();
+    };
+
     window.showNotice = (title, message, isSuccess = true) => {
       const modal = document.getElementById('notice-modal');
       const icon = document.getElementById('notice-modal-icon');
+      if (!modal) return;
       document.getElementById('notice-modal-title').innerText = title;
       document.getElementById('notice-modal-msg').innerText = message;
       if (isSuccess) {
@@ -636,14 +742,16 @@
     };
 
     window.closeNoticeModal = () => {
-      document.getElementById('notice-modal').classList.add('hidden');
+      document.getElementById('notice-modal')?.classList.add('hidden');
     };
 
     window.showPermissionDenied = (tabName, requiredRole = '系統管理員') => {
       window.pendingPermissionRole = (requiredRole === '系統管理員') ? 'admin' : 'staff';
       const actionBtn = document.getElementById('permission-modal-action-btn');
+      const modal = document.getElementById('permission-modal');
+      if (!modal) return;
+
       document.getElementById('permission-modal-title').innerText = `🔒「${tabName}」權限不足`;
-      
       const currentIdentity = (window.userRole === 'staff') ? '工作小組' : (window.userRole === 'waste_monitor' ? '廚餘長模式' : '訪客模式');
       document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;
       
@@ -654,7 +762,7 @@
         actionBtn.innerText = '👥 工作小組登入';
         actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';
       }
-      document.getElementById('permission-modal').classList.remove('hidden');
+      modal.classList.remove('hidden');
     };
 
     window.handlePermissionAction = () => {
@@ -663,19 +771,19 @@
     };
 
     window.closePermissionModal = () => {
-      document.getElementById('permission-modal').classList.add('hidden');
+      document.getElementById('permission-modal')?.classList.add('hidden');
     };
 
     window.confirmAction = (msg) => {
       return new Promise((resolve) => {
         confirmResolver = resolve;
         document.getElementById('confirm-modal-msg').innerText = msg;
-        document.getElementById('confirm-modal').classList.remove('hidden');
+        document.getElementById('confirm-modal')?.classList.remove('hidden');
       });
     };
 
     window.closeConfirmModal = (result) => {
-      document.getElementById('confirm-modal').classList.add('hidden');
+      document.getElementById('confirm-modal')?.classList.add('hidden');
       if (confirmResolver) {
         confirmResolver(result);
         confirmResolver = null;
@@ -696,19 +804,18 @@
       }
     };
 
-    /* --- 廚餘長認證彈窗 --- */
     window.openWasteMonitorModal = () => {
       const modal = document.getElementById('waste-monitor-modal');
       const input = document.getElementById('waste-modal-pass-input');
       const err = document.getElementById('waste-modal-err');
       if (input) input.value = '';
       if (err) { err.innerText = ''; err.classList.add('hidden'); }
-      modal.classList.remove('hidden');
+      modal?.classList.remove('hidden');
       setTimeout(() => input?.focus(), 150);
     };
 
     window.closeWasteMonitorModal = () => {
-      document.getElementById('waste-monitor-modal').classList.add('hidden');
+      document.getElementById('waste-monitor-modal')?.classList.add('hidden');
     };
 
     window.verifyWasteMonitorPass = async () => {
@@ -755,10 +862,8 @@
       }
     };
 
-    /* --- 解鎖/鎖定設定頁面輸入框核心函式 --- */
     window.unlockSettingsFields = () => {
       const isAdm = (window.userRole === 'admin');
-      
       const fieldIds = [
         'sys-gemini-key', 'sys-year', 'sys-sem', 'sys-start', 'sys-end', 
         'sys-threshold', 'sys-waste-pass', 'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'
@@ -803,7 +908,6 @@
       });
     };
 
-    /* --- 動態偵測最佳可用 Gemini 模型端點 --- */
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
       try {
@@ -845,19 +949,14 @@
       try {
         window._cachedGeminiModel = null;
         const model = await window.getAvailableGeminiModel(keyVal);
-        
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }]
-          })
+          body: JSON.stringify({ contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }] })
         });
 
         const resData = await res.json();
-        if (!res.ok || resData.error) {
-          throw new Error(resData.error?.message || `HTTP ${res.status}`);
-        }
+        if (!res.ok || resData.error) throw new Error(resData.error?.message || `HTTP ${res.status}`);
 
         window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動偵測並綁定最佳模型端點：[${model}]`);
         window.updateKeyStatusUI();
@@ -882,11 +981,7 @@
       if (window.userRole !== 'admin') return;
       const keyVal = (document.getElementById('sys-gemini-key')?.value || '').trim();
       try {
-        await setDoc(doc(db, "system_config", "gemini_api"), {
-          apiKey: keyVal,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-
+        await setDoc(doc(db, "system_config", "gemini_api"), { apiKey: keyVal, updatedAt: serverTimestamp() }, { merge: true });
         window.cloudGeminiKey = keyVal;
         window._cachedGeminiModel = null;
         window.updateKeyStatusUI();
@@ -942,7 +1037,6 @@
       }
     };
 
-    /* --- 廚餘長密碼讀取與儲存 --- */
     window.loadWasteMonitorPass = async () => {
       try {
         const snap = await getDoc(doc(db, "system_config", "waste_monitor"));
@@ -965,18 +1059,13 @@
       }
 
       try {
-        await setDoc(doc(db, "system_config", "waste_monitor"), {
-          password: passVal,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-
+        await setDoc(doc(db, "system_config", "waste_monitor"), { password: passVal, updatedAt: serverTimestamp() }, { merge: true });
         window.showNotice('儲存成功', `🍱 廚餘長快速登錄通行密碼已成功更新！`);
       } catch (e) {
         window.showNotice('儲存失敗', e.message, false);
       }
     };
 
-    /* --- 雲端角色名單讀取與儲存 --- */
     window.loadRoleSettings = async () => {
       try {
         const snap = await getDoc(doc(db, "system_roles", "main"));
@@ -990,18 +1079,14 @@
               if (typeof item === 'string') {
                 return { email: item.trim().toLowerCase(), name: '', canDaily: false };
               } else if (item && typeof item === 'object') {
-                return { 
-                  email: (item.email || '').trim().toLowerCase(), 
-                  name: (item.name || '').trim(),
-                  canDaily: Boolean(item.canDaily)
-                };
+                return { email: (item.email || '').trim().toLowerCase(), name: (item.name || '').trim(), canDaily: Boolean(item.canDaily) };
               }
               return null;
             }).filter(s => s && s.email);
           }
         }
       } catch (e) {
-        console.warn("載入角色設定失敗，使用預設管理員名單", e);
+        console.warn("載入角色設定失敗，使用預設名單", e);
       }
       window.renderRoleLists();
     };
@@ -1009,12 +1094,8 @@
     window.saveRoleSettings = async () => {
       if (window.userRole !== 'admin') return;
       try {
-        await setDoc(doc(db, "system_roles", "main"), {
-          admins: window.ADMIN_EMAILS,
-          staffs: window.STAFF_MEMBERS,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        window.showNotice('權限設定成功', '👥 管理員與工作小組成員名單（含姓名與登記權限）已同步儲存至雲端資料庫！');
+        await setDoc(doc(db, "system_roles", "main"), { admins: window.ADMIN_EMAILS, staffs: window.STAFF_MEMBERS, updatedAt: serverTimestamp() }, { merge: true });
+        window.showNotice('權限設定成功', '👥 管理員與工作小組成員名單已同步儲存至雲端資料庫！');
       } catch (e) {
         window.showNotice('儲存失敗', e.message, false);
       }
@@ -1072,16 +1153,12 @@
     };
 
     window.addMemberRole = (role) => {
-      if (window.userRole !== 'admin') {
-        return window.showNotice('權限不足', '只有系統管理員可以新增成員權限喔！', false);
-      }
+      if (window.userRole !== 'admin') return window.showNotice('權限不足', '只有系統管理員可以新增成員權限喔！', false);
 
       if (role === 'admin') {
         const input = document.getElementById('input-new-admin');
         const email = (input?.value || '').trim().toLowerCase();
-        if (!email || !email.includes('@')) {
-          return window.showNotice('格式不符', '請輸入有效的電子郵件地址！', false);
-        }
+        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的電子郵件地址！', false);
         if (!window.ADMIN_EMAILS.includes(email)) {
           window.ADMIN_EMAILS.push(email);
           window.STAFF_MEMBERS = window.STAFF_MEMBERS.filter(s => s.email !== email);
@@ -1095,24 +1172,16 @@
         const name = (nameInput?.value || '').trim();
         const email = (emailInput?.value || '').trim().toLowerCase();
 
-        if (!email || !email.includes('@')) {
-          return window.showNotice('格式不符', '請輸入有效的工作小組電子郵件！', false);
-        }
-        if (window.ADMIN_EMAILS.includes(email)) {
-          return window.showNotice('提示', '該信箱已經是系統管理員，無需重複加入工作小組！', false);
-        }
+        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的工作小組電子郵件！', false);
+        if (window.ADMIN_EMAILS.includes(email)) return window.showNotice('提示', '該信箱已經是系統管理員，無需重複加入工作小組！', false);
 
         const existingIdx = window.STAFF_MEMBERS.findIndex(s => s.email === email);
         if (existingIdx >= 0) {
           window.STAFF_MEMBERS[existingIdx].name = name || window.STAFF_MEMBERS[existingIdx].name;
-          window.showNotice('已更新', `已更新成員【${email}】的姓名為「${window.STAFF_MEMBERS[existingIdx].name}」！`);
+          window.showNotice('已更新', `已更新成員【${email}】的姓名！`);
         } else {
-          window.STAFF_MEMBERS.push({
-            email: email,
-            name: name || '工作小組成員',
-            canDaily: false
-          });
-          window.showNotice('已暫存清單', `已將【${name ? name + ' (' + email + ')' : email}】加入工作小組，請記得點擊「💾 儲存成員權限」儲存至資料庫！`);
+          window.STAFF_MEMBERS.push({ email, name: name || '工作小組成員', canDaily: false });
+          window.showNotice('已暫存清單', `已將【${name ? name + ' (' + email + ')' : email}】加入工作小組，請點擊「💾 儲存成員權限」！`);
         }
 
         if (nameInput) nameInput.value = '';
@@ -1124,9 +1193,7 @@
     window.removeMemberRole = (role, idx) => {
       if (window.userRole !== 'admin') return;
       if (role === 'admin') {
-        if (window.ADMIN_EMAILS.length <= 1) {
-          return window.showNotice('無法移除', '系統必須至少保留一位管理員！', false);
-        }
+        if (window.ADMIN_EMAILS.length <= 1) return window.showNotice('無法移除', '系統必須至少保留一位管理員！', false);
         window.ADMIN_EMAILS.splice(idx, 1);
       } else {
         window.STAFF_MEMBERS.splice(idx, 1);
@@ -1135,55 +1202,6 @@
       window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存成員權限」儲存至資料庫！');
     };
 
-    window.getWeekDateRange = (weekNum) => {
-      const startEl = document.getElementById('sys-start');
-      const startStr = startEl ? startEl.value : '2026-08-31';
-      if (!startStr) return '';
-      const parts = startStr.split('-');
-      if (parts.length < 3) return '';
-      
-      const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-      const day = start.getDay();
-      const diffToMon = day === 0 ? -6 : (1 - day);
-      
-      const baseMonday = new Date(start);
-      baseMonday.setDate(start.getDate() + diffToMon);
-      
-      const targetMon = new Date(baseMonday);
-      targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
-      
-      const targetFri = new Date(targetMon);
-      targetFri.setDate(targetMon.getDate() + 4);
-      
-      const pad = (n) => String(n).padStart(2, '0');
-      const m1 = pad(targetMon.getMonth() + 1);
-      const d1 = pad(targetMon.getDate());
-      const m2 = pad(targetFri.getMonth() + 1);
-      const d2 = pad(targetFri.getDate());
-      
-      return `${m1}/${d1} ~ ${m2}/${d2}`;
-    };
-
-    window.refreshAllWeekLabels = () => {
-      const dw = parseInt(document.getElementById('daily-week')?.value || 1);
-      const mw = parseInt(document.getElementById('menu-week')?.value || 1);
-      const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1);
-      const aw = parseInt(document.getElementById('analysis-week')?.value || 1);
-
-      const dSpan = document.getElementById('daily-week-range');
-      if (dSpan) dSpan.innerText = window.getWeekDateRange(dw);
-
-      const mSpan = document.getElementById('menu-week-range');
-      if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
-
-      const wSpan = document.getElementById('weekly-week-range');
-      if (wSpan) wSpan.innerText = window.getWeekDateRange(ww);
-
-      const aSpan = document.getElementById('analysis-week-range');
-      if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
-    };
-
-    /* --- 預設表格渲染防護保證 --- */
     window.renderInitialEmptyTable = () => {
       const tbody = document.getElementById('daily-rows');
       if (!tbody) return;
@@ -1208,669 +1226,106 @@
       `).join('');
     };
 
-    /* --- Auth State & 三層權限判斷 --- */
-    onAuthStateChanged(auth, async (user) => {
-      try {
-        await window.loadRoleSettings();
-        await window.loadGeminiApiKey();
-
-        if (user) {
-          const userEmail = (user.email || "").trim().toLowerCase();
-          const isAdmin = window.ADMIN_EMAILS.includes(userEmail);
-          const staffObj = window.STAFF_MEMBERS.find(s => s.email === userEmail);
-
-          if (isAdmin) {
-            window.userRole = 'admin';
-            window.currentStaffCanDaily = true;
-            await window.loadWasteMonitorPass();
-          } else if (staffObj) {
-            window.userRole = 'staff';
-            window.currentStaffCanDaily = Boolean(staffObj.canDaily);
-          } else {
-            await signOut(auth);
-            window.currentUser = null;
-            window.userRole = 'guest';
-            window.currentStaffCanDaily = false;
-            window.showNotice('🚫 登入拒絕', `【${user.email}】\n您尚未被加入管理員或工作小組授權名單中。\n若需檢視或維護，請洽系統管理員新增！`, false);
-            return;
-          }
-        } else {
-          if (window.userRole !== 'waste_monitor') {
-            window.userRole = 'guest';
-            window.currentStaffCanDaily = false;
-          }
-        }
-
-        window.currentUser = user;
-        window.updateUIForRole();
-        window.loadDailyRecords();
-      } catch (err) {
-        console.error("驗證身分處理時發生錯誤:", err);
-      }
-    });
-
-    window.updateUIForRole = () => {
-      const badge = document.getElementById('auth-badge');
-      const tabMenuText = document.getElementById('tab-menu-text');
-      const tabMenuBadge = document.getElementById('tab-menu-badge');
-      const tabAnalysisBadge = document.getElementById('tab-analysis-badge');
-      const tabSettingsBadge = document.getElementById('tab-settings-badge');
-
-      const menuWeekTitle = document.getElementById('menu-week-title-label');
-      const menuSaveBtn = document.getElementById('menu-save-btn');
-      const menuAiSection = document.getElementById('menu-ai-section');
-
-      const btnStaffLogin = document.getElementById('btn-staff-login');
-      const btnLoginModal = document.getElementById('btn-login-modal');
-      const btnLogout = document.getElementById('btn-logout');
-
-      const role = window.userRole;
-      const canEditDaily = (role === 'admin') || (role === 'waste_monitor') || (role === 'staff' && window.currentStaffCanDaily);
-
-      const saveBtn = document.getElementById('save-btn');
-      if (saveBtn) {
-        if (canEditDaily) {
-          saveBtn.disabled = false;
-          saveBtn.removeAttribute('disabled');
-          saveBtn.className = "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition flex items-center gap-1";
-          saveBtn.innerText = '☁️ 儲存上傳當日全部班級';
-        } else {
-          saveBtn.disabled = true;
-          saveBtn.setAttribute('disabled', 'true');
-          saveBtn.className = "px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition flex items-center gap-1";
-          saveBtn.innerText = '🔒 需登入方可儲存';
-        }
-      }
-
-      if (role === 'admin') {
-        badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${window.currentUser?.displayName || window.currentUser?.email || '管理員'}`;
-        
-        btnStaffLogin.classList.add('hidden');
-        btnLoginModal.classList.add('hidden');
-        btnLogout.classList.remove('hidden');
-
-        tabMenuText.innerText = "4. 🤖 AI 菜單維護";
-        tabMenuBadge.classList.remove('hidden');
-        tabMenuBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
-        tabMenuBadge.innerText = "🔓";
-
-        if (menuWeekTitle) menuWeekTitle.innerText = "維護週次：第";
-        if (menuSaveBtn) menuSaveBtn.classList.remove('hidden');
-        if (menuAiSection) menuAiSection.classList.remove('hidden');
-
-        tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
-        tabAnalysisBadge.innerText = "🔓";
-
-        tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
-        tabSettingsBadge.innerText = "🔓";
-
-        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn'].forEach(id => {
-          let b = document.getElementById(id);
-          if (b) {
-            b.disabled = false;
-            b.removeAttribute('disabled');
-            if (id === 'key-test-btn') {
-              b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
-            } else if (id==='csv-import-btn' || id==='role-save-btn' || id==='key-save-btn' || id==='waste-pass-save-btn') {
-              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
-            } else {
-              b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
-            }
-            if (id==='csv-import-btn') b.innerText = '🚀 開始匯入';
-            else if (id==='role-save-btn') b.innerText = '💾 儲存成員權限';
-            else if (id==='key-save-btn') b.innerText = '💾 儲存 AI 金鑰';
-            else if (id==='key-test-btn') b.innerText = '🧪 測試連線';
-            else if (id==='waste-pass-save-btn') b.innerText = '💾 儲存密碼';
-            else b.innerText = '💾 儲存設定';
-          }
-        });
-
-        window.unlockSettingsFields();
-
-      } else if (role === 'waste_monitor') {
-        badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-amber-100 text-amber-800 border border-amber-200";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span>廚餘長模式`;
-
-        btnStaffLogin.classList.remove('hidden');
-        btnLoginModal.classList.remove('hidden');
-        btnLogout.classList.remove('hidden');
-
-        tabMenuText.innerText = "4. 菜單查詢";
-        tabMenuBadge.classList.add('hidden');
-
-        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
-        if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
-        if (menuAiSection) menuAiSection.classList.add('hidden');
-
-        tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabAnalysisBadge.innerText = "🔒";
-
-        tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabSettingsBadge.innerText = "🔒";
-
-        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn'].forEach(id => {
-          let b = document.getElementById(id);
-          if (b) {
-            b.disabled = true;
-            b.setAttribute('disabled', 'true');
-            b.className = "px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow cursor-not-allowed transition text-sm";
-            b.innerText = '🔒 需登入操作';
-          }
-        });
-
-        window.unlockSettingsFields();
-
-      } else if (role === 'staff') {
-        const curEmail = (window.currentUser?.email || '').trim().toLowerCase();
-        const staffObj = window.STAFF_MEMBERS.find(s => s.email === curEmail);
-        const staffDisplayName = staffObj?.name || window.currentUser?.displayName || window.currentUser?.email;
-
-        badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-indigo-100 text-indigo-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span>工作小組：${staffDisplayName}${window.currentStaffCanDaily ? ' (可登記)' : ''}`;
-        
-        btnStaffLogin.classList.add('hidden');
-        btnLoginModal.classList.add('hidden');
-        btnLogout.classList.remove('hidden');
-
-        tabMenuText.innerText = "4. 菜單查詢";
-        tabMenuBadge.classList.add('hidden');
-
-        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
-        if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
-        if (menuAiSection) menuAiSection.classList.add('hidden');
-
-        tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium";
-        tabAnalysisBadge.innerText = "👀 檢視";
-
-        tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabSettingsBadge.innerText = "🔒";
-
-        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn'].forEach(id => {
-          let b = document.getElementById(id);
-          if (b) {
-            b.disabled = true;
-            b.setAttribute('disabled', 'true');
-            b.className = "px-4 py-1.5 bg-slate-200 text-slate-400 font-medium rounded shadow cursor-not-allowed transition text-sm";
-            b.innerText = '🔒 僅供檢視 (唯讀)';
-          }
-        });
-
-        window.unlockSettingsFields();
-
-      } else {
-        badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
-        
-        btnStaffLogin.classList.remove('hidden');
-        btnLoginModal.classList.remove('hidden');
-        btnLogout.classList.add('hidden');
-
-        tabMenuText.innerText = "4. 菜單查詢";
-        tabMenuBadge.classList.add('hidden');
-
-        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
-        if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
-        if (menuAiSection) menuAiSection.classList.add('hidden');
-
-        tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabAnalysisBadge.innerText = "🔒";
-
-        tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabSettingsBadge.innerText = "🔒";
-
-        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn'].forEach(id => {
-          let b = document.getElementById(id);
-          if (b) {
-            b.disabled = true;
-            b.setAttribute('disabled', 'true');
-            b.className = "px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow cursor-not-allowed transition text-sm";
-            b.innerText = '🔒 需登入操作';
-          }
-        });
-
-        window.unlockSettingsFields();
-      }
-
-      window.renderRoleLists();
-      window.updateKeyStatusUI();
-    };
-
-    window.openLoginModal = (targetRole = 'staff') => {
-      const modal = document.getElementById('login-modal');
-      const title = document.getElementById('login-modal-title');
-      const hint = document.getElementById('login-modal-hint');
-      const emailInput = document.getElementById('login-email');
-      const lineAlert = document.getElementById('line-browser-alert');
-
-      if (lineAlert) {
-        if (isInAppBrowser()) {
-          lineAlert.classList.remove('hidden');
-        } else {
-          lineAlert.classList.add('hidden');
-        }
-      }
-
-      if (targetRole === 'staff') {
-        title.innerHTML = `👥 工作小組登入`;
-        hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-indigo-50 border border-indigo-100 text-indigo-800 leading-relaxed";
-        hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用，請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
-      } else {
-        title.innerHTML = `🔐 後臺管理登入`;
-        hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-emerald-50 border border-emerald-100 text-emerald-800 leading-relaxed";
-        hint.innerHTML = `🛡 <strong>系統管理員入口</strong>：可進行每日登記儲存、AI 菜單維護與系統權限設定。`;
-      }
-
-      modal.classList.remove('hidden');
-      if (emailInput && !emailInput.value) {
-        setTimeout(() => emailInput.focus(), 150);
-      }
-    };
-
-    window.closeLoginModal = () => document.getElementById('login-modal').classList.add('hidden');
-    
-    /* --- 跨裝置最佳化 Google 登入 (支援 LINE 檢測與防 400 錯誤) --- */
-    window.loginWithGoogle = async () => { 
-      if (isGoogleLoginInProgress) return;
-      isGoogleLoginInProgress = true;
-
-      const gBtn = document.getElementById('btn-google-login-action');
-      const gText = document.getElementById('btn-google-login-text');
-      if (gBtn) { gBtn.disabled = true; gBtn.classList.add('opacity-70', 'cursor-wait'); }
-      if (gText) gText.innerText = "驗證中，請稍候...";
-
-      try { 
-        if (isInAppBrowser()) {
-          throw new Error('APP_BROWSER_BLOCKED');
-        }
-
-        const provider = new GoogleAuthProvider();
-        // 乾淨的 Provider 配置，避免 URL 畸形引發 Google 400 錯誤
-        await signInWithPopup(auth, provider); 
-        window.closeLoginModal(); 
-      } catch (e) { 
-        console.warn("Google 登入狀態回傳:", e.code || e.message);
-        if (e.message === 'APP_BROWSER_BLOCKED') {
-          window.showNotice('瀏覽器限制提醒', 'Google 不允許在 LINE 等通訊軟體內建瀏覽器登入。\n\n請點擊右下角「⋮」選擇以 Safari 或 Chrome 開啟，或直接在下方使用 Email 與密碼登入！', false);
-        } else if (e.code === 'auth/popup-blocked') {
-          window.showNotice('手機彈跳視窗被阻擋', '請允許手機瀏覽器彈出式視窗，或直接使用下方「電子信箱與密碼」登入！', false);
-        } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-          window.showNotice('登入提示', `行動裝置安全性限制 (${e.code || '驗證中斷'})\n\n建議您直接在下方使用「電子信箱與密碼」登入，無需經過 Google 彈窗！`, false); 
-        }
-      } finally {
-        isGoogleLoginInProgress = false;
-        if (gBtn) { gBtn.disabled = false; gBtn.classList.remove('opacity-70', 'cursor-wait'); }
-        if (gText) gText.innerText = "使用 Google 帳號快速登入";
-      }
-    };
-
-    window.loginWithEmail = async () => { 
-      const email = document.getElementById('login-email').value.trim();
-      const pwd = document.getElementById('login-password').value;
-      if (!email || !pwd) {
-        if (!email) document.getElementById('login-email').focus();
-        else document.getElementById('login-password').focus();
-        return window.showNotice('請填寫完整', '請先輸入電子信箱與密碼！', false);
-      }
-      try { 
-        await signInWithEmailAndPassword(auth, email, pwd); 
-        window.closeLoginModal(); 
-      } catch (e) { 
-        let tip = e.message;
-        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-          tip = '帳號尚未建立密碼或密碼不正確。\n若您是首次使用，請在密碼欄位輸入自訂密碼後，點擊綠色「🌱 首次設定密碼」按鈕！';
-        } else if (e.code === 'auth/wrong-password') {
-          tip = '密碼錯誤，請重新確認或點擊下方「寄送重設密碼信」。';
-        }
-        window.showNotice('登入失敗', tip, false); 
-      } 
-    };
-
-    window.registerWithEmail = async () => {
-      const emailEl = document.getElementById('login-email');
-      const pwdEl = document.getElementById('login-password');
-      const email = emailEl.value.trim().toLowerCase();
-      const pwd = pwdEl.value;
-
-      if (!email || !email.includes('@')) {
-        emailEl.focus();
-        return window.showNotice('請先輸入信箱', '請先於上方欄位填寫您的電子信箱！', false);
-      }
-      if (!pwd || pwd.length < 6) {
-        pwdEl.focus();
-        return window.showNotice('密碼過短', '請在密碼欄位輸入至少 6 位數以上的密碼！', false);
-      }
-
-      await window.loadRoleSettings();
-      const isAuthAdmin = window.ADMIN_EMAILS.includes(email);
-      const isAuthStaff = window.STAFF_MEMBERS.some(s => s.email === email);
-
-      if (!isAuthAdmin && !isAuthStaff) {
-        return window.showNotice('尚未獲得授權', `【${email}】\n目前尚未在系統授權名單中。\n請先聯絡系統管理員將您的信箱加入「工作小組」後，再來設定密碼登入！`, false);
-      }
-
-      try {
-        await createUserWithEmailAndPassword(auth, email, pwd);
-        window.closeLoginModal();
-        window.showNotice('密碼設定成功', `🎉 歡迎！【${email}】密碼設定完成，系統已自動為您登入！`);
-      } catch (e) {
-        if (e.code === 'auth/email-already-in-use') {
-          window.showNotice('信箱已註冊過', '此信箱先前已經設定過密碼囉！\n請直接點擊黑色「🔑 密碼登入」按鈕，或點擊下方「寄送重設密碼信」。', false);
-        } else {
-          window.showNotice('設定失敗', e.message, false);
-        }
-      }
-    };
-
-    window.sendPasswordReset = async () => {
-      const email = document.getElementById('login-email').value.trim();
-      if (!email || !email.includes('@')) {
-        document.getElementById('login-email').focus();
-        return window.showNotice('請輸入信箱', '請在上方電子信箱欄位輸入您要重設密碼的 Email！', false);
-      }
-      try {
-        await sendPasswordResetEmail(auth, email);
-        window.showNotice('重設密碼信已寄出', `系統已將重設密碼連結寄送至【${email}】。\n請前往收信並點擊連結重新設定密碼後再登入！`);
-      } catch (e) {
-        window.showNotice('寄送失敗', e.message, false);
-      }
-    };
-
+    /* --- 核心分頁切換 --- */
     window.switchTab = (tabId) => {
-      const role = window.userRole;
-
-      if (tabId === 'analysis' && (role === 'guest' || role === 'waste_monitor')) {
-        window.showPermissionDenied('菜單關聯分析', '工作小組或管理員');
-        return;
-      }
-
-      if (tabId === 'settings' && role !== 'admin') {
-        window.showPermissionDenied('系統與匯入設定', '系統管理員');
-        return;
-      }
-
-      ['daily', 'menu', 'weekly', 'analysis', 'monthly', 'settings'].forEach(t => {
-        const pageEl = document.getElementById(`page-${t}`);
-        const tabEl = document.getElementById(`tab-${t}`);
-        if (pageEl) pageEl.classList.add('hidden');
-        if (tabEl) tabEl.className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
-      });
-      
-      const targetPage = document.getElementById(`page-${tabId}`);
-      const targetTab = document.getElementById(`tab-${tabId}`);
-      if (targetPage) targetPage.classList.remove('hidden');
-      if (targetTab) targetTab.className = "px-4 py-2 tab-active flex items-center gap-1.5";
-
-      if (tabId === 'daily') window.loadDailyRecords();
-      if (tabId === 'menu') { 
-        if (window.calculatedCurrentWeek) {
-          const mw = document.getElementById('menu-week');
-          if (mw) mw.value = window.calculatedCurrentWeek;
-        }
-        window.loadWeeklyMenu(); 
-        window.updateKeyStatusUI();
-      }
-      if (tabId === 'weekly') {
-        const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
-        const weeklyInput = document.getElementById('weekly-select-week');
-        if (weeklyInput && (!weeklyInput.value || parseInt(weeklyInput.value) === window.calculatedCurrentWeek)) {
-          weeklyInput.value = pastWeek;
-        }
-        window.calcWeeklyReport();
-      }
-      if (tabId === 'analysis') {
-        const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
-        const analysisInput = document.getElementById('analysis-week');
-        if (analysisInput && (!analysisInput.value || parseInt(analysisInput.value) === window.calculatedCurrentWeek)) {
-          analysisInput.value = pastWeek;
-        }
-        window.updateKeyStatusUI();
-        window.loadOrRunAnalysis(false);
-      }
-      if (tabId === 'monthly') {
-        const curYear = document.getElementById('sys-year')?.value || 115;
-        const myInput = document.getElementById('monthly-year');
-        if (myInput) myInput.value = curYear;
-        window.calcMonthlyReport();
-      }
-      if (tabId === 'settings') {
-        window.renderSettings();
-        window.renderRoleLists();
-        window.unlockSettingsFields();
-        window.updateKeyStatusUI();
-        window.loadWasteMonitorPass();
-      }
-
-      window.refreshAllWeekLabels();
-    };
-
-    window.loadSystemConfig = async () => {
       try {
-        const snap = await getDoc(doc(db, "system_config", "main"));
-        if (snap.exists()) {
-          const d = snap.data();
-          if (d.year && document.getElementById('sys-year')) document.getElementById('sys-year').value = d.year;
-          if (d.semester && document.getElementById('sys-sem')) document.getElementById('sys-sem').value = d.semester;
-          if (d.startDate && document.getElementById('sys-start')) document.getElementById('sys-start').value = d.startDate;
-          if (d.endDate && document.getElementById('sys-end')) document.getElementById('sys-end').value = d.endDate;
-          if (d.threshold !== undefined) {
-            window.systemThreshold = parseFloat(d.threshold);
-            if (document.getElementById('sys-threshold')) document.getElementById('sys-threshold').value = window.systemThreshold;
-          }
+        const role = window.userRole;
+
+        if (tabId === 'analysis' && (role === 'guest' || role === 'waste_monitor')) {
+          window.showPermissionDenied('菜單關聯分析', '工作小組或管理員');
+          return;
         }
 
-        const thLabel = document.getElementById('current-threshold-label');
-        if (thLabel) thLabel.innerText = window.systemThreshold;
-
-        const startEl = document.getElementById('sys-start');
-        const startStr = startEl ? startEl.value : '2026-08-31';
-        if (startStr) {
-          const parts = startStr.split('-');
-          if (parts.length >= 3) {
-            const startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            const today = new Date();
-            
-            let currentWeek = 1;
-            if (today >= startDate) {
-              const diffTime = Math.abs(today - startDate);
-              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-              currentWeek = Math.floor(diffDays / 7) + 1;
-              
-              let dayOfWeek = today.getDay();
-              if (dayOfWeek === 3) dayOfWeek = 4;
-              if (dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
-
-              const selectWd = document.getElementById('daily-weekday');
-              if (selectWd) {
-                for (let i = 0; i < selectWd.options.length; i++) {
-                  if (parseInt(selectWd.options[i].value) === dayOfWeek) {
-                    selectWd.selectedIndex = i; break;
-                  }
-                }
-              }
-            }
-            window.calculatedCurrentWeek = currentWeek;
-
-            const pastWeek = Math.max(1, currentWeek - 1);
-            const sysYearVal = document.getElementById('sys-year')?.value || 115;
-
-            if (document.getElementById('daily-year')) document.getElementById('daily-year').value = sysYearVal;
-            if (document.getElementById('daily-week')) document.getElementById('daily-week').value = currentWeek;
-            if (document.getElementById('menu-week')) document.getElementById('menu-week').value = currentWeek;
-            if (document.getElementById('weekly-select-week')) document.getElementById('weekly-select-week').value = pastWeek;
-            if (document.getElementById('analysis-week')) document.getElementById('analysis-week').value = pastWeek;
-            if (document.getElementById('monthly-year')) document.getElementById('monthly-year').value = sysYearVal;
-
-            window.refreshAllWeekLabels();
-          }
+        if (tabId === 'settings' && role !== 'admin') {
+          window.showPermissionDenied('系統與匯入設定', '系統管理員');
+          return;
         }
-      } catch (e) { 
-        console.warn("載入行事曆設定失敗，維持預設數值", e); 
-      }
-    };
 
-    window.saveSystemConfig = async () => {
-      if (window.userRole !== 'admin') return;
-      try {
-        const thresholdVal = parseFloat(document.getElementById('sys-threshold').value) || 120;
-        window.systemThreshold = thresholdVal;
-
-        await setDoc(doc(db, "system_config", "main"), {
-          year: parseInt(document.getElementById('sys-year').value),
-          semester: parseInt(document.getElementById('sys-sem').value),
-          startDate: document.getElementById('sys-start').value,
-          endDate: document.getElementById('sys-end').value,
-          threshold: thresholdVal,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        ['daily', 'menu', 'weekly', 'analysis', 'monthly', 'settings'].forEach(t => {
+          const pageEl = document.getElementById(`page-${t}`);
+          const tabEl = document.getElementById(`tab-${t}`);
+          if (pageEl) pageEl.classList.add('hidden');
+          if (tabEl) tabEl.className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
+        });
         
-        const thLabel = document.getElementById('current-threshold-label');
-        if (thLabel) thLabel.innerText = window.systemThreshold;
+        const targetPage = document.getElementById(`page-${tabId}`);
+        const targetTab = document.getElementById(`tab-${tabId}`);
+        if (targetPage) targetPage.classList.remove('hidden');
+        if (targetTab) targetTab.className = "px-4 py-2 tab-active flex items-center gap-1.5";
+
+        if (tabId === 'daily') window.loadDailyRecords();
+        if (tabId === 'menu') { 
+          if (window.calculatedCurrentWeek) {
+            const mw = document.getElementById('menu-week');
+            if (mw) mw.value = window.calculatedCurrentWeek;
+          }
+          window.loadWeeklyMenu(); 
+          window.updateKeyStatusUI();
+        }
+        if (tabId === 'weekly') {
+          const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+          const weeklyInput = document.getElementById('weekly-select-week');
+          if (weeklyInput && (!weeklyInput.value || parseInt(weeklyInput.value) === window.calculatedCurrentWeek)) {
+            weeklyInput.value = pastWeek;
+          }
+          window.calcWeeklyReport();
+        }
+        if (tabId === 'analysis') {
+          const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+          const analysisInput = document.getElementById('analysis-week');
+          if (analysisInput && (!analysisInput.value || parseInt(analysisInput.value) === window.calculatedCurrentWeek)) {
+            analysisInput.value = pastWeek;
+          }
+          window.updateKeyStatusUI();
+          window.loadOrRunAnalysis(false);
+        }
+        if (tabId === 'monthly') {
+          const curYear = document.getElementById('sys-year')?.value || 115;
+          const myInput = document.getElementById('monthly-year');
+          if (myInput) myInput.value = curYear;
+          window.calcMonthlyReport();
+        }
+        if (tabId === 'settings') {
+          window.renderSettings();
+          window.renderRoleLists();
+          window.unlockSettingsFields();
+          window.updateKeyStatusUI();
+          window.loadWasteMonitorPass();
+        }
 
         window.refreshAllWeekLabels();
-        window.showNotice('設定成功', '📅 行事曆與異常警示門檻設定已儲存！');
-      } catch (e) { window.showNotice('儲存失敗', e.message, false); }
+      } catch (e) {
+        console.error("切換分頁異常:", e);
+      }
     };
 
-    window.downloadCsvTemplate = () => {
-      const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n" +
-                         "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,201,1500,24\n";
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "惜食歷史數據匯入範例(公克).csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    };
-
-    window.importCsvData = async () => {
-      if (window.userRole !== 'admin') return;
-      const fileInput = document.getElementById('csv-upload');
-      if (!fileInput.files.length) return window.showNotice('請選擇檔案', '請先選擇欲匯入的 CSV 檔案', false);
-      const file = fileInput.files[0];
-      
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target.result;
-        const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
-        if (lines.length < 2) return window.showNotice('檔案格式錯誤', '檔案內容格式不符或為空', false);
-        
-        document.getElementById('csv-import-btn').innerText = '⏳ 匯入中...';
-        document.getElementById('csv-import-btn').disabled = true;
-
-        let successCount = 0;
-        try {
-          const promises = [];
-          for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',');
-            if (cols.length >= 7) {
-              const year = parseInt(cols[0].trim());
-              const sem = parseInt(cols[1].trim());
-              const week = parseInt(cols[2].trim());
-              const weekday = parseInt(cols[3].trim());
-              const classId = cols[4].trim();
-              const weight = parseFloat(cols[5].trim());
-              const count = parseInt(cols[6].trim());
-              
-              const classInfo = window.CLASSES.find(c => c.id === classId);
-              if (!isNaN(year) && !isNaN(week) && classInfo && !isNaN(weight)) {
-                const per = count > 0 ? Number((weight/count).toFixed(1)) : 0;
-                const docId = `${year}_${sem}_${week}_${weekday}_${classId}`;
-                
-                promises.push(
-                  setDoc(doc(db, "daily_records", docId), {
-                    academicYear: year, semester: sem, week, weekday,
-                    classId, className: classInfo.name, stage: classInfo.stage,
-                    weightKg: weight, eaterCount: count, perCapitaGram: per,
-                    updatedAt: serverTimestamp(), imported: true
-                  }, { merge: true }).then(() => successCount++)
-                );
-              }
-            }
-          }
-          await Promise.all(promises);
-          window.showNotice('匯入成功', `✅ 成功匯入 ${successCount} 筆數據！`);
-        } catch (err) {
-          window.showNotice('匯入錯誤', err.message, false);
-        } finally {
-          document.getElementById('csv-import-btn').innerText = '🚀 開始匯入';
-          document.getElementById('csv-import-btn').disabled = false;
-        }
-      };
-      reader.readAsText(file);
-    };
-
-    window.loadClassSettings = async () => {
-      try {
-        const snap = await getDocs(collection(db, "class_settings"));
-        snap.forEach(d => {
-          const t = window.CLASSES.find(c => c.id === d.id);
-          if (t) t.defaultCount = d.data().defaultCount;
-        });
-      } catch (e) {}
-    };
-    
-    window.renderSettings = () => {
-      const isAdm = window.userRole === 'admin';
-      const container = document.getElementById('settings-rows');
-      if (!container) return;
-      container.innerHTML = window.CLASSES.map(c => `
-        <tr class="hover:bg-slate-50">
-          <td class="p-3 text-slate-500">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
-          <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAdm ? '' : 'disabled'} class="border rounded px-2 py-1 w-24 text-right ${isAdm ? 'bg-white text-slate-800' : 'bg-slate-100 cursor-not-allowed text-slate-500'}"> 人</td>
-        </tr>
-      `).join('');
-    };
-
-    window.saveClassSettings = async () => {
-      if (window.userRole !== 'admin') return;
-      try {
-        for (let c of window.CLASSES){
-          let v = parseInt(document.getElementById(`set-${c.id}`).value, 10);
-          c.defaultCount = v;
-          await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
-        }
-        window.showNotice('更新成功', '🧑‍🤝‍🧑 班級人數設定更新成功！');
-      } catch (e){ window.showNotice('更新失敗', e.message, false); }
-    };
-
-    /* --- 每日登記 --- */
     window.toggleSkipDay = () => {
-      const isSkipped = document.getElementById('daily-skip-cb').checked;
+      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
       const tableCon = document.getElementById('daily-table-container');
       const overlay = document.getElementById('skip-overlay');
-      
       if (isSkipped) {
-        tableCon.classList.add('hidden');
-        overlay.classList.remove('hidden');
+        tableCon?.classList.add('hidden');
+        overlay?.classList.remove('hidden');
       } else {
-        tableCon.classList.remove('hidden');
-        overlay.classList.add('hidden');
+        tableCon?.classList.remove('hidden');
+        overlay?.classList.add('hidden');
       }
     };
     
     window.toggleRowSkip = (classId) => {
-      const isSkipped = document.getElementById(`skip-row-${classId}`).checked;
+      const isSkipped = document.getElementById(`skip-row-${classId}`)?.checked || false;
       const weightInput = document.getElementById(`w-${classId}`);
       const countInput = document.getElementById(`c-${classId}`);
       const perText = document.getElementById(`per-${classId}`);
       
       if (isSkipped) {
-        weightInput.value = '';
-        weightInput.disabled = true;
-        countInput.disabled = true;
-        weightInput.classList.add('bg-slate-100');
-        countInput.classList.add('bg-slate-100');
-        perText.innerText = '停餐';
-        perText.classList.replace('text-emerald-700', 'text-slate-400');
+        if (weightInput) { weightInput.value = ''; weightInput.disabled = true; weightInput.classList.add('bg-slate-100'); }
+        if (countInput) { countInput.disabled = true; countInput.classList.add('bg-slate-100'); }
+        if (perText) { perText.innerText = '停餐'; perText.classList.replace('text-emerald-700', 'text-slate-400'); }
       } else {
-        weightInput.disabled = false;
-        countInput.disabled = false;
-        weightInput.classList.remove('bg-slate-100');
-        countInput.classList.remove('bg-slate-100');
-        perText.classList.replace('text-slate-400', 'text-emerald-700');
+        if (weightInput) { weightInput.disabled = false; weightInput.classList.remove('bg-slate-100'); }
+        if (countInput) { countInput.disabled = false; countInput.classList.remove('bg-slate-100'); }
+        if (perText) { perText.classList.replace('text-slate-400', 'text-emerald-700'); }
         window.calcRow(classId);
       }
     };
@@ -1881,7 +1336,6 @@
       const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
       
       window.refreshAllWeekLabels();
-
       const tbody = document.getElementById('daily-rows');
       if (!tbody) return;
 
@@ -1962,31 +1416,32 @@
             </tr>`;
         }).join('');
       } catch (e) { 
-        console.warn("載入每日過磅紀錄時發生錯誤:", e);
+        console.warn("載入每日過磅紀錄異常:", e);
         window.renderInitialEmptyTable();
       }
     };
 
     window.calcRow = (id) => {
-      let w = parseFloat(document.getElementById(`w-${id}`).value);
-      let c = parseInt(document.getElementById(`c-${id}`).value);
-      document.getElementById(`per-${id}`).innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
+      let w = parseFloat(document.getElementById(`w-${id}`)?.value);
+      let c = parseInt(document.getElementById(`c-${id}`)?.value);
+      const p = document.getElementById(`per-${id}`);
+      if (p) p.innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
     };
 
     window.saveSingleClassRecord = async (classId) => {
       const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
       if (!canEdit) return;
 
-      const year = parseInt(document.getElementById('daily-year').value);
-      const week = parseInt(document.getElementById('daily-week').value);
-      const weekday = parseInt(document.getElementById('daily-weekday').value);
+      const year = parseInt(document.getElementById('daily-year')?.value || 115);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
       const cInfo = window.CLASSES.find(c => c.id === classId);
       if (!cInfo) return;
 
       const btn = document.getElementById(`btn-action-${classId}`);
       if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
 
-      const isRowSkipped = document.getElementById(`skip-row-${classId}`).checked;
+      const isRowSkipped = document.getElementById(`skip-row-${classId}`)?.checked || false;
       const docId = `${year}_1_${week}_${weekday}_${classId}`;
 
       try {
@@ -1996,9 +1451,9 @@
             isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
           }, { merge: true });
         } else {
-          let wStr = document.getElementById(`w-${classId}`).value;
+          let wStr = document.getElementById(`w-${classId}`)?.value;
           let w = parseFloat(wStr);
-          let count = parseInt(document.getElementById(`c-${classId}`).value) || cInfo.defaultCount;
+          let count = parseInt(document.getElementById(`c-${classId}`)?.value) || cInfo.defaultCount;
           
           if (wStr === '' || isNaN(w)) {
             if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
@@ -2029,7 +1484,6 @@
           btn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition";
           btn.setAttribute('onclick', `window.toggleEditRow('${classId}')`);
         }
-
       } catch (err) {
         window.showNotice('儲存失敗', `權限不足或連線異常：${err.message}`, false);
         if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
@@ -2060,10 +1514,10 @@
       const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
       if (!canEdit) return;
 
-      const year = parseInt(document.getElementById('daily-year').value);
-      const week = parseInt(document.getElementById('daily-week').value);
-      const weekday = parseInt(document.getElementById('daily-weekday').value);
-      const isSkipped = document.getElementById('daily-skip-cb').checked;
+      const year = parseInt(document.getElementById('daily-year')?.value || 115);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
+      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
 
       const saveBtn = document.getElementById('save-btn');
       if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = "⏳ 儲存中..."; }
@@ -2073,16 +1527,16 @@
         
         if (!isSkipped) {
           let promises = window.CLASSES.map(async c => {
-            const isRowSkipped = document.getElementById(`skip-row-${c.id}`).checked;
+            const isRowSkipped = document.getElementById(`skip-row-${c.id}`)?.checked || false;
             if (isRowSkipped) {
                await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
                 isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
               }, { merge: true });
             } else {
-              let wStr = document.getElementById(`w-${c.id}`).value;
-              if (wStr === '') return;
-              let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
+              let wStr = document.getElementById(`w-${c.id}`)?.value;
+              if (wStr === '' || wStr === undefined) return;
+              let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`)?.value) || c.defaultCount;
               let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
@@ -2102,7 +1556,6 @@
       }
     };
 
-    /* --- Menu Mgmt & AI Recognition --- */
     window.loadWeeklyMenu = async () => {
       const y = parseInt(document.getElementById('daily-year')?.value || 115);
       const w = parseInt(document.getElementById('menu-week')?.value || 1);
@@ -2119,10 +1572,11 @@
         container.innerHTML = WEEKDAYS.map(day => {
           let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
           let hasContent = d.main || d.dish1 || d.dish2 || d.vege || d.soup;
+          let exactD = window.getExactDateForWeekDay(w, day.d);
           return `
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition">
               <div class="flex items-center justify-between border-b pb-2 mb-3">
-                <h3 class="font-bold text-emerald-800 text-base">${day.name}午餐</h3>
+                <h3 class="font-bold text-emerald-800 text-base">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
                 <span class="text-[11px] px-2 py-0.5 rounded-full ${hasContent ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}">
                   ${hasContent ? '🍱 已公告' : '尚未登錄'}
                 </span>
@@ -2139,9 +1593,10 @@
       } else {
         container.innerHTML = WEEKDAYS.map(day => {
           let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
+          let exactD = window.getExactDateForWeekDay(w, day.d);
           return `
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 class="font-bold text-emerald-800 mb-2">${day.name}菜單維護</h3>
+              <h3 class="font-bold text-emerald-800 mb-2">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
               <div class="space-y-1.5 text-sm">
                 <label class="block text-xs text-slate-500 font-semibold">主食</label>
                 <input id="m-${day.d}-main" value="${d.main}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
@@ -2161,13 +1616,13 @@
 
     window.saveWeeklyMenu = async () => {
       if (window.userRole !== 'admin') return;
-      const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('menu-week').value);
+      const y = parseInt(document.getElementById('daily-year')?.value || 115), w = parseInt(document.getElementById('menu-week')?.value || 1);
       let days = {};
       WEEKDAYS.forEach(day => {
         days[day.d] = {
-          main: document.getElementById(`m-${day.d}-main`).value, dish1: document.getElementById(`m-${day.d}-d1`).value,
-          dish2: document.getElementById(`m-${day.d}-d2`).value, vege: document.getElementById(`m-${day.d}-vege`).value,
-          soup: document.getElementById(`m-${day.d}-s`).value
+          main: document.getElementById(`m-${day.d}-main`)?.value || '', dish1: document.getElementById(`m-${day.d}-d1`)?.value || '',
+          dish2: document.getElementById(`m-${day.d}-d2`)?.value || '', vege: document.getElementById(`m-${day.d}-vege`)?.value || '',
+          soup: document.getElementById(`m-${day.d}-s`)?.value || ''
         };
       });
       try { 
@@ -2184,8 +1639,9 @@
         if (e.target.files && e.target.files[0]) {
           let reader = new FileReader();
           reader.onload = function(ev) {
-            document.getElementById('menu-image-preview').src = ev.target.result;
-            document.getElementById('image-preview-container').classList.remove('hidden');
+            const preview = document.getElementById('menu-image-preview');
+            if (preview) preview.src = ev.target.result;
+            document.getElementById('image-preview-container')?.classList.remove('hidden');
           };
           reader.readAsDataURL(e.target.files[0]);
         }
@@ -2198,12 +1654,8 @@
       const btn = document.getElementById('btn-ai-recognize');
       const hint = document.getElementById('ai-status-hint');
       
-      if (!apiKey) {
-        return window.showNotice('尚未設定 API 金鑰', '請先至「⚙ 系統與匯入設定」儲存集中管理之 Gemini API Key！', false);
-      }
-      if (!fileInput.files || fileInput.files.length === 0) {
-        return window.showNotice('提示', '請先選擇菜單圖檔', false);
-      }
+      if (!apiKey) return window.showNotice('尚未設定 API 金鑰', '請先至「⚙ 系統與匯入設定」儲存集中管理之 Gemini API Key！', false);
+      if (!fileInput.files || fileInput.files.length === 0) return window.showNotice('提示', '請先選擇菜單圖檔', false);
 
       btn.innerText = "⏳ AI 圖片辨識中..."; btn.disabled = true;
       if (hint) hint.innerText = "正在連線 Google Gemini 模組解析菜單文字...";
@@ -2219,60 +1671,19 @@
 
         const activeModel = await window.getAvailableGeminiModel(apiKey);
         const prompt = `請分析這張午餐菜單圖片，擷取週一、週二、週四、週五的菜色內容（週三若有請忽略）。
-菜單欄位對應說明：
-- 主食 (main)
-- 主菜 (dish1)
-- 副菜 (dish2)
-- 青菜 / 蔬菜 (vege)
-- 湯 / 湯品 (soup)
-
-請務必輸出嚴格 JSON 格式，不要包含任何 markdown 標記（如 \`\`\`json 或任何說明文字）：
+菜單欄位對應說明：主食(main)、主菜(dish1)、副菜(dish2)、青菜/蔬菜(vege)、湯/湯品(soup)。
+請務必輸出嚴格 JSON 格式，不要包含任何 markdown 標記：
 {"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"4":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"5":{"main":"","dish1":"","dish2":"","vege":"","soup":""}}`;
 
-        const maxRetries = 3;
-        let data = null;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }] }] })
+        });
 
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: prompt },
-                    { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }
-                  ]
-                }]
-              })
-            });
-
-            data = await res.json();
-            const errMsg = data.error?.message || '';
-            const isHighDemand = res.status === 503 || res.status === 429 || errMsg.toLowerCase().includes('high demand') || errMsg.toLowerCase().includes('overloaded');
-
-            if (isHighDemand && attempt < maxRetries) {
-              const waitSec = attempt * 3;
-              if (hint) hint.innerText = `⚠ 伺服器尖峰忙碌，將於 ${waitSec} 秒後自動重試 (第 ${attempt}/${maxRetries} 次)...`;
-              await new Promise(r => setTimeout(r, waitSec * 1000));
-              continue;
-            }
-
-            if (!res.ok || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-              throw new Error(data.error?.message || `模型 [${activeModel}] 解析異常，請確認配額或圖檔解析度`);
-            }
-
-            break;
-          } catch (retryErr) {
-            const isDemandMsg = retryErr.message && (retryErr.message.includes('high demand') || retryErr.message.includes('overloaded'));
-            if (isDemandMsg && attempt < maxRetries) {
-              const waitSec = attempt * 3;
-              if (hint) hint.innerText = `⚠️ 伺服器忙碌中，等待 ${waitSec} 秒後自動重試...`;
-              await new Promise(r => setTimeout(r, waitSec * 1000));
-            } else {
-              throw retryErr;
-            }
-          }
+        const data = await res.json();
+        if (!res.ok || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+          throw new Error(data.error?.message || `模型解析異常`);
         }
 
         let textResult = data.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
@@ -2280,14 +1691,14 @@
 
         WEEKDAYS.forEach(day => {
           if (menuJson[day.d]) {
-            document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
-            document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
-            document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
-            document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
-            document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
+            if (document.getElementById(`m-${day.d}-main`)) document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
+            if (document.getElementById(`m-${day.d}-d1`)) document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
+            if (document.getElementById(`m-${day.d}-d2`)) document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
+            if (document.getElementById(`m-${day.d}-vege`)) document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
+            if (document.getElementById(`m-${day.d}-s`)) document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
           }
         });
-        if (hint) hint.innerText = `🎉 辨識成功！目前呼叫集中模型：${activeModel}`;
+        if (hint) hint.innerText = `🎉 辨識成功！使用模型：${activeModel}`;
         window.showNotice('辨識完成', `✨ 菜單辨識完成！（已使用雲端模型：${activeModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
       } catch (err) {
         window.showNotice('辨識失敗', err.message, false);
@@ -2298,7 +1709,6 @@
       }
     };
 
-    /* --- 週結算與評比 --- */
     window.calcWeeklyReport = async () => {
       const y = parseInt(document.getElementById('daily-year')?.value || 115);
       const w = parseInt(document.getElementById('weekly-select-week')?.value || 1);
@@ -2383,15 +1793,9 @@
 
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
-      const candidateModels = [
-        detected,
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.5-flash"
-      ].filter((v, i, a) => v && a.indexOf(v) === i);
+      const candidateModels = [detected, "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"].filter((v, i, a) => v && a.indexOf(v) === i);
 
       const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
-
 【基本數據】
 - 當日菜單：主食「${menuData.main || '無'}」、主菜「${menuData.dish1 || '無'}」、副菜「${menuData.dish2 || '無'}」、蔬菜「${menuData.vege || '無'}」、湯品「${menuData.soup || '無'}」
 - 全校人均廚餘：${wasteData.per} g/人 (警示門檻：${wasteData.threshold} g/人)
@@ -2403,42 +1807,28 @@
 1. 菜色特性與適口性推論（調味搭配、骨渣佔比、學生普遍偏好）
 2. 班級分佈與年齡層差異推論（普遍性剩食 vs 特定年級接受度）
 3. 給予學校午餐廚房與導師的 2~3 點具體改善建議
-
 請輸出精確的繁體中文，總字數在 160 字以內，語氣專業具建設性。`;
 
       let lastError = null;
-
       for (const model of candidateModels) {
         try {
-          const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`;
-          const response = await fetch(url, {
+          const res = await fetch(`[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }]
-            })
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
           });
-
-          const resJson = await response.json();
-          if (!response.ok || resJson.error) {
-            const errDetail = resJson.error?.message || `HTTP ${response.status}`;
-            throw new Error(`[${model}] ${errDetail}`);
-          }
+          const resJson = await res.json();
+          if (!res.ok || resJson.error) throw new Error(`[${model}] ${resJson.error?.message || `HTTP ${res.status}`}`);
 
           if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
             window._cachedGeminiModel = model;
-            return {
-              text: resJson.candidates[0].content.parts[0].text.trim(),
-              modelUsed: model
-            };
+            return { text: resJson.candidates[0].content.parts[0].text.trim(), modelUsed: model };
           }
         } catch (e) {
           lastError = e;
-          console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
         }
       }
-
-      throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
+      throw lastError || new Error("AI 診斷模型呼叫未果");
     };
 
     window.loadOrRunAnalysis = async (forceReRun = false) => {
@@ -2461,7 +1851,7 @@
           const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
           if (cacheSnap.exists() && cacheSnap.data().days) {
             const cachedData = cacheSnap.data();
-            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '');
+            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
             
             if (hint) {
               hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
@@ -2475,7 +1865,7 @@
             return;
           }
         } catch (cacheErr) {
-          console.warn("檢查診斷快取失敗或無快取，將執行即時計算:", cacheErr);
+          console.warn("診斷快取檢查略過:", cacheErr);
         }
       }
 
@@ -2485,18 +1875,19 @@
       if (con) con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
       
       try {
-        const [dSnap, mSnap] = await Promise.all([
+        const [dSnap, mSnap, oldSnap] = await Promise.all([
           getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
-          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
+          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)),
+          getDoc(doc(db, "menu_diagnoses", cacheDocId))
         ]);
         const logs = dSnap.docs.map(d=>d.data());
         const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+        const oldDays = oldSnap.exists() ? (oldSnap.data().days || {}) : {};
 
         let analysisDayResults = {};
 
         for (const day of WEEKDAYS) {
           let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
-          
           let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
           let hasRecordedData = validClasses.length > 0;
 
@@ -2511,7 +1902,6 @@
 
           if (hasRecordedData && hasMenu && isSpike) {
             alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
-
             let spikeClasses = validClasses.map(l => {
               let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
               return { className: l.className, stage: l.stage, per: p };
@@ -2544,8 +1934,7 @@
                 isCloudAI = true;
                 advice = "依據營養師 AI 即時診斷建議執行。";
               } catch (aiErr) {
-                console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
-                cloudErrorReason = aiErr.message || "連線或端點異常";
+                cloudErrorReason = aiErr.message || "端點連線異常";
               }
             } else {
               cloudErrorReason = "系統尚未設定集中 Gemini API Key";
@@ -2554,50 +1943,20 @@
             if (!aiDeduction) {
               let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
               let specificAdvice = '';
-              if (/魚|排骨|骨|棒腿/.test(str)){
-                specificAdvice = '（含帶骨/刺食材，殘渣比例較高，建議可評估調整為去骨肉類如去骨雞腿丁、里肌柳以減少骨渣重量）';
-              } else if (/苦瓜|青椒|芥藍|茄子/.test(str)){
-                specificAdvice = '（含學童較易排斥之蔬菜品項，建議細切或搭配玉米、胡蘿蔔等甜味食材提升接受度）';
-              } else if (/糙米|五穀|雜糧/.test(str)){
-                specificAdvice = '（含粗糧品項，建議適度微調白米比例或拉長悶煮時間軟化口感）';
-              }
-
-              advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
-
-              let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
-              let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
-              let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
-
-              let patternDesc = '';
-              if (spikeRatio >= 70) {
-                patternDesc = `超標班級高達 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，屬於<b>普遍性現象</b>。`;
-                if (/魚|排骨|骨|棒腿/.test(str)) {
-                  aiDeduction = `${patternDesc}交叉比對當日菜單含帶骨/刺料理（如魚、排骨），推論全校多數廚餘重量主要來自骨頭殘渣與剔刺難度，而非學生大量剩食，屬物理殘渣加成所致。`;
-                } else if (/苦瓜|青椒|芥藍|茄子/.test(str)) {
-                  aiDeduction = `${patternDesc}交叉比對菜單含有明顯低偏好度蔬菜，且全校各年段均同步超標，推論當日蔬菜品項之整體調味或口感普遍未能迎合學生口味，造成全校性剩菜偏高。`;
-                } else {
-                  aiDeduction = `${patternDesc}全校各年段均呈現高人均廚餘，推論可能為整體供餐份量偏多、主食主菜整體調味偏重/偏淡，或是菜色整體組合之接受度偏低。`;
-                }
-              } else if (spikeRatio > 0 && spikeRatio < 35) {
-                let targetStage = (lowSpike > midSpike && lowSpike > highSpike) ? '低年級' :
-                                  (highSpike > lowSpike && highSpike > midSpike) ? '高年級' : '特定少數班級';
-                patternDesc = `超標班級僅佔 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，非全校普遍現象，而是<b>高度集中於${targetStage}</b>。`;
-                
-                if (targetStage === '低年級' && /魚|排骨|骨|棒腿|糙米|五穀/.test(str)) {
-                  aiDeduction = `${patternDesc}推論低年級學童咀嚼能力較弱、食用帶骨刺或高纖粗糧時較易放棄食用，建議導師於用餐時加強巡視與個別關懷盛菜量。`;
-                } else {
-                  aiDeduction = `${patternDesc}全校多數班級均在正常門檻內，推論並非菜色品質問題，可能為少數班級當日盛飯菜份量掌控、班級打菜習慣或班級活動時程延宕影響用餐所致。`;
-                }
-              } else {
-                patternDesc = `超標班級比例為 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，呈現中度分散。`;
-                aiDeduction = `${patternDesc}推論當日菜單之接受度存在班級個別差異，建議針對人均較高之班級（如：${spikeClasses.slice(0, 3).map(c=>c.className).join('、')}等）進一步了解個別剩菜最多的品項。`;
-              }
+              if (/魚|排骨|骨|棒腿/.test(str)) specificAdvice = '（含帶骨/刺食材，殘渣比例較高）';
+              advice = `建議查核當日菜色份量配置或調味。${specificAdvice}`;
+              aiDeduction = `當日人均廚餘超標，比對菜色推論可能受食材殘渣或適口性影響。`;
             }
           }
+
+          const existingNote = oldDays[day.d]?.objectiveNote || '';
+          const existingAuthor = oldDays[day.d]?.noteAuthor || '';
+          const existingTime = oldDays[day.d]?.noteTime || '';
 
           analysisDayResults[day.d] = {
             hasRecordedData, hasMenu, isSpike, per, threshold,
             alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
+            objectiveNote: existingNote, noteAuthor: existingAuthor, noteTime: existingTime,
             menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
           };
         }
@@ -2608,13 +1967,7 @@
 
         try {
           await setDoc(doc(db, "menu_diagnoses", cacheDocId), {
-            academicYear: y,
-            semester: 1,
-            week: w,
-            days: analysisDayResults,
-            savedAtFormatted: formattedDate,
-            updatedAt: serverTimestamp(),
-            updatedBy: window.currentUser ? window.currentUser.email : 'system'
+            academicYear: y, semester: 1, week: w, days: analysisDayResults, savedAtFormatted: formattedDate, updatedAt: serverTimestamp()
           }, { merge: true });
 
           if (hint) {
@@ -2622,13 +1975,9 @@
               ✨ 已自動儲存最新診斷結果 (${formattedDate})
             </span>`;
           }
-        } catch (saveErr) {
-          console.warn("診斷結果存入快取資料庫失敗:", saveErr);
-          if (hint) hint.innerText = "⚠️ 診斷完成（快取儲存受限）";
-        }
+        } catch (saveErr) {}
 
-        window.renderAnalysisCards(analysisDayResults, false, formattedDate);
-
+        window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
       } catch (err) {
         if (con) con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
       } finally {
@@ -2639,13 +1988,16 @@
       }
     };
 
-    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr) => {
+    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
       const con = document.getElementById('analysis-results-container');
       if (!con) return;
       
+      const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
+
       const cardsHtml = WEEKDAYS.map(day => {
         const d = daysData[day.d] || {};
-        const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu } = d;
+        const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu, objectiveNote, noteAuthor, noteTime } = d;
+        const exactDateStr = window.getExactDateForWeekDay(weekNum, day.d);
 
         let diagnosticHtml = '';
         if (!hasRecordedData) {
@@ -2690,10 +2042,45 @@
           ? `${menu.main || '-'}, ${menu.dish1 || '-'}, ${menu.dish2 || '-'}, ${menu.vege || '-'}, ${menu.soup || '-'}`
           : '<span class="text-slate-400">無紀錄</span>';
 
+        const hasSavedNote = Boolean(objectiveNote && objectiveNote.trim());
+        const noteBlockHtml = (hasRecordedData) ? `
+          <div class="mt-3 pt-3 border-t border-slate-100">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                <span>📝</span> 客觀事由與補充說明 (如活動、參訪、停課等)
+              </label>
+              ${hasSavedNote ? `
+                <span class="text-[10px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                  ✏️ ${noteAuthor || '工作成員'} (${noteTime || ''})
+                </span>
+              ` : ''}
+            </div>
+            <div class="flex gap-2 items-start">
+              <textarea id="note-input-${day.d}" rows="1" placeholder="填寫客觀事由（例如：本日辦理運動競賽活動，盛菜配置受活動行程影響）" ${hasSavedNote ? 'disabled' : ''} class="flex-1 text-xs border rounded-lg p-2 ${hasSavedNote ? 'bg-slate-100 text-slate-600' : 'bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500'}">${objectiveNote || ''}</textarea>
+              ${isAuthorized ? (
+                hasSavedNote ? `
+                  <button onclick="window.unlockDayNote('${day.d}')" id="note-btn-${day.d}" class="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 transition shrink-0">
+                    ✏️ 修改
+                  </button>
+                ` : `
+                  <button onclick="window.saveDayObjectiveNote('${day.d}', ${weekNum})" id="note-btn-${day.d}" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition shrink-0">
+                    💾 儲存說明
+                  </button>
+                `
+              ) : ''}
+            </div>
+          </div>
+        ` : '';
+
         return `
           <div class="p-4 bg-white border rounded-xl shadow-sm ${(hasRecordedData && isSpike && hasMenu) ? 'border-rose-300 bg-rose-50/20' : 'border-slate-100'}">
             <div class="flex justify-between items-center font-bold border-b pb-2 mb-2">
-              <span class="text-slate-700">${day.name}</span>
+              <span class="text-slate-800 flex items-center gap-2">
+                <span>${day.name}</span>
+                <span class="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                  ${exactDateStr}
+                </span>
+              </span>
               <span class="${!hasRecordedData ? 'text-slate-400 text-xs font-normal' : (isSpike ? 'text-rose-600 font-bold' : 'text-emerald-600 font-semibold')}">
                 ${hasRecordedData ? `${per} g/人` : '尚無秤重數據'}
               </span>
@@ -2702,13 +2089,72 @@
               🍱 <strong>菜單內容</strong>：${menuStr}
             </div>
             ${diagnosticHtml}
+            ${noteBlockHtml}
           </div>`;
       }).join('');
 
       con.innerHTML = cardsHtml;
     };
 
-    /* --- 每月榮譽榜計算 --- */
+    window.unlockDayNote = (dayNum) => {
+      const input = document.getElementById(`note-input-${dayNum}`);
+      const btn = document.getElementById(`note-btn-${dayNum}`);
+      const weekNum = parseInt(document.getElementById('analysis-week')?.value || 1);
+
+      if (input) {
+        input.removeAttribute('disabled');
+        input.className = "flex-1 text-xs border rounded-lg p-2 bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500";
+        input.focus();
+      }
+      if (btn) {
+        btn.innerText = "💾 儲存說明";
+        btn.className = "px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition shrink-0";
+        btn.setAttribute('onclick', `window.saveDayObjectiveNote('${dayNum}', ${weekNum})`);
+      }
+    };
+
+    window.saveDayObjectiveNote = async (dayNum, weekNum) => {
+      const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
+      if (!isAuthorized) return window.showNotice('權限不足', '只有管理員或工作小組可填寫補充事由！', false);
+
+      const input = document.getElementById(`note-input-${dayNum}`);
+      const btn = document.getElementById(`note-btn-${dayNum}`);
+      const noteVal = input ? input.value.trim() : '';
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      let authorName = '管理員';
+      if (window.userRole === 'staff') {
+        const staffObj = window.STAFF_MEMBERS.find(s => s.email === window.currentUser?.email);
+        authorName = staffObj?.name || window.currentUser?.displayName || '工作小組';
+      } else {
+        authorName = window.currentUser?.displayName || window.currentUser?.email || '系統管理員';
+      }
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const updatePayload = {};
+        updatePayload[`days.${dayNum}.objectiveNote`] = noteVal;
+        updatePayload[`days.${dayNum}.noteAuthor`] = authorName;
+        updatePayload[`days.${dayNum}.noteTime`] = timeStr;
+        updatePayload[`updatedAt`] = serverTimestamp();
+
+        await setDoc(docRef, updatePayload, { merge: true });
+        window.showNotice('儲存成功', `✅ 已成功儲存【第 ${weekNum} 週】的客觀事由說明！`);
+        window.loadOrRunAnalysis(false);
+      } catch (err) {
+        window.showNotice('儲存失敗', err.message, false);
+        if (btn) { btn.disabled = false; btn.innerText = "💾 儲存說明"; }
+      }
+    };
+
     window.calcMonthlyReport = async () => {
       const yearInput = document.getElementById('monthly-year') || document.getElementById('daily-year') || document.getElementById('sys-year');
       const y = parseInt(yearInput?.value || 115);
@@ -2726,26 +2172,17 @@
       let [wStart, wEnd] = weekRanges[m] || [1, 4];
 
       try {
-        const snap = await getDocs(query(
-          collection(db, "daily_records"),
-          where("academicYear", "==", y)
-        ));
-
+        const snap = await getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y)));
         const allLogs = snap.docs.map(d => d.data());
         const logs = allLogs.filter(d => {
           const wk = parseInt(d.week);
           return !isNaN(wk) && wk >= wStart && wk <= wEnd;
         });
 
-        if (hint) {
-          hint.innerText = `統計範圍：第 ${wStart} ~ ${wEnd} 週 (共納入 ${logs.length} 筆當月秤重紀錄)`;
-        }
+        if (hint) hint.innerText = `統計範圍：第 ${wStart} ~ ${wEnd} 週 (共納入 ${logs.length} 筆當月秤重紀錄)`;
 
         if (logs.length === 0) {
-          if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">
-            ℹ 目前在 <b>${y} 學年度 第 ${wStart} ~ ${wEnd} 週</b> 尚未查詢到有效的秤重登記資料。<br>
-            <span class="text-xs text-slate-400 mt-1 block">（請至「1. 每日登記」檢查該學年度與週次是否已「☁️ 儲存上傳」數據）</span>
-          </td></tr>`;
+          if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">ℹ 目前在 <b>${y} 學年度 第 ${wStart} ~ ${wEnd} 週</b> 尚未查詢到有效的秤重登記資料。</td></tr>`;
           if (cards) cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
             <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
               <div class="text-xs font-bold text-slate-500">👑 ${m}月 ${stg}惜食總冠軍</div>
@@ -2791,19 +2228,507 @@
               </tr>`;
           }).join('');
         }
-
       } catch (err) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">❌ 彙整數據失敗：${err.message}</td></tr>`;
-        if (hint) hint.innerText = '讀取發生錯誤';
       }
     };
 
-    /* --- 系統開機安全啟動管線 --- */
-    (async function initSystem() {
-      window.renderInitialEmptyTable();
-      await window.loadSystemConfig();
-      await window.loadClassSettings();
-      window.loadDailyRecords();
+    window.loadSystemConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_config", "main"));
+        if (snap.exists()) {
+          const d = snap.data();
+          if (d.year && document.getElementById('sys-year')) document.getElementById('sys-year').value = d.year;
+          if (d.semester && document.getElementById('sys-sem')) document.getElementById('sys-sem').value = d.semester;
+          if (d.startDate && document.getElementById('sys-start')) document.getElementById('sys-start').value = d.startDate;
+          if (d.endDate && document.getElementById('sys-end')) document.getElementById('sys-end').value = d.endDate;
+          if (d.threshold !== undefined) {
+            window.systemThreshold = parseFloat(d.threshold);
+            if (document.getElementById('sys-threshold')) document.getElementById('sys-threshold').value = window.systemThreshold;
+          }
+        }
+
+        const thLabel = document.getElementById('current-threshold-label');
+        if (thLabel) thLabel.innerText = window.systemThreshold;
+
+        const startEl = document.getElementById('sys-start');
+        const startStr = startEl ? startEl.value : '2026-08-31';
+        if (startStr) {
+          const parts = startStr.split('-');
+          if (parts.length >= 3) {
+            const startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const today = new Date();
+            
+            let currentWeek = 1;
+            if (today >= startDate) {
+              const diffTime = Math.abs(today - startDate);
+              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+              currentWeek = Math.floor(diffDays / 7) + 1;
+              
+              let dayOfWeek = today.getDay();
+              if (dayOfWeek === 3) dayOfWeek = 4;
+              if (dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
+
+              const selectWd = document.getElementById('daily-weekday');
+              if (selectWd) {
+                for (let i = 0; i < selectWd.options.length; i++) {
+                  if (parseInt(selectWd.options[i].value) === dayOfWeek) {
+                    selectWd.selectedIndex = i; break;
+                  }
+                }
+              }
+            }
+            window.calculatedCurrentWeek = currentWeek;
+            const pastWeek = Math.max(1, currentWeek - 1);
+            const sysYearVal = document.getElementById('sys-year')?.value || 115;
+
+            if (document.getElementById('daily-year')) document.getElementById('daily-year').value = sysYearVal;
+            if (document.getElementById('daily-week')) document.getElementById('daily-week').value = currentWeek;
+            if (document.getElementById('menu-week')) document.getElementById('menu-week').value = currentWeek;
+            if (document.getElementById('weekly-select-week')) document.getElementById('weekly-select-week').value = pastWeek;
+            if (document.getElementById('analysis-week')) document.getElementById('analysis-week').value = pastWeek;
+            if (document.getElementById('monthly-year')) document.getElementById('monthly-year').value = sysYearVal;
+
+            window.refreshAllWeekLabels();
+          }
+        }
+      } catch (e) {
+        console.warn("載入行事曆設定略過:", e);
+      }
+    };
+
+    window.saveSystemConfig = async () => {
+      if (window.userRole !== 'admin') return;
+      try {
+        const thresholdVal = parseFloat(document.getElementById('sys-threshold').value) || 120;
+        window.systemThreshold = thresholdVal;
+
+        await setDoc(doc(db, "system_config", "main"), {
+          year: parseInt(document.getElementById('sys-year').value),
+          semester: parseInt(document.getElementById('sys-sem').value),
+          startDate: document.getElementById('sys-start').value,
+          endDate: document.getElementById('sys-end').value,
+          threshold: thresholdVal,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        const thLabel = document.getElementById('current-threshold-label');
+        if (thLabel) thLabel.innerText = window.systemThreshold;
+
+        window.refreshAllWeekLabels();
+        window.showNotice('設定成功', '📅 行事曆與異常警示門檻設定已儲存！');
+      } catch (e) { window.showNotice('儲存失敗', e.message, false); }
+    };
+
+    window.downloadCsvTemplate = () => {
+      const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,201,1500,24\n";
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "惜食歷史數據匯入範例(公克).csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    window.importCsvData = async () => {
+      if (window.userRole !== 'admin') return;
+      const fileInput = document.getElementById('csv-upload');
+      if (!fileInput.files.length) return window.showNotice('請選擇檔案', '請先選擇欲匯入的 CSV 檔案', false);
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
+        if (lines.length < 2) return window.showNotice('檔案格式錯誤', '檔案內容格式不符或為空', false);
+        
+        document.getElementById('csv-import-btn').innerText = '⏳ 匯入中...';
+        document.getElementById('csv-import-btn').disabled = true;
+
+        let successCount = 0;
+        try {
+          const promises = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',');
+            if (cols.length >= 7) {
+              const year = parseInt(cols[0].trim()), sem = parseInt(cols[1].trim()), week = parseInt(cols[2].trim()), weekday = parseInt(cols[3].trim());
+              const classId = cols[4].trim(), weight = parseFloat(cols[5].trim()), count = parseInt(cols[6].trim());
+              const classInfo = window.CLASSES.find(c => c.id === classId);
+              if (!isNaN(year) && !isNaN(week) && classInfo && !isNaN(weight)) {
+                const per = count > 0 ? Number((weight/count).toFixed(1)) : 0;
+                promises.push(
+                  setDoc(doc(db, "daily_records", `${year}_${sem}_${week}_${weekday}_${classId}`), {
+                    academicYear: year, semester: sem, week, weekday, classId, className: classInfo.name, stage: classInfo.stage,
+                    weightKg: weight, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp(), imported: true
+                  }, { merge: true }).then(() => successCount++)
+                );
+              }
+            }
+          }
+          await Promise.all(promises);
+          window.showNotice('匯入成功', `✅ 成功匯入 ${successCount} 筆數據！`);
+        } catch (err) {
+          window.showNotice('匯入錯誤', err.message, false);
+        } finally {
+          document.getElementById('csv-import-btn').innerText = '🚀 開始匯入';
+          document.getElementById('csv-import-btn').disabled = false;
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    window.loadClassSettings = async () => {
+      try {
+        const snap = await getDocs(collection(db, "class_settings"));
+        snap.forEach(d => {
+          const t = window.CLASSES.find(c => c.id === d.id);
+          if (t) t.defaultCount = d.data().defaultCount;
+        });
+      } catch (e) {}
+    };
+    
+    window.renderSettings = () => {
+      const isAdm = window.userRole === 'admin';
+      const container = document.getElementById('settings-rows');
+      if (!container) return;
+      container.innerHTML = window.CLASSES.map(c => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-3 text-slate-500">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
+          <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAdm ? '' : 'disabled'} class="border rounded px-2 py-1 w-24 text-right ${isAdm ? 'bg-white text-slate-800' : 'bg-slate-100 cursor-not-allowed text-slate-500'}"> 人</td>
+        </tr>
+      `).join('');
+    };
+
+    window.saveClassSettings = async () => {
+      if (window.userRole !== 'admin') return;
+      try {
+        for (let c of window.CLASSES){
+          let v = parseInt(document.getElementById(`set-${c.id}`)?.value, 10);
+          c.defaultCount = v;
+          await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
+        }
+        window.showNotice('更新成功', '🧑‍🤝‍‍🧑 班級人數設定更新成功！');
+      } catch (e){ window.showNotice('更新失敗', e.message, false); }
+    };
+
+    /* --- Auth 狀態監聽 --- */
+    onAuthStateChanged(auth, async (user) => {
+      try {
+        await window.loadRoleSettings();
+        await window.loadGeminiApiKey();
+
+        if (user) {
+          const userEmail = (user.email || "").trim().toLowerCase();
+          const isAdmin = window.ADMIN_EMAILS.includes(userEmail);
+          const staffObj = window.STAFF_MEMBERS.find(s => s.email === userEmail);
+
+          if (isAdmin) {
+            window.userRole = 'admin';
+            window.currentStaffCanDaily = true;
+            await window.loadWasteMonitorPass();
+          } else if (staffObj) {
+            window.userRole = 'staff';
+            window.currentStaffCanDaily = Boolean(staffObj.canDaily);
+          } else {
+            await signOut(auth);
+            window.currentUser = null;
+            window.userRole = 'guest';
+            window.currentStaffCanDaily = false;
+            window.showNotice('🚫 登入拒絕', `【${user.email}】\n您尚未被加入管理員或工作小組授權名單中。\n若需檢視或維護，請洽系統管理員新增！`, false);
+            return;
+          }
+        } else {
+          if (window.userRole !== 'waste_monitor') {
+            window.userRole = 'guest';
+            window.currentStaffCanDaily = false;
+          }
+        }
+
+        window.currentUser = user;
+        window.updateUIForRole();
+        window.loadDailyRecords();
+      } catch (err) {
+        console.error("Auth 回呼錯誤:", err);
+      }
+    });
+
+    window.updateUIForRole = () => {
+      const badge = document.getElementById('auth-badge');
+      const tabMenuText = document.getElementById('tab-menu-text');
+      const tabMenuBadge = document.getElementById('tab-menu-badge');
+      const tabAnalysisBadge = document.getElementById('tab-analysis-badge');
+      const tabSettingsBadge = document.getElementById('tab-settings-badge');
+
+      const menuWeekTitle = document.getElementById('menu-week-title-label');
+      const menuSaveBtn = document.getElementById('menu-save-btn');
+      const menuAiSection = document.getElementById('menu-ai-section');
+
+      const btnStaffLogin = document.getElementById('btn-staff-login');
+      const btnLoginModal = document.getElementById('btn-login-modal');
+      const btnLogout = document.getElementById('btn-logout');
+
+      const role = window.userRole;
+      const canEditDaily = (role === 'admin') || (role === 'waste_monitor') || (role === 'staff' && window.currentStaffCanDaily);
+
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) {
+        if (canEditDaily) {
+          saveBtn.disabled = false;
+          saveBtn.removeAttribute('disabled');
+          saveBtn.className = "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition flex items-center gap-1";
+          saveBtn.innerText = '☁️ 儲存上傳當日全部班級';
+        } else {
+          saveBtn.disabled = true;
+          saveBtn.setAttribute('disabled', 'true');
+          saveBtn.className = "px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition flex items-center gap-1";
+          saveBtn.innerText = '🔒 需登入方可儲存';
+        }
+      }
+
+      if (role === 'admin') {
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${window.currentUser?.displayName || window.currentUser?.email || '管理員'}`;
+        }
+        btnStaffLogin?.classList.add('hidden');
+        btnLoginModal?.classList.add('hidden');
+        btnLogout?.classList.remove('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 🤖 AI 菜單維護";
+        if (tabMenuBadge) { tabMenuBadge.classList.remove('hidden'); tabMenuBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabMenuBadge.innerText = "🔓"; }
+        if (menuWeekTitle) menuWeekTitle.innerText = "維護週次：第";
+        menuSaveBtn?.classList.remove('hidden');
+        menuAiSection?.classList.remove('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabAnalysisBadge.innerText = "🔓"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabSettingsBadge.innerText = "🔓"; }
+
+        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn'].forEach(id => {
+          let b = document.getElementById(id);
+          if (b) {
+            b.disabled = false;
+            b.removeAttribute('disabled');
+            if (id === 'key-test-btn') b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
+            else if (id==='csv-import-btn' || id==='role-save-btn' || id==='key-save-btn' || id==='waste-pass-save-btn') b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+            else b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+          }
+        });
+        window.unlockSettingsFields();
+
+      } else if (role === 'waste_monitor') {
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-amber-100 text-amber-800 border border-amber-200";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span>廚餘長模式`;
+        }
+        btnStaffLogin?.classList.remove('hidden');
+        btnLoginModal?.classList.remove('hidden');
+        btnLogout?.classList.remove('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
+        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabAnalysisBadge.innerText = "🔒"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabSettingsBadge.innerText = "🔒"; }
+        window.unlockSettingsFields();
+
+      } else if (role === 'staff') {
+        const curEmail = (window.currentUser?.email || '').trim().toLowerCase();
+        const staffObj = window.STAFF_MEMBERS.find(s => s.email === curEmail);
+        const staffDisplayName = staffObj?.name || window.currentUser?.displayName || window.currentUser?.email;
+
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-indigo-100 text-indigo-800";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span>工作小組：${staffDisplayName}${window.currentStaffCanDaily ? ' (可登記)' : ''}`;
+        }
+        btnStaffLogin?.classList.add('hidden');
+        btnLoginModal?.classList.add('hidden');
+        btnLogout?.classList.remove('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
+        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium"; tabAnalysisBadge.innerText = "👀 檢視"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabSettingsBadge.innerText = "🔒"; }
+        window.unlockSettingsFields();
+
+      } else {
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
+        }
+        btnStaffLogin?.classList.remove('hidden');
+        btnLoginModal?.classList.remove('hidden');
+        btnLogout?.classList.add('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
+        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabAnalysisBadge.innerText = "🔒"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabSettingsBadge.innerText = "🔒"; }
+        window.unlockSettingsFields();
+      }
+
+      window.renderRoleLists();
+      window.updateKeyStatusUI();
+    };
+
+    window.openLoginModal = (targetRole = 'staff') => {
+      const modal = document.getElementById('login-modal');
+      const title = document.getElementById('login-modal-title');
+      const hint = document.getElementById('login-modal-hint');
+      const emailInput = document.getElementById('login-email');
+      const lineAlert = document.getElementById('line-browser-alert');
+
+      if (lineAlert) {
+        if (isInAppBrowser()) lineAlert.classList.remove('hidden');
+        else lineAlert.classList.add('hidden');
+      }
+
+      if (targetRole === 'staff') {
+        if (title) title.innerHTML = `👥 工作小組登入`;
+        if (hint) hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用，請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
+      } else {
+        if (title) title.innerHTML = `🔐 後臺管理登入`;
+        if (hint) hint.innerHTML = `🛡 <strong>系統管理員入口</strong>：可進行每日登記儲存、AI 菜單維護與系統權限設定。`;
+      }
+
+      modal?.classList.remove('hidden');
+      if (emailInput && !emailInput.value) setTimeout(() => emailInput.focus(), 150);
+    };
+
+    window.closeLoginModal = () => document.getElementById('login-modal')?.classList.add('hidden');
+    
+    window.loginWithGoogle = async () => { 
+      if (isGoogleLoginInProgress) return;
+      isGoogleLoginInProgress = true;
+
+      const gBtn = document.getElementById('btn-google-login-action');
+      const gText = document.getElementById('btn-google-login-text');
+      if (gBtn) { gBtn.disabled = true; gBtn.classList.add('opacity-70', 'cursor-wait'); }
+      if (gText) gText.innerText = "驗證中，請稍候...";
+
+      try { 
+        if (isInAppBrowser()) throw new Error('APP_BROWSER_BLOCKED');
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider); 
+        window.closeLoginModal(); 
+      } catch (e) { 
+        console.warn("Google 登入狀態回傳:", e.code || e.message);
+        if (e.message === 'APP_BROWSER_BLOCKED') {
+          window.showNotice('瀏覽器限制提醒', 'Google 不允許在 LINE 等通訊軟體內建瀏覽器登入。\n\n請點擊右下角「⋮」選擇以 Safari 或 Chrome 開啟，或直接在下方使用 Email 與密碼登入！', false);
+        } else if (e.code === 'auth/popup-blocked') {
+          window.showNotice('手機彈跳視窗被阻擋', '請允許手機瀏覽器彈出式視窗，或直接使用下方「電子信箱與密碼」登入！', false);
+        } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+          window.showNotice('登入提示', `行動裝置安全性限制 (${e.code || '驗證中斷'})\n\n建議您直接在下方使用「電子信箱與密碼」登入，無需經過 Google 彈窗！`, false); 
+        }
+      } finally {
+        isGoogleLoginInProgress = false;
+        if (gBtn) { gBtn.disabled = false; gBtn.classList.remove('opacity-70', 'cursor-wait'); }
+        if (gText) gText.innerText = "使用 Google 帳號快速登入";
+      }
+    };
+
+    window.loginWithEmail = async () => { 
+      const email = document.getElementById('login-email')?.value.trim();
+      const pwd = document.getElementById('login-password')?.value;
+      if (!email || !pwd) {
+        if (!email) document.getElementById('login-email')?.focus();
+        else document.getElementById('login-password')?.focus();
+        return window.showNotice('請填寫完整', '請先輸入電子信箱與密碼！', false);
+      }
+      try { 
+        await signInWithEmailAndPassword(auth, email, pwd); 
+        window.closeLoginModal(); 
+      } catch (e) { 
+        let tip = e.message;
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+          tip = '帳號尚未建立密碼或密碼不正確。\n若您是首次使用，請在密碼欄位輸入自訂密碼後，點擊綠色「🌱 首次設定密碼」按鈕！';
+        } else if (e.code === 'auth/wrong-password') {
+          tip = '密碼錯誤，請重新確認或點擊下方「寄送重設密碼信」。';
+        }
+        window.showNotice('登入失敗', tip, false); 
+      } 
+    };
+
+    window.registerWithEmail = async () => {
+      const emailEl = document.getElementById('login-email');
+      const pwdEl = document.getElementById('login-password');
+      const email = emailEl?.value.trim().toLowerCase();
+      const pwd = pwdEl?.value;
+
+      if (!email || !email.includes('@')) {
+        emailEl?.focus();
+        return window.showNotice('請先輸入信箱', '請先於上方欄位填寫您的電子信箱！', false);
+      }
+      if (!pwd || pwd.length < 6) {
+        pwdEl?.focus();
+        return window.showNotice('密碼過短', '請在密碼欄位輸入至少 6 位數以上的密碼！', false);
+      }
+
+      await window.loadRoleSettings();
+      const isAuthAdmin = window.ADMIN_EMAILS.includes(email);
+      const isAuthStaff = window.STAFF_MEMBERS.some(s => s.email === email);
+
+      if (!isAuthAdmin && !isAuthStaff) {
+        return window.showNotice('尚未獲得授權', `【${email}】\n目前尚未在系統授權名單中。\n請先聯絡系統管理員將您的信箱加入「工作小組」後，再來設定密碼登入！`, false);
+      }
+
+      try {
+        await createUserWithEmailAndPassword(auth, email, pwd);
+        window.closeLoginModal();
+        window.showNotice('密碼設定成功', `🎉 歡迎！【${email}】密碼設定完成，系統已自動為您登入！`);
+      } catch (e) {
+        if (e.code === 'auth/email-already-in-use') {
+          window.showNotice('信箱已註冊過', '此信箱先前已經設定過密碼囉！\n請直接點擊黑色「🔑 密碼登入」按鈕，或點擊下方「寄送重設密碼信」。', false);
+        } else {
+          window.showNotice('設定失敗', e.message, false);
+        }
+      }
+    };
+
+    window.sendPasswordReset = async () => {
+      const email = document.getElementById('login-email')?.value.trim();
+      if (!email || !email.includes('@')) {
+        document.getElementById('login-email')?.focus();
+        return window.showNotice('請輸入信箱', '請在上方電子信箱欄位輸入您要重設密碼的 Email！', false);
+      }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        window.showNotice('重設密碼信已寄出', `系統已將重設密碼連結寄送至【${email}】。\n請前往收信並點擊連結重新設定密碼後再登入！`);
+      } catch (e) {
+        window.showNotice('寄送失敗', e.message, false);
+      }
+    };
+
+    /* ========================================================
+       🛡️ 安全防護第二步：沙盒化開機管線，確保 100% 穩定執行
+       ======================================================== */
+    (async function initSystemSafely() {
+      try {
+        // 1. 0.05 秒內渲染基本表格，確保畫面絕不空白
+        window.renderInitialEmptyTable();
+
+        // 2. 初始化行事曆與班級人數設定
+        await window.loadSystemConfig();
+        await window.loadClassSettings();
+
+        // 3. 刷新日期標籤與載入過磅資料
+        window.refreshAllWeekLabels();
+        await window.loadDailyRecords();
+      } catch (fatalErr) {
+        console.error("系統初始化遭遇例外（已啟動安全保護）:", fatalErr);
+        window.renderInitialEmptyTable();
+      }
     })();
 
   </script>
