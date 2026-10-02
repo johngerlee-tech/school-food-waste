@@ -83,7 +83,6 @@
           </div>
         </div>
 
-        <!-- 秤重星期選單與日期對照：淡紫底紫字、國曆日期粗體 -->
         <div>
           <label class="text-xs font-semibold text-slate-500">秤重星期與日期</label>
           <div class="flex items-center gap-2 mt-1">
@@ -96,7 +95,6 @@
           </div>
         </div>
         
-        <!-- 免秤重設定區塊 -->
         <div class="flex items-center gap-2 ml-2 mt-4 md:mt-0 bg-rose-50 px-3 py-1.5 rounded border border-rose-100">
           <input type="checkbox" id="daily-skip-cb" onchange="window.toggleSkipDay()" class="w-4 h-4 text-rose-600 rounded cursor-pointer">
           <label for="daily-skip-cb" class="text-sm font-semibold text-rose-800 cursor-pointer">本日全校停餐 / 免秤重</label>
@@ -106,21 +104,16 @@
           🍱 今日菜單讀取中...
         </div>
         
-        <!-- 操作按鈕列 -->
         <div class="ml-auto flex items-center gap-2">
-          <!-- 廚餘長登錄資料按鈕 -->
           <button onclick="window.openWasteMonitorModal()" id="btn-waste-monitor" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm text-sm transition flex items-center gap-1">
             <span>🍱 廚餘長登錄資料</span>
           </button>
-
-          <!-- 全校一鍵儲存上傳按鈕 -->
           <button onclick="window.saveAllDailyRecords()" id="save-btn" disabled class="px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition flex items-center gap-1">
             🔒 需登入方可儲存
           </button>
         </div>
       </div>
       
-      <!-- 每日清單 -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto" id="daily-table-container">
         <table class="w-full text-left text-sm">
           <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
@@ -138,7 +131,6 @@
         </table>
       </div>
       
-      <!-- 全校免秤重遮罩 -->
       <div id="skip-overlay" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-8 text-center text-rose-700 font-bold">
         🚫 本日已設定為「全校停餐 / 免秤重」，無需登記數據。（不列入統計）
       </div>
@@ -181,7 +173,6 @@
         <div class="flex items-center gap-3 flex-wrap">
           <label class="text-sm font-semibold text-slate-600">學年度：</label>
           <input type="number" id="monthly-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold" value="115" onchange="window.calcMonthlyReport()">
-          
           <label class="text-sm font-semibold text-slate-600 ml-2">統計月份：</label>
           <select id="monthly-select-month" class="border rounded px-3 py-1 text-sm bg-white font-medium text-indigo-800" onchange="window.calcMonthlyReport()">
             <option value="9">9 月 (第 1~4 週)</option>
@@ -227,7 +218,6 @@
           </button>
         </div>
         
-        <!-- AI 辨識區塊 -->
         <div id="menu-ai-section" class="hidden bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start md:items-center">
           <div class="flex-1 space-y-2">
             <h3 class="font-bold text-indigo-900 flex items-center gap-1">🤖 AI 自動菜單圖片辨識</h3>
@@ -593,7 +583,7 @@
     window.currentAnalysisDaysData = {};
 
     /* ========================================================
-       🛡️️ 安全防護第一步：提升所有按鈕與 input 會用到的函式至 window
+       🛡 安全防護第一步：提升所有按鈕與 input 會用到的函式至 window
        ======================================================== */
 
     window.getExactDateForWeekDay = (weekNum, weekday) => {
@@ -878,35 +868,6 @@
           }
         }
       });
-    };
-
-    // 優先鎖定 gemini-3.8-flash 端點，確保產生深度且極具價值的分析
-    window.getAvailableGeminiModel = async (apiKey) => {
-      if (window._cachedGeminiModel) return window._cachedGeminiModel;
-      try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.models && Array.isArray(data.models)) {
-            const valid = data.models
-              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-              .map(m => m.name.replace(/^models\//, ''));
-
-            const detected = valid.find(m => m.includes('3.8-flash')) ||
-                             valid.find(m => m.includes('3.7-flash')) ||
-                             valid.find(m => m.includes('3.5-flash')) ||
-                             valid.find(m => m.includes('flash') && !m.includes('image'));
-            
-            if (detected) {
-              window._cachedGeminiModel = detected;
-              return detected;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("自動探索可用模型受阻，採用最佳 3.8-flash 模型:", err);
-      }
-      return "gemini-3.8-flash";
     };
 
     window.testGeminiKey = async () => {
@@ -1763,10 +1724,9 @@
       document.body.removeChild(textArea);
     };
 
-    // 關鍵修復：完全還原為原先標準穩定的 POST 請求，杜絕 HTTP 405 Method Not Allowed
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
-      const candidateModels = [detected, "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"].filter((v, i, a) => v && a.indexOf(v) === i);
+      const candidateModels = [detected, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter((v, i, a) => v && a.indexOf(v) === i);
 
       const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
 【基本數據】
@@ -2521,7 +2481,7 @@
           c.defaultCount = v;
           await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
         }
-        window.showNotice('更新成功', '🧑‍🤝‍‍🧑 班級人數設定更新成功！');
+        window.showNotice('更新成功', '🧑‍🤝‍🧑 班級人數設定更新成功！');
       } catch (e){ window.showNotice('更新失敗', e.message, false); }
     };
 
@@ -2824,7 +2784,7 @@
     };
 
     /* ========================================================
-       🛡️ 安全防護第二步：沙盒化開機管線，確保 100% 穩定執行
+       🛡 安全防護第二步：沙盒化開機管線，確保 100% 穩定執行
        ======================================================== */
     (async function initSystemSafely() {
       try {
