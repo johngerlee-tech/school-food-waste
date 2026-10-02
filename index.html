@@ -593,7 +593,7 @@
     window.currentAnalysisDaysData = {};
 
     /* ========================================================
-       🛡️ 安全防護第一步：提升所有按鈕與 input 會用到的函式至 window
+       🛡️️ 安全防護第一步：提升所有按鈕與 input 會用到的函式至 window
        ======================================================== */
 
     window.getExactDateForWeekDay = (weekNum, weekday) => {
@@ -880,45 +880,31 @@
       });
     };
 
-    // 穩健安全解析函式
-    window.safeFetchJson = async (url, options = {}) => {
-      const res = await fetch(url, options);
-      const rawText = await res.text();
-      let data = null;
-      try {
-        data = JSON.parse(rawText);
-      } catch (parseErr) {
-        throw new Error(`伺服器回應異常 (HTTP ${res.status})：${rawText.slice(0, 100).replace(/<[^>]*>/g, '')}`);
-      }
-      if (!res.ok || data.error) {
-        throw new Error(data.error?.message || `HTTP ${res.status}`);
-      }
-      return data;
-    };
-
-    // 優先採用 3.8-flash 模型，並具備優良相容性探索
+    // 優先鎖定 gemini-3.8-flash 端點，確保產生深度且極具價值的分析
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
       try {
-        const data = await window.safeFetchJson(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        if (data.models && Array.isArray(data.models)) {
-          const valid = data.models
-            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-            .map(m => m.name.replace(/^models\//, ''));
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.models && Array.isArray(data.models)) {
+            const valid = data.models
+              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+              .map(m => m.name.replace(/^models\//, ''));
 
-          const detected = valid.find(m => m.includes('3.8-flash')) ||
-                           valid.find(m => m.includes('3.7-flash')) ||
-                           valid.find(m => m.includes('3.5-flash')) ||
-                           valid.find(m => m.includes('2.5-flash')) ||
-                           valid.find(m => m.includes('flash') && !m.includes('8b') && !m.includes('image'));
-          
-          if (detected) {
-            window._cachedGeminiModel = detected;
-            return detected;
+            const detected = valid.find(m => m.includes('3.8-flash')) ||
+                             valid.find(m => m.includes('3.7-flash')) ||
+                             valid.find(m => m.includes('3.5-flash')) ||
+                             valid.find(m => m.includes('flash') && !m.includes('image'));
+            
+            if (detected) {
+              window._cachedGeminiModel = detected;
+              return detected;
+            }
           }
         }
       } catch (err) {
-        console.warn("自動抓取可用模型受阻，啟用保底 3.8-flash 端點:", err);
+        console.warn("自動探索可用模型受阻，採用最佳 3.8-flash 模型:", err);
       }
       return "gemini-3.8-flash";
     };
@@ -935,11 +921,14 @@
       try {
         window._cachedGeminiModel = null;
         const model = await window.getAvailableGeminiModel(keyVal);
-        await window.safeFetchJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }] })
         });
+
+        const resData = await res.json();
+        if (!res.ok || resData.error) throw new Error(resData.error?.message || `HTTP ${res.status}`);
 
         window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動配對端點：[${model}]`);
         window.updateKeyStatusUI();
@@ -1658,14 +1647,15 @@
 請務必輸出嚴格 JSON 格式，不要包含任何 markdown 標記：
 {"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"4":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"5":{"main":"","dish1":"","dish2":"","vege":"","soup":""}}`;
 
-        const data = await window.safeFetchJson(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }] }] })
         });
 
-        if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-          throw new Error("模型解析未輸出文字內容");
+        const data = await res.json();
+        if (!res.ok || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+          throw new Error(data.error?.message || "模型解析未輸出文字內容");
         }
 
         let textResult = data.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
@@ -1773,6 +1763,7 @@
       document.body.removeChild(textArea);
     };
 
+    // 關鍵修復：完全還原為原先標準穩定的 POST 請求，杜絕 HTTP 405 Method Not Allowed
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
       const candidateModels = [detected, "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"].filter((v, i, a) => v && a.indexOf(v) === i);
@@ -1794,11 +1785,14 @@
       let lastError = null;
       for (const model of candidateModels) {
         try {
-          const resJson = await window.safeFetchJson(`[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`, {
+          const res = await fetch(`[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
           });
+
+          const resJson = await res.json();
+          if (!res.ok || resJson.error) throw new Error(`[${model}] ${resJson.error?.message || `HTTP ${res.status}`}`);
 
           if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
             window._cachedGeminiModel = model;
