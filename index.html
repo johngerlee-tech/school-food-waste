@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>雲林縣溪洲國小─午餐智慧惜食與菜單追蹤系統</title>
+  <title>溪洲國小午餐智慧惜食與廚餘追蹤系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @media print {
@@ -23,7 +23,7 @@
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
-          🌱 雲林縣溪洲國小─午餐智慧惜食與菜單追蹤系統
+          🌱 溪洲國小午餐智慧惜食與廚餘追蹤系統
         </h1>
         <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・CSV 批次匯入・動態門檻設定・雲端權限控管・Gemini 智能診斷快取</p>
       </div>
@@ -588,6 +588,9 @@
     window._cachedGeminiModel = null;
     let confirmResolver = null;
     window.pendingPermissionRole = 'admin';
+
+    // 儲存當前分析週次的快取物件
+    window.currentAnalysisDaysData = {};
 
     /* ========================================================
        🛡️ 安全防護第一步：提升所有按鈕與 input 會用到的函式至 window
@@ -1820,6 +1823,7 @@
           const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
           if (cacheSnap.exists() && cacheSnap.data().days) {
             const cachedData = cacheSnap.data();
+            window.currentAnalysisDaysData = cachedData.days || {};
             window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
             
             if (hint) {
@@ -1918,17 +1922,24 @@
             }
           }
 
-          // 保持多人留言陣列不被複寫
-          const existingNotes = oldDays[day.d]?.notes || [];
-          const existingNote = oldDays[day.d]?.objectiveNote || '';
-          const existingAuthor = oldDays[day.d]?.noteAuthor || '';
-          const existingTime = oldDays[day.d]?.noteTime || '';
+          // 核心修復：精確承接先前的留言陣列或單筆留言
+          let existingNotes = [];
+          if (oldDays[day.d]) {
+            if (Array.isArray(oldDays[day.d].notes)) {
+              existingNotes = oldDays[day.d].notes;
+            } else if (oldDays[day.d].objectiveNote && oldDays[day.d].objectiveNote.trim()) {
+              existingNotes = [{
+                text: oldDays[day.d].objectiveNote,
+                author: oldDays[day.d].noteAuthor || '工作成員',
+                time: oldDays[day.d].noteTime || ''
+              }];
+            }
+          }
 
           analysisDayResults[day.d] = {
             hasRecordedData, hasMenu, isSpike, per, threshold,
             alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
             notes: existingNotes,
-            objectiveNote: existingNote, noteAuthor: existingAuthor, noteTime: existingTime,
             menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
           };
         }
@@ -1949,6 +1960,7 @@
           }
         } catch (saveErr) {}
 
+        window.currentAnalysisDaysData = analysisDayResults;
         window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
       } catch (err) {
         if (con) con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
@@ -2025,9 +2037,9 @@
           }
 
           const commentsListHtml = noteList.length > 0 ? `
-            <div class="space-y-2 mb-3">
-              ${noteList.map((item, idx) => `
-                <div class="bg-rose-50 border border-rose-200 rounded-lg p-2.5 shadow-sm text-xs">
+            <div class="space-y-1.5 mb-2.5">
+              ${noteList.map((item) => `
+                <div class="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 shadow-sm text-xs">
                   <div class="flex items-center justify-between mb-1">
                     <span class="text-[11px] font-semibold text-rose-800 bg-rose-100/90 border border-rose-200 px-2 py-0.5 rounded">
                       👤 ${item.author || '工作人員'}
@@ -2042,10 +2054,11 @@
             <div class="text-[11px] text-slate-400 mb-2 italic">尚無客觀事由備註，歡迎授權同仁補述說明。</div>
           `;
 
+          // 單列極簡輸入框設計 (h-9, py-1.5, 單行 input，完全不占版面)
           const inputAreaHtml = isAuthorized ? `
-            <div class="flex gap-2 items-start mt-2">
-              <textarea id="note-input-${day.d}" rows="2" placeholder="填寫補述意見（例如：本日辦理運動競賽活動、特定年級停餐、體育週等）..." class="flex-1 text-xs border border-slate-300 rounded-lg p-2.5 bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500"></textarea>
-              <button onclick="window.addDayObjectiveNote('${day.d}', ${weekNum})" id="note-btn-${day.d}" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition shrink-0 h-auto">
+            <div class="flex gap-2 items-center mt-2">
+              <input type="text" id="note-input-${day.d}" placeholder="填寫補述意見（例如：本日辦理運動會、特定年級停餐、體育週等）..." class="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-1.5 h-9 bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm">
+              <button onclick="window.addDayObjectiveNote('${day.d}', ${weekNum})" id="note-btn-${day.d}" class="px-3.5 py-1.5 h-9 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition shrink-0 flex items-center gap-1">
                 💬 儲存說明
               </button>
             </div>
@@ -2132,7 +2145,7 @@
           currentDays = data.days || {};
           if (currentDays[dayNum]) {
             if (Array.isArray(currentDays[dayNum].notes)) {
-              existingNotes = currentDays[dayNum].notes;
+              existingNotes = [...currentDays[dayNum].notes];
             } else if (currentDays[dayNum].objectiveNote) {
               existingNotes = [{
                 text: currentDays[dayNum].objectiveNote,
@@ -2143,21 +2156,31 @@
           }
         }
 
-        existingNotes.push({
+        const newComment = {
           text: noteVal,
           author: authorName,
           time: timeStr
-        });
+        };
+
+        existingNotes.push(newComment);
 
         const updatePayload = {};
         updatePayload[`days.${dayNum}.notes`] = existingNotes;
         updatePayload[`updatedAt`] = serverTimestamp();
 
+        // 1. 同步寫入 Firestore
         await setDoc(docRef, updatePayload, { merge: true });
 
-        if (input) input.value = '';
+        // 2. 本地記憶體同步更新，確保立即可見
+        if (!window.currentAnalysisDaysData[dayNum]) {
+          window.currentAnalysisDaysData[dayNum] = {};
+        }
+        window.currentAnalysisDaysData[dayNum].notes = existingNotes;
+
+        // 3. 即時重繪卡片清單
+        window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', weekNum);
+
         window.showNotice('儲存成功', `✅ 已成功寫入資料庫！\n發言人：${authorName}\n時間：${timeStr}`);
-        window.loadOrRunAnalysis(false);
       } catch (err) {
         console.error("儲存客觀事由失敗:", err);
         window.showNotice('儲存失敗', err.message, false);
@@ -2419,7 +2442,7 @@
           c.defaultCount = v;
           await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
         }
-        window.showNotice('更新成功', '🧑‍🤝‍‍🧑 班級人數設定更新成功！');
+        window.showNotice('更新成功', '🧑‍🤝‍‍‍🧑 班級人數設定更新成功！');
       } catch (e){ window.showNotice('更新失敗', e.message, false); }
     };
 
