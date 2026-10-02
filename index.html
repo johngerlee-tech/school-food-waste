@@ -2030,33 +2030,48 @@
         // 🔒 嚴格判定：僅超標日顯示客觀事由多人討論串
         let noteBlockHtml = '';
         if (hasRecordedData && isSpike) {
-          let noteList = [];
-          if (Array.isArray(d.notes) && d.notes.length > 0) {
-            noteList = d.notes;
-          } else if (d.objectiveNote && d.objectiveNote.trim()) {
-            noteList = [{ text: d.objectiveNote, author: d.noteAuthor || '工作成員', time: d.noteTime || '' }];
+          let noteList = Array.isArray(d.notes) ? d.notes : [];
+
+          // 取得目前操作者身分與名稱 (用於比對是否能修改刪除)
+          let currentUserName = '';
+          if (window.userRole === 'admin') {
+            currentUserName = window.currentUser?.displayName || window.currentUser?.email || '系統管理員';
+          } else if (window.userRole === 'staff') {
+            const staffObj = window.STAFF_MEMBERS.find(s => s.email === window.currentUser?.email);
+            currentUserName = staffObj?.name || window.currentUser?.displayName || '工作小組';
           }
 
           const commentsListHtml = noteList.length > 0 ? `
             <div class="space-y-1.5 mb-2.5">
-              ${noteList.map((item) => `
-                <div class="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 shadow-sm text-xs">
-                  <!-- 留言人放於留言日期的正前方 -->
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="text-[11px] font-semibold text-rose-800 bg-rose-100/90 border border-rose-200 px-2 py-0.5 rounded">
-                      👤 ${item.author || '工作人員'}
-                    </span>
-                    <span class="text-[10px] text-slate-400 font-mono">${item.time || ''}</span>
+              ${noteList.map((item, idx) => {
+                // 權限檢查：只有「系統管理員」或「原留言人」可編輯/刪除
+                const canModify = (window.userRole === 'admin') || (isAuthorized && item.author === currentUserName);
+
+                return `
+                <div id="comment-box-${day.d}-${idx}" class="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 shadow-sm text-xs">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-[11px] font-semibold text-rose-800 bg-rose-100/90 border border-rose-200 px-2 py-0.5 rounded">
+                        👤 ${item.author || '工作人員'}
+                      </span>
+                      <span class="text-[10px] text-slate-400 font-mono">${item.time || ''}</span>
+                    </div>
+                    ${canModify ? `
+                      <div class="flex items-center gap-2" id="comment-actions-${day.d}-${idx}">
+                        <button onclick="window.editDayNote('${day.d}', ${weekNum}, ${idx})" class="text-[11px] text-slate-500 hover:text-indigo-600 transition" title="修改留言">✏️ 修改</button>
+                        <button onclick="window.deleteDayNote('${day.d}', ${weekNum}, ${idx})" class="text-[11px] text-slate-400 hover:text-rose-600 transition" title="刪除留言">🗑️ 刪除</button>
+                      </div>
+                    ` : ''}
                   </div>
-                  <div class="text-rose-900 font-bold leading-relaxed whitespace-pre-wrap">${item.text}</div>
+                  <div id="comment-text-${day.d}-${idx}" class="text-rose-900 font-bold leading-relaxed whitespace-pre-wrap">${item.text}</div>
                 </div>
-              `).join('')}
+              `;}).join('')}
             </div>
           ` : `
             <div class="text-[11px] text-slate-400 mb-2 italic">尚無客觀事由備註，歡迎授權同仁補述說明。</div>
           `;
 
-          // 單列極簡輸入框設計 (h-9, py-1.5, 單行 input，完全不占版面)
+          // 單列極簡輸入框設計 (h-9, py-1.5)
           const inputAreaHtml = isAuthorized ? `
             <div class="flex gap-2 items-center mt-2">
               <input type="text" id="note-input-${day.d}" placeholder="填寫補述意見（例如：本日辦理運動會、特定年級停餐、體育週等）..." class="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-1.5 h-9 bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm">
@@ -2153,7 +2168,6 @@
         });
         data.updatedAt = serverTimestamp();
 
-        // 直接寫回穩定的 menu_diagnoses 集合，不使用任何未授權集合，避開點記法陷阱
         await setDoc(docRef, data, { merge: true });
 
         // 更新記憶體快取
@@ -2169,6 +2183,86 @@
         window.showNotice('儲存失敗', err.message, false);
       } finally {
         if (btn) { btn.disabled = false; btn.innerText = "💬 儲存說明"; }
+      }
+    };
+
+    // 進入單筆留言編輯模式
+    window.editDayNote = (dayNum, weekNum, noteIndex) => {
+      const textEl = document.getElementById(`comment-text-${dayNum}-${noteIndex}`);
+      const actionEl = document.getElementById(`comment-actions-${dayNum}-${noteIndex}`);
+      if (!textEl) return;
+
+      const currentText = textEl.innerText.trim();
+      textEl.innerHTML = `
+        <div class="flex gap-2 items-center mt-1">
+          <input type="text" id="edit-input-${dayNum}-${noteIndex}" value="${currentText}" class="flex-1 text-xs border border-rose-300 rounded px-2.5 py-1 bg-white text-slate-800 focus:outline-emerald-500">
+          <button onclick="window.saveEditedDayNote('${dayNum}', ${weekNum}, ${noteIndex})" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition">💾 儲存</button>
+          <button onclick="window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', ${weekNum})" class="px-2 py-1 text-xs font-medium rounded bg-slate-200 text-slate-600 hover:bg-slate-300 transition">✕ 取消</button>
+        </div>
+      `;
+      if (actionEl) actionEl.classList.add('hidden');
+      setTimeout(() => document.getElementById(`edit-input-${dayNum}-${noteIndex}`)?.focus(), 50);
+    };
+
+    // 儲存已修改的留言至 Firestore
+    window.saveEditedDayNote = async (dayNum, weekNum, noteIndex) => {
+      const input = document.getElementById(`edit-input-${dayNum}-${noteIndex}`);
+      const newText = (input?.value || '').trim();
+      if (!newText) return window.showNotice('提示', '留言內容不能為空！', false);
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) return;
+
+        let data = docSnap.data();
+        if (data.days && data.days[dayNum] && Array.isArray(data.days[dayNum].notes)) {
+          data.days[dayNum].notes[noteIndex].text = newText;
+          data.days[dayNum].notes[noteIndex].time = `${timeStr} (已編輯)`;
+          data.updatedAt = serverTimestamp();
+
+          await setDoc(docRef, data, { merge: true });
+          window.currentAnalysisDaysData = data.days;
+          window.renderAnalysisCards(data.days, true, data.savedAtFormatted || '', weekNum);
+          window.showNotice('修改成功', '✅ 留言內容已更新！');
+        }
+      } catch (err) {
+        window.showNotice('修改失敗', err.message, false);
+      }
+    };
+
+    // 刪除單筆留言
+    window.deleteDayNote = async (dayNum, weekNum, noteIndex) => {
+      const ok = await window.confirmAction('確定要刪除這筆客觀事由留言紀錄嗎？（刪除後無法復原）');
+      if (!ok) return;
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) return;
+
+        let data = docSnap.data();
+        if (data.days && data.days[dayNum] && Array.isArray(data.days[dayNum].notes)) {
+          data.days[dayNum].notes.splice(noteIndex, 1);
+          data.updatedAt = serverTimestamp();
+
+          await setDoc(docRef, data, { merge: true });
+          window.currentAnalysisDaysData = data.days;
+          window.renderAnalysisCards(data.days, true, data.savedAtFormatted || '', weekNum);
+          window.showNotice('刪除成功', '🗑️ 該筆留言已自資料庫刪除！');
+        }
+      } catch (err) {
+        window.showNotice('刪除失敗', err.message, false);
       }
     };
 
@@ -2425,7 +2519,7 @@
           c.defaultCount = v;
           await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
         }
-        window.showNotice('更新成功', '🧑‍🤝‍‍🧑 班級人數設定更新成功！');
+        window.showNotice('更新成功', '🧑‍🤝‍🧑 班級人數設定更新成功！');
       } catch (e){ window.showNotice('更新失敗', e.message, false); }
     };
 
@@ -2494,7 +2588,7 @@
           saveBtn.disabled = false;
           saveBtn.removeAttribute('disabled');
           saveBtn.className = "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition flex items-center gap-1";
-          saveBtn.innerText = '☁️ 儲存上傳當日全部班級';
+          saveBtn.innerText = '☁️️ 儲存上傳當日全部班級';
         } else {
           saveBtn.disabled = true;
           saveBtn.setAttribute('disabled', 'true');
