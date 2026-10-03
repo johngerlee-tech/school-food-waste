@@ -77,16 +77,26 @@
           <div class="flex items-center gap-2 mt-1">
             <input type="number" id="daily-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50" value="115">
             <span class="text-xs">學年 第</span>
-            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.loadDailyRecords()">
+            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.onDailyWeekOrDayChange()">
             <span class="text-xs">週</span>
             <span id="daily-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium"></span>
           </div>
         </div>
         <div>
-          <label class="text-xs font-semibold text-slate-500">秤重星期</label>
-          <select id="daily-weekday" class="mt-1 block border rounded px-3 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" onchange="window.loadDailyRecords()">
-            <option value="1">週一</option><option value="2">週二</option><option value="4">週四</option><option value="5">週五</option>
-          </select>
+          <label class="text-xs font-semibold text-slate-500">秤重星期與日期</label>
+          <div class="flex items-center gap-2 mt-1">
+            <span id="daily-exact-date" class="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-lg shadow-sm">
+              <span class="font-bold text-purple-800" id="daily-exact-date-text">-- / --</span>
+            </span>
+            <select id="daily-weekday" class="border border-purple-200 rounded-lg px-3 py-1 text-sm bg-purple-100 text-purple-700 font-semibold focus:outline-purple-400 shadow-sm" onchange="window.onDailyWeekOrDayChange()">
+              <option value="1">週一</option>
+              <option value="2">週二</option>
+              <option value="4">週四</option>
+              <option value="5">週五</option>
+              <option value="6">週六</option>
+              <option value="0">週日</option>
+            </select>
+          </div>
         </div>
         
         <!-- 免秤重設定區塊 -->
@@ -313,7 +323,7 @@
           <!-- 管理員清單 -->
           <div class="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
             <div class="flex justify-between items-center mb-2">
-              <span class="text-xs font-bold text-emerald-800">🛡️️ 系統管理員 (全權操作與設定)</span>
+              <span class="text-xs font-bold text-emerald-800">🛡 系統管理員 (全權操作與設定)</span>
               <span id="admin-count-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">2 位</span>
             </div>
             <div class="flex gap-2 mb-3">
@@ -567,7 +577,7 @@
         icon.innerText = "✅";
       } else {
         icon.className = "w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold";
-        icon.innerText = "⚠️️";
+        icon.innerText = "⚠";
       }
       modal.classList.remove('hidden');
     };
@@ -958,6 +968,39 @@
       window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存成員權限」儲存至資料庫！');
     };
 
+    /* --- 精準實體國曆日期推算核心 (MM / DD) --- */
+    window.getExactDateForWeekDay = (weekNum, weekday) => {
+      try {
+        const startStr = document.getElementById('sys-start')?.value || '2026-08-31';
+        const parts = startStr.split('-');
+        if (parts.length < 3) return '-- / --';
+        
+        const start = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const day = start.getDay();
+        const diffToMon = day === 0 ? -6 : (1 - day);
+        
+        const baseMonday = new Date(start);
+        baseMonday.setDate(start.getDate() + diffToMon);
+        
+        const targetMon = new Date(baseMonday);
+        targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
+        
+        // 星期對應日位移：週一為 0、週二為 1...週日(0)為 6
+        const wVal = parseInt(weekday, 10);
+        const dayOffset = (wVal === 0) ? 6 : (wVal - 1);
+        
+        const targetDay = new Date(targetMon);
+        targetDay.setDate(targetMon.getDate() + dayOffset);
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const m = pad(targetDay.getMonth() + 1);
+        const d = pad(targetDay.getDate());
+        return `${m} / ${d}`;
+      } catch (e) {
+        return '-- / --';
+      }
+    };
+
     /* --- 日期區間計算核心工具 (週一至週五) --- */
     window.getWeekDateRange = (weekNum) => {
       const startStr = document.getElementById('sys-start')?.value || '2026-08-31';
@@ -987,11 +1030,47 @@
       return `${m1}/${d1} ~ ${m2}/${d2}`;
     };
 
+    /* --- 動態渲染星期下拉選單（自動注入當週實體日期，含週六/日） --- */
+    window.renderWeekdayOptionsWithDates = (weekNum) => {
+      const selectWd = document.getElementById('daily-weekday');
+      if (!selectWd) return;
+
+      const currentSelectedVal = selectWd.value;
+      const weekdaysList = [
+        { v: "1", name: "週一" },
+        { v: "2", name: "週二" },
+        { v: "4", name: "週四" },
+        { v: "5", name: "週五" },
+        { v: "6", name: "週六" },
+        { v: "0", name: "週日" }
+      ];
+
+      selectWd.innerHTML = weekdaysList.map(item => {
+        const exactDate = window.getExactDateForWeekDay(weekNum, item.v);
+        return `<option value="${item.v}">${exactDate} (${item.name})</option>`;
+      }).join('');
+
+      // 維持原有選取或預設
+      if (weekdaysList.some(w => w.v === currentSelectedVal)) {
+        selectWd.value = currentSelectedVal;
+      }
+    };
+
     window.refreshAllWeekLabels = () => {
-      const dw = parseInt(document.getElementById('daily-week')?.value || 1);
-      const mw = parseInt(document.getElementById('menu-week')?.value || 1);
-      const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1);
-      const aw = parseInt(document.getElementById('analysis-week')?.value || 1);
+      const dw = parseInt(document.getElementById('daily-week')?.value || 1, 10);
+      const dWd = document.getElementById('daily-weekday')?.value || "1";
+      const mw = parseInt(document.getElementById('menu-week')?.value || 1, 10);
+      const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1, 10);
+      const aw = parseInt(document.getElementById('analysis-week')?.value || 1, 10);
+
+      // 動態更新星期選單各選項的日期
+      window.renderWeekdayOptionsWithDates(dw);
+
+      // 更新實體日期徽章 (淡紫底紫字、日期粗體)
+      const exactDateText = document.getElementById('daily-exact-date-text');
+      if (exactDateText) {
+        exactDateText.innerText = window.getExactDateForWeekDay(dw, dWd);
+      }
 
       const dSpan = document.getElementById('daily-week-range');
       if (dSpan) dSpan.innerText = window.getWeekDateRange(dw);
@@ -1004,6 +1083,11 @@
 
       const aSpan = document.getElementById('analysis-week-range');
       if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
+    };
+
+    window.onDailyWeekOrDayChange = () => {
+      window.refreshAllWeekLabels();
+      window.loadDailyRecords();
     };
 
     /* --- Auth State & 三層權限判斷 (訪客 / 工作小組 / 管理員) --- */
@@ -1323,18 +1407,18 @@
         window.updateKeyStatusUI();
       }
       if (tabId === 'weekly') {
-        const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+        const currentW = window.calculatedCurrentWeek || 1;
         const weeklyInput = document.getElementById('weekly-select-week');
-        if (weeklyInput && (!weeklyInput.value || parseInt(weeklyInput.value) === window.calculatedCurrentWeek)) {
-          weeklyInput.value = pastWeek;
+        if (weeklyInput) {
+          weeklyInput.value = currentW;
         }
         window.calcWeeklyReport();
       }
       if (tabId === 'analysis') {
-        const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+        const currentW = window.calculatedCurrentWeek || 1;
         const analysisInput = document.getElementById('analysis-week');
-        if (analysisInput && (!analysisInput.value || parseInt(analysisInput.value) === window.calculatedCurrentWeek)) {
-          analysisInput.value = pastWeek;
+        if (analysisInput) {
+          analysisInput.value = currentW;
         }
         window.updateKeyStatusUI();
         window.loadOrRunAnalysis(false); // 預設優先讀取快取
@@ -1343,6 +1427,14 @@
         const curYear = document.getElementById('sys-year')?.value || 115;
         const myInput = document.getElementById('monthly-year');
         if (myInput) myInput.value = curYear;
+        
+        // 自動對應瀏覽當天所屬月份 (9~12 月)
+        const currentMonth = new Date().getMonth() + 1;
+        const selectMonth = document.getElementById('monthly-select-month');
+        if (selectMonth && [9, 10, 11, 12].includes(currentMonth)) {
+          selectMonth.value = String(currentMonth);
+        }
+        
         window.calcMonthlyReport();
       }
       if (tabId === 'settings') {
@@ -1355,7 +1447,7 @@
       window.refreshAllWeekLabels();
     };
 
-    /* --- 行事曆與門檻參數 --- */
+    /* --- 行事曆與門檻參數 (全系統自動對齊最新日期與星期) --- */
     window.loadSystemConfig = async () => {
       try {
         const snap = await getDoc(doc(db, "system_config", "main"));
@@ -1385,30 +1477,32 @@
             const diffTime = Math.abs(today - startDate);
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             currentWeek = Math.floor(diffDays / 7) + 1;
-            
-            let dayOfWeek = today.getDay();
-            if (dayOfWeek === 3) dayOfWeek = 4;
-            if (dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
-
-            const selectWd = document.getElementById('daily-weekday');
-            for (let i = 0; i < selectWd.options.length; i++) {
-              if (parseInt(selectWd.options[i].value) === dayOfWeek) {
-                selectWd.selectedIndex = i; break;
-              }
-            }
           }
           window.calculatedCurrentWeek = currentWeek;
 
-          const pastWeek = Math.max(1, currentWeek - 1);
+          // 自動定位最新實際星期（0~6）
+          let dayOfWeek = today.getDay();
+          const selectWd = document.getElementById('daily-weekday');
+          if (selectWd) {
+            selectWd.value = String(dayOfWeek);
+          }
 
-          document.getElementById('daily-year').value = document.getElementById('sys-year').value;
+          // 全面預設停留在最新週次
+          const sysYearVal = document.getElementById('sys-year').value;
+          document.getElementById('daily-year').value = sysYearVal;
           document.getElementById('daily-week').value = currentWeek;
           document.getElementById('menu-week').value = currentWeek;
-          document.getElementById('weekly-select-week').value = pastWeek;
-          document.getElementById('analysis-week').value = pastWeek;
+          document.getElementById('weekly-select-week').value = currentWeek;
+          document.getElementById('analysis-week').value = currentWeek;
           
           const myInput = document.getElementById('monthly-year');
-          if (myInput) myInput.value = document.getElementById('sys-year').value;
+          if (myInput) myInput.value = sysYearVal;
+
+          const currentMonth = today.getMonth() + 1;
+          const selectMonth = document.getElementById('monthly-select-month');
+          if (selectMonth && [9, 10, 11, 12].includes(currentMonth)) {
+            selectMonth.value = String(currentMonth);
+          }
 
           window.refreshAllWeekLabels();
         }
@@ -1441,7 +1535,7 @@
     /* --- CSV Import --- */
     window.downloadCsvTemplate = () => {
       const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n" +
-                         "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,201,1500,24\n";
+                         "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,1,201,1500,24\n";
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1871,7 +1965,8 @@
 
     /* --- Reports & Analysis --- */
     window.calcWeeklyReport = async () => {
-      const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('weekly-select-week').value);
+      const y = parseInt(document.getElementById('daily-year').value);
+      const w = parseInt(document.getElementById('weekly-select-week').value);
       window.refreshAllWeekLabels();
 
       const [cur, prv] = await Promise.all([
@@ -1972,7 +2067,7 @@
 
       for (const model of candidateModels) {
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`;
           const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
