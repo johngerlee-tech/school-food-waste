@@ -267,7 +267,7 @@
           <span class="text-sm font-semibold">分析週次：第</span>
           <input type="number" id="analysis-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-indigo-800" value="1" min="1" onchange="window.loadOrRunAnalysis(false)">
           <span class="text-sm font-semibold">週</span>
-          <span id="menu-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
+          <span id="analysis-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
           
           <!-- 主要診斷 / 重新產生按鈕 -->
           <button onclick="window.loadOrRunAnalysis(true)" id="btn-run-analysis" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition flex items-center gap-1.5">
@@ -781,7 +781,9 @@
         if (wSpan) wSpan.innerText = window.getWeekDateRange(ww);
 
         const aSpan = document.getElementById('analysis-week-range');
-        if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
+        if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
+        /* if (aSpan) aSpan.innerText = window.getWeekDateRange(aw); */
+        
       } catch (e) {
         console.warn("更新週次標籤例外:", e);
       }
