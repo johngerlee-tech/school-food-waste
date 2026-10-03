@@ -781,8 +781,7 @@
         if (wSpan) wSpan.innerText = window.getWeekDateRange(ww);
 
         const aSpan = document.getElementById('analysis-week-range');
-        if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
-        /* if (aSpan) aSpan.innerText = window.getWeekDateRange(aw); */
+        if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
         
       } catch (e) {
         console.warn("更新週次標籤例外:", e);
