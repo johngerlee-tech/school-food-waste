@@ -23,7 +23,7 @@
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
-          🌱 溪洲國小午餐智慧惜食與廚餘追蹤系統 V4.1
+          🌱 溪洲國小午餐智慧惜食與廚餘追蹤系統 V4.2
         </h1>
         <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・彈性秤重配置・動態門檻設定・雲端權限控管・Gemini 智能診斷快取</p>
       </div>
@@ -267,7 +267,7 @@
           <span class="text-sm font-semibold">分析週次：第</span>
           <input type="number" id="analysis-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-indigo-800" value="1" min="1" onchange="window.loadOrRunAnalysis(false)">
           <span class="text-sm font-semibold">週</span>
-          <span id="analysis-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
+          <span id="menu-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
           
           <!-- 主要診斷 / 重新產生按鈕 -->
           <button onclick="window.loadOrRunAnalysis(true)" id="btn-run-analysis" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition flex items-center gap-1.5">
