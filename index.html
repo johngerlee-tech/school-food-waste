@@ -714,7 +714,7 @@
       if (!modal) return;
 
       document.getElementById('permission-modal-title').innerText = `🔒「${tabName}」權限不足`;
-      const currentIdentity = (window.userRole === 'staff') ? '工作小組' : (window.userRole === 'waste_monitor' ? '廚餘長模式' : '訪客模式');
+      const currentIdentity = (window.userRole === 'staff') ? '工作小組' : (window.userRole === 'waste_monitor') ? '廚餘長模式' : '訪客模式';
       document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;
       
       if (requiredRole === '系統管理員') {
@@ -870,863 +870,9 @@
       });
     };
 
-    window.testGeminiKey = async () => {
-      const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
-      if (!keyVal) {
-        return window.showNotice('提示', '請先輸入欲測試的 Gemini API Key！', false);
-      }
-
-      const btn = document.getElementById('key-test-btn');
-      if (btn) { btn.disabled = true; btn.innerText = "⏳ 測試中..."; }
-
-      try {
-        window._cachedGeminiModel = null;
-        const model = await window.getAvailableGeminiModel(keyVal);
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }] })
-        });
-
-        const resData = await res.json();
-        if (!res.ok || resData.error) throw new Error(resData.error?.message || `HTTP ${res.status}`);
-
-        window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動配對端點：[${model}]`);
-        window.updateKeyStatusUI();
-      } catch (e) {
-        window.showNotice('連線失敗', `連線測試未通過：\n${e.message}\n\n建議確認：\n1. Google AI Studio 金鑰是否正確且未逾期\n2. 專案是否有啟用 Generative Language API`, false);
-      } finally {
-        if (btn) { btn.disabled = false; btn.innerText = "🧪 測試連線"; }
-      }
-    };
-
-    window.toggleKeyVisibility = () => {
-      const input = document.getElementById('sys-gemini-key');
-      if (input) input.type = (input.type === 'password') ? 'text' : 'password';
-    };
-
-    window.toggleWastePassVisibility = () => {
-      const input = document.getElementById('sys-waste-pass');
-      if (input) input.type = (input.type === 'password') ? 'text' : 'password';
-    };
-
-    window.saveGeminiApiKey = async () => {
-      if (window.userRole !== 'admin') return;
-      const keyVal = (document.getElementById('sys-gemini-key')?.value || '').trim();
-      try {
-        await setDoc(doc(db, "system_config", "gemini_api"), { apiKey: keyVal, updatedAt: serverTimestamp() }, { merge: true });
-        window.cloudGeminiKey = keyVal;
-        window._cachedGeminiModel = null;
-        window.updateKeyStatusUI();
-        window.showNotice('金鑰儲存成功', keyVal ? '✅ 雲端 Gemini API Key 已成功儲存！所有工作小組與管理員將共享此金鑰。' : 'ℹ 已清除雲端 Gemini API Key，系統將回退至在地專家推論模式。');
-      } catch (e) {
-        window.showNotice('儲存失敗', e.message, false);
-      }
-    };
-
-    window.loadGeminiApiKey = async () => {
-      try {
-        const snap = await getDoc(doc(db, "system_config", "gemini_api"));
-        if (snap.exists() && snap.data().apiKey) {
-          window.cloudGeminiKey = snap.data().apiKey.trim();
-        } else {
-          const localKey = localStorage.getItem('food_waste_gemini_key');
-          if (localKey) window.cloudGeminiKey = localKey.trim();
-        }
-      } catch (e) {
-        const localKey = localStorage.getItem('food_waste_gemini_key');
-        if (localKey) window.cloudGeminiKey = localKey.trim();
-      }
-      window.updateKeyStatusUI();
-    };
-
-    window.updateKeyStatusUI = () => {
-      const input = document.getElementById('sys-gemini-key');
-      const text = document.getElementById('gemini-key-status-text');
-      const engineBadge = document.getElementById('analysis-engine-badge');
-      const menuKeyInd = document.getElementById('menu-key-status-indicator');
-
-      const hasKey = Boolean(window.cloudGeminiKey);
-      if (input && window.cloudGeminiKey) input.value = window.cloudGeminiKey;
-
-      if (text) {
-        text.className = hasKey ? "text-[11px] text-emerald-600 font-semibold" : "text-[11px] text-slate-400 font-medium";
-        text.innerText = hasKey ? "✅ 雲端金鑰已就緒，所有工作小組與管理員可直接調用 Gemini 最新模型深度診斷" : "尚未設定集中金鑰（系統目前運作於在地專家引擎模式）";
-      }
-
-      if (engineBadge) {
-        if (hasKey) {
-          engineBadge.className = "text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 flex items-center gap-1";
-          engineBadge.innerHTML = "✨ Gemini 雲端深度診斷就緒 (免自備Key)";
-        } else {
-          engineBadge.className = "text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-medium border border-amber-200";
-          engineBadge.innerHTML = "⚙️ 在地專家規則模式 (管理員可於設定填入集中Key升級)";
-        }
-      }
-
-      if (menuKeyInd) {
-        menuKeyInd.innerText = hasKey ? "🔑 已自動調用集中金鑰" : "⚠ 未設定集中金鑰";
-        menuKeyInd.className = hasKey ? "text-[11px] text-emerald-700 font-semibold" : "text-[11px] text-amber-600";
-      }
-    };
-
-    window.loadWasteMonitorPass = async () => {
-      try {
-        const snap = await getDoc(doc(db, "system_config", "waste_monitor"));
-        const passInp = document.getElementById('sys-waste-pass');
-        if (snap.exists() && snap.data().password) {
-          if (passInp) passInp.value = snap.data().password.trim();
-        } else {
-          if (passInp && !passInp.value) passInp.value = '';
-        }
-      } catch (e) {
-        console.warn("載入廚餘長密碼設定失敗:", e);
-      }
-    };
-
-    window.saveWasteMonitorPass = async () => {
-      if (window.userRole !== 'admin') return;
-      const passVal = (document.getElementById('sys-waste-pass')?.value || '').trim();
-      if (!passVal) {
-        return window.showNotice('提示', '請輸入欲設定的廚餘長通行密碼！', false);
-      }
-
-      try {
-        await setDoc(doc(db, "system_config", "waste_monitor"), { password: passVal, updatedAt: serverTimestamp() }, { merge: true });
-        window.showNotice('儲存成功', `🍱 廚餘長快速登錄通行密碼已成功更新！`);
-      } catch (e) {
-        window.showNotice('儲存失敗', e.message, false);
-      }
-    };
-
-    window.loadRoleSettings = async () => {
-      try {
-        const snap = await getDoc(doc(db, "system_roles", "main"));
-        if (snap.exists()) {
-          const d = snap.data();
-          if (Array.isArray(d.admins) && d.admins.length > 0) {
-            window.ADMIN_EMAILS = d.admins.map(e => (typeof e === 'string' ? e.trim().toLowerCase() : e.email?.trim().toLowerCase())).filter(Boolean);
-          }
-          if (Array.isArray(d.staffs)) {
-            window.STAFF_MEMBERS = d.staffs.map(item => {
-              if (typeof item === 'string') {
-                return { email: item.trim().toLowerCase(), name: '', canDaily: false };
-              } else if (item && typeof item === 'object') {
-                return { email: (item.email || '').trim().toLowerCase(), name: (item.name || '').trim(), canDaily: Boolean(item.canDaily) };
-              }
-              return null;
-            }).filter(s => s && s.email);
-          }
-        }
-      } catch (e) {
-        console.warn("載入角色設定失敗，使用預設名單", e);
-      }
-      window.renderRoleLists();
-    };
-
-    window.saveRoleSettings = async () => {
-      if (window.userRole !== 'admin') return;
-      try {
-        await setDoc(doc(db, "system_roles", "main"), { admins: window.ADMIN_EMAILS, staffs: window.STAFF_MEMBERS, updatedAt: serverTimestamp() }, { merge: true });
-        window.showNotice('權限設定成功', '👥 管理員與工作小組成員名單已同步儲存至雲端資料庫！');
-      } catch (e) {
-        window.showNotice('儲存失敗', e.message, false);
-      }
-    };
-
-    window.renderRoleLists = () => {
-      const isAdm = window.userRole === 'admin';
-      const adminList = document.getElementById('admin-list-container');
-      const staffList = document.getElementById('staff-list-container');
-      const adminCount = document.getElementById('admin-count-badge');
-      const staffCount = document.getElementById('staff-count-badge');
-
-      if (adminCount) adminCount.innerText = `${window.ADMIN_EMAILS.length} 位`;
-      if (staffCount) staffCount.innerText = `${window.STAFF_MEMBERS.length} 位`;
-
-      if (adminList) {
-        adminList.innerHTML = window.ADMIN_EMAILS.map((email, idx) => `
-          <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 text-xs">
-            <span class="font-medium text-slate-700 truncate">${email}</span>
-            ${isAdm && window.ADMIN_EMAILS.length > 1 ? `
-              <button onclick="window.removeMemberRole('admin', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none shrink-0" title="移除管理員">&times;</button>
-            ` : ''}
-          </div>
-        `).join('') || '<div class="text-xs text-slate-400 p-2">暫無管理員</div>';
-      }
-
-      if (staffList) {
-        staffList.innerHTML = window.STAFF_MEMBERS.map((member, idx) => `
-          <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-indigo-100 text-xs gap-2">
-            <div class="flex items-center gap-2 truncate flex-1 min-w-0">
-              <span class="font-bold text-indigo-900 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded text-[11px] shrink-0">
-                ${member.name || '未設姓名'}
-              </span>
-              <span class="text-slate-600 truncate text-[11px]">${member.email}</span>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <label class="flex items-center gap-1 text-[11px] text-emerald-800 font-medium cursor-pointer">
-                <input type="checkbox" onchange="window.toggleStaffDailyPermission(${idx})" ${member.canDaily ? 'checked' : ''} ${isAdm ? '' : 'disabled'} class="w-3.5 h-3.5 text-emerald-600 rounded">
-                <span>允許每日登記</span>
-              </label>
-              ${isAdm ? `
-                <button onclick="window.removeMemberRole('staff', ${idx})" class="text-rose-500 hover:text-rose-700 ml-1 font-bold text-sm leading-none shrink-0" title="移除成員">&times;</button>
-              ` : ''}
-            </div>
-          </div>
-        `).join('') || '<div class="text-xs text-slate-400 p-2">暫無工作小組成員</div>';
-      }
-    };
-
-    window.toggleStaffDailyPermission = (idx) => {
-      if (window.userRole !== 'admin') return;
-      if (window.STAFF_MEMBERS[idx]) {
-        window.STAFF_MEMBERS[idx].canDaily = !window.STAFF_MEMBERS[idx].canDaily;
-      }
-    };
-
-    window.addMemberRole = (role) => {
-      if (window.userRole !== 'admin') return window.showNotice('權限不足', '只有系統管理員可以新增成員權限喔！', false);
-
-      if (role === 'admin') {
-        const input = document.getElementById('input-new-admin');
-        const email = (input?.value || '').trim().toLowerCase();
-        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的電子郵件地址！', false);
-        if (!window.ADMIN_EMAILS.includes(email)) {
-          window.ADMIN_EMAILS.push(email);
-          window.STAFF_MEMBERS = window.STAFF_MEMBERS.filter(s => s.email !== email);
-        }
-        input.value = '';
-        window.renderRoleLists();
-        window.showNotice('已暫存清單', `已將【${email}】加入管理員名單，請點擊「💾 儲存成員權限」儲存至資料庫！`);
-      } else {
-        const nameInput = document.getElementById('input-new-staff-name');
-        const emailInput = document.getElementById('input-new-staff');
-        const name = (nameInput?.value || '').trim();
-        const email = (emailInput?.value || '').trim().toLowerCase();
-
-        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的工作小組電子郵件！', false);
-        if (window.ADMIN_EMAILS.includes(email)) return window.showNotice('提示', '該信箱已經是系統管理員，無需重複加入工作小組！', false);
-
-        const existingIdx = window.STAFF_MEMBERS.findIndex(s => s.email === email);
-        if (existingIdx >= 0) {
-          window.STAFF_MEMBERS[existingIdx].name = name || window.STAFF_MEMBERS[existingIdx].name;
-          window.showNotice('已更新', `已更新成員【${email}】的姓名！`);
-        } else {
-          window.STAFF_MEMBERS.push({ email, name: name || '工作小組成員', canDaily: false });
-          window.showNotice('已暫存清單', `已將【${name ? name + ' (' + email + ')' : email}】加入工作小組，請點擊「💾 儲存成員權限」！`);
-        }
-
-        if (nameInput) nameInput.value = '';
-        if (emailInput) emailInput.value = '';
-        window.renderRoleLists();
-      }
-    };
-
-    window.removeMemberRole = (role, idx) => {
-      if (window.userRole !== 'admin') return;
-      if (role === 'admin') {
-        if (window.ADMIN_EMAILS.length <= 1) return window.showNotice('無法移除', '系統必須至少保留一位管理員！', false);
-        window.ADMIN_EMAILS.splice(idx, 1);
-      } else {
-        window.STAFF_MEMBERS.splice(idx, 1);
-      }
-      window.renderRoleLists();
-      window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存成員權限」儲存至資料庫！');
-    };
-
-    window.renderInitialEmptyTable = () => {
-      const tbody = document.getElementById('daily-rows');
-      if (!tbody) return;
-      tbody.innerHTML = window.CLASSES.map(c => `
-        <tr id="row-${c.id}" class="bg-white hover:bg-emerald-50/20 transition">
-          <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
-          <td class="p-3 font-semibold">${c.name}</td>
-          <td class="p-3">
-            <input type="number" id="w-${c.id}" placeholder="0" disabled class="border rounded px-2 w-24 text-right bg-slate-100"> g
-          </td>
-          <td class="p-3">
-            <input type="number" id="c-${c.id}" value="${c.defaultCount}" disabled class="border rounded px-2 w-16 text-right bg-slate-100"> 人
-          </td>
-          <td class="p-3 text-right font-bold text-slate-400" id="per-${c.id}">-</td>
-          <td class="p-3 text-center">
-            <input type="checkbox" id="skip-row-${c.id}" disabled class="w-4 h-4 text-rose-600 rounded">
-          </td>
-          <td class="p-3 text-center">
-            <span class="text-xs text-slate-400">唯讀</span>
-          </td>
-        </tr>
-      `).join('');
-    };
-
-    /* --- 核心分頁切換 --- */
-    window.switchTab = (tabId) => {
-      try {
-        const role = window.userRole;
-
-        if (tabId === 'analysis' && (role === 'guest' || role === 'waste_monitor')) {
-          window.showPermissionDenied('菜單關聯分析', '工作小組或管理員');
-          return;
-        }
-
-        if (tabId === 'settings' && role !== 'admin') {
-          window.showPermissionDenied('系統與匯入設定', '系統管理員');
-          return;
-        }
-
-        ['daily', 'menu', 'weekly', 'analysis', 'monthly', 'settings'].forEach(t => {
-          const pageEl = document.getElementById(`page-${t}`);
-          const tabEl = document.getElementById(`tab-${t}`);
-          if (pageEl) pageEl.classList.add('hidden');
-          if (tabEl) tabEl.className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
-        });
-        
-        const targetPage = document.getElementById(`page-${tabId}`);
-        const targetTab = document.getElementById(`tab-${tabId}`);
-        if (targetPage) targetPage.classList.remove('hidden');
-        if (targetTab) targetTab.className = "px-4 py-2 tab-active flex items-center gap-1.5";
-
-        if (tabId === 'daily') window.loadDailyRecords();
-        if (tabId === 'menu') { 
-          if (window.calculatedCurrentWeek) {
-            const mw = document.getElementById('menu-week');
-            if (mw) mw.value = window.calculatedCurrentWeek;
-          }
-          window.loadWeeklyMenu(); 
-          window.updateKeyStatusUI();
-        }
-        if (tabId === 'weekly') {
-          const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
-          const weeklyInput = document.getElementById('weekly-select-week');
-          if (weeklyInput && (!weeklyInput.value || parseInt(weeklyInput.value) === window.calculatedCurrentWeek)) {
-            weeklyInput.value = pastWeek;
-          }
-          window.calcWeeklyReport();
-        }
-        if (tabId === 'analysis') {
-          const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
-          const analysisInput = document.getElementById('analysis-week');
-          if (analysisInput && (!analysisInput.value || parseInt(analysisInput.value) === window.calculatedCurrentWeek)) {
-            analysisInput.value = pastWeek;
-          }
-          window.updateKeyStatusUI();
-          window.loadOrRunAnalysis(false);
-        }
-        if (tabId === 'monthly') {
-          const curYear = document.getElementById('sys-year')?.value || 115;
-          const myInput = document.getElementById('monthly-year');
-          if (myInput) myInput.value = curYear;
-          window.calcMonthlyReport();
-        }
-        if (tabId === 'settings') {
-          window.renderSettings();
-          window.renderRoleLists();
-          window.unlockSettingsFields();
-          window.updateKeyStatusUI();
-          window.loadWasteMonitorPass();
-        }
-
-        window.refreshAllWeekLabels();
-      } catch (e) {
-        console.error("切換分頁異常:", e);
-      }
-    };
-
-    window.toggleSkipDay = () => {
-      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
-      const tableCon = document.getElementById('daily-table-container');
-      const overlay = document.getElementById('skip-overlay');
-      if (isSkipped) {
-        tableCon?.classList.add('hidden');
-        overlay?.classList.remove('hidden');
-      } else {
-        tableCon?.classList.remove('hidden');
-        overlay?.classList.add('hidden');
-      }
-    };
-    
-    window.toggleRowSkip = (classId) => {
-      const isSkipped = document.getElementById(`skip-row-${classId}`)?.checked || false;
-      const weightInput = document.getElementById(`w-${classId}`);
-      const countInput = document.getElementById(`c-${classId}`);
-      const perText = document.getElementById(`per-${classId}`);
-      
-      if (isSkipped) {
-        if (weightInput) { weightInput.value = ''; weightInput.disabled = true; weightInput.classList.add('bg-slate-100'); }
-        if (countInput) { countInput.disabled = true; countInput.classList.add('bg-slate-100'); }
-        if (perText) { perText.innerText = '停餐'; perText.classList.replace('text-emerald-700', 'text-slate-400'); }
-      } else {
-        if (weightInput) { weightInput.disabled = false; weightInput.classList.remove('bg-slate-100'); }
-        if (countInput) { countInput.disabled = false; countInput.classList.remove('bg-slate-100'); }
-        if (perText) { perText.classList.replace('text-slate-400', 'text-emerald-700'); }
-        window.calcRow(classId);
-      }
-    };
-
-    window.loadDailyRecords = async () => {
-      const year = parseInt(document.getElementById('daily-year')?.value || 115);
-      const week = parseInt(document.getElementById('daily-week')?.value || 1);
-      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
-      
-      window.refreshAllWeekLabels();
-      const tbody = document.getElementById('daily-rows');
-      if (!tbody) return;
-
-      const hint = document.getElementById('today-menu-hint');
-      try {
-        const menuSnap = await getDoc(doc(db, "weekly_menus", `${year}_1_${week}`));
-        if (menuSnap.exists() && menuSnap.data().days && menuSnap.data().days[weekday]) {
-          const d = menuSnap.data().days[weekday];
-          const menuItems = [d.main, d.dish1, d.vege, d.soup].filter(Boolean).join(', ');
-          if (hint) hint.innerHTML = `🍱 <strong>今日菜單</strong>：${menuItems || '菜色未載入'}`;
-        } else { 
-          if (hint) hint.innerHTML = '🍱 今日無菜單紀錄'; 
-        }
-      } catch (e) {
-        if (hint) hint.innerHTML = '🍱 菜單載入完畢';
-      }
-
-      try {
-        const statusSnap = await getDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`));
-        if (statusSnap.exists() && statusSnap.data().isSkipped) {
-          const cb = document.getElementById('daily-skip-cb');
-          if (cb) cb.checked = true;
-          window.toggleSkipDay();
-        } else {
-          const cb = document.getElementById('daily-skip-cb');
-          if (cb) cb.checked = false;
-          window.toggleSkipDay();
-        }
-
-        const snap = await getDocs(query(collection(db, "daily_records"), where("academicYear", "==", year), where("week", "==", week), where("weekday", "==", weekday)));
-        let map = {}; 
-        snap.forEach(d => map[d.data().classId] = d.data());
-        
-        const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
-        window.classSavedStatus = {}; 
-
-        tbody.innerHTML = window.CLASSES.map(c => {
-          let rec = map[c.id] || {};
-          let isClassSkipped = rec.isSkipped || false;
-          let w = rec.weightKg !== undefined ? rec.weightKg : '';
-          let count = rec.eaterCount || c.defaultCount;
-          let per = (w !== '' && count > 0) ? (w/count).toFixed(1) : '-';
-          
-          let isAlreadySaved = (w !== '' || isClassSkipped);
-          window.classSavedStatus[c.id] = isAlreadySaved;
-
-          const rowBgClass = isAlreadySaved ? 'bg-slate-100/70 text-slate-500' : 'bg-white hover:bg-emerald-50/20';
-
-          return `
-            <tr id="row-${c.id}" class="${rowBgClass} transition">
-              <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
-              <td class="p-3 font-semibold">${c.name}</td>
-              <td class="p-3">
-                <input type="number" id="w-${c.id}" value="${isClassSkipped ? '' : w}" oninput="window.calcRow('${c.id}')" ${!canEdit || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> g
-              </td>
-              <td class="p-3">
-                <input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${!canEdit || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-16 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> 人
-              </td>
-              <td class="p-3 text-right font-bold ${isClassSkipped ? 'text-slate-400' : 'text-emerald-700'}" id="per-${c.id}">${isClassSkipped ? '停餐' : per}</td>
-              <td class="p-3 text-center">
-                <input type="checkbox" id="skip-row-${c.id}" onchange="window.toggleRowSkip('${c.id}')" ${isClassSkipped ? 'checked' : ''} ${!canEdit || isAlreadySaved ? 'disabled' : ''} class="w-4 h-4 text-rose-600 rounded cursor-pointer">
-              </td>
-              <td class="p-3 text-center">
-                ${canEdit ? (
-                  isAlreadySaved ? `
-                    <button onclick="window.toggleEditRow('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition">
-                      ✏ 修改
-                    </button>
-                  ` : `
-                    <button onclick="window.saveSingleClassRecord('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
-                      💾 儲存
-                    </button>
-                  `
-                ) : `
-                  <span class="text-xs text-slate-400">唯讀</span>
-                `}
-              </td>
-            </tr>`;
-        }).join('');
-      } catch (e) { 
-        console.warn("載入每日過磅紀錄異常:", e);
-        window.renderInitialEmptyTable();
-      }
-    };
-
-    window.calcRow = (id) => {
-      let w = parseFloat(document.getElementById(`w-${id}`)?.value);
-      let c = parseInt(document.getElementById(`c-${id}`)?.value);
-      const p = document.getElementById(`per-${id}`);
-      if (p) p.innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
-    };
-
-    window.saveSingleClassRecord = async (classId) => {
-      const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
-      if (!canEdit) return;
-
-      const year = parseInt(document.getElementById('daily-year')?.value || 115);
-      const week = parseInt(document.getElementById('daily-week')?.value || 1);
-      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
-      const cInfo = window.CLASSES.find(c => c.id === classId);
-      if (!cInfo) return;
-
-      const btn = document.getElementById(`btn-action-${classId}`);
-      if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
-
-      const isRowSkipped = document.getElementById(`skip-row-${classId}`)?.checked || false;
-      const docId = `${year}_1_${week}_${weekday}_${classId}`;
-
-      try {
-        if (isRowSkipped) {
-          await setDoc(doc(db, "daily_records", docId), {
-            academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
-            isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
-          }, { merge: true });
-        } else {
-          let wStr = document.getElementById(`w-${classId}`)?.value;
-          let w = parseFloat(wStr);
-          let count = parseInt(document.getElementById(`c-${classId}`)?.value) || cInfo.defaultCount;
-          
-          if (wStr === '' || isNaN(w)) {
-            if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
-            return window.showNotice('提示', `請先輸入【${cInfo.name}】的廚餘重量！`, false);
-          }
-
-          let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
-          await setDoc(doc(db, "daily_records", docId), {
-            academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
-            isSkipped: false, weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
-          }, { merge: true });
-        }
-
-        window.classSavedStatus[classId] = true;
-        const row = document.getElementById(`row-${classId}`);
-        const wInp = document.getElementById(`w-${classId}`);
-        const cInp = document.getElementById(`c-${classId}`);
-        const sCb = document.getElementById(`skip-row-${classId}`);
-
-        if (row) row.className = "bg-slate-100/70 text-slate-500 transition";
-        if (wInp) { wInp.disabled = true; wInp.className = "border rounded px-2 w-24 text-right bg-slate-200/60 text-slate-600"; }
-        if (cInp) { cInp.disabled = true; cInp.className = "border rounded px-2 w-16 text-right bg-slate-200/60 text-slate-600"; }
-        if (sCb) sCb.disabled = true;
-
-        if (btn) {
-          btn.disabled = false;
-          btn.innerText = "✏ 修改";
-          btn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition";
-          btn.setAttribute('onclick', `window.toggleEditRow('${classId}')`);
-        }
-      } catch (err) {
-        window.showNotice('儲存失敗', `權限不足或連線異常：${err.message}`, false);
-        if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
-      }
-    };
-
-    window.toggleEditRow = (classId) => {
-      window.classSavedStatus[classId] = false;
-      const row = document.getElementById(`row-${classId}`);
-      const wInp = document.getElementById(`w-${classId}`);
-      const cInp = document.getElementById(`c-${classId}`);
-      const sCb = document.getElementById(`skip-row-${classId}`);
-      const btn = document.getElementById(`btn-action-${classId}`);
-
-      if (row) row.className = "bg-white hover:bg-emerald-50/20 transition";
-      if (wInp) { wInp.disabled = false; wInp.className = "border rounded px-2 w-24 text-right bg-white"; wInp.focus(); }
-      if (cInp) { cInp.disabled = false; cInp.className = "border rounded px-2 w-16 text-right bg-white"; }
-      if (sCb) sCb.disabled = false;
-
-      if (btn) {
-        btn.innerText = "💾 儲存";
-        btn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition";
-        btn.setAttribute('onclick', `window.saveSingleClassRecord('${classId}')`);
-      }
-    };
-
-    window.saveAllDailyRecords = async () => {
-      const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
-      if (!canEdit) return;
-
-      const year = parseInt(document.getElementById('daily-year')?.value || 115);
-      const week = parseInt(document.getElementById('daily-week')?.value || 1);
-      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
-      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
-
-      const saveBtn = document.getElementById('save-btn');
-      if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = "⏳ 儲存中..."; }
-
-      try {
-        await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
-        
-        if (!isSkipped) {
-          let promises = window.CLASSES.map(async c => {
-            const isRowSkipped = document.getElementById(`skip-row-${c.id}`)?.checked || false;
-            if (isRowSkipped) {
-               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
-                academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
-                isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
-              }, { merge: true });
-            } else {
-              let wStr = document.getElementById(`w-${c.id}`)?.value;
-              if (wStr === '' || wStr === undefined) return;
-              let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`)?.value) || c.defaultCount;
-              let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
-              await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
-                academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
-                isSkipped: false, weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
-              }, { merge: true });
-            }
-          });
-          await Promise.all(promises); 
-        }
-
-        window.showNotice('儲存成功', isSkipped ? '🚫 已將本日設定為停餐/免秤重並儲存！' : '✅ 當日全校廚餘數據已全數儲存完成！');
-        window.loadDailyRecords();
-      } catch (e) { 
-        window.showNotice('儲存失敗', `儲存異常：${e.message}`, false); 
-      } finally {
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "☁ 儲存上傳當日全部班級"; }
-      }
-    };
-
-    window.loadWeeklyMenu = async () => {
-      const y = parseInt(document.getElementById('daily-year')?.value || 115);
-      const w = parseInt(document.getElementById('menu-week')?.value || 1);
-      window.refreshAllWeekLabels();
-
-      let menu = {};
-      try { const snap = await getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)); if(snap.exists()) menu = snap.data().days || {}; } catch(e){}
-      
-      const isAdmin = window.userRole === 'admin';
-      const container = document.getElementById('menu-days-container');
-      if (!container) return;
-
-      if (!isAdmin) {
-        container.innerHTML = WEEKDAYS.map(day => {
-          let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
-          let hasContent = d.main || d.dish1 || d.dish2 || d.vege || d.soup;
-          let exactD = window.getExactDateForWeekDay(w, day.d);
-          return `
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition">
-              <div class="flex items-center justify-between border-b pb-2 mb-3">
-                <h3 class="font-bold text-emerald-800 text-base">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
-                <span class="text-[11px] px-2 py-0.5 rounded-full ${hasContent ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}">
-                  ${hasContent ? '🍱 已公告' : '尚未登錄'}
-                </span>
-              </div>
-              <div class="space-y-2.5 text-sm">
-                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">主食</span><span class="font-medium text-slate-800">${d.main || '<span class="text-slate-300">-</span>'}</span></div>
-                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">主菜</span><span class="font-semibold text-emerald-700">${d.dish1 || '<span class="text-slate-300">-</span>'}</span></div>
-                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">副菜</span><span class="font-medium text-slate-800">${d.dish2 || '<span class="text-slate-300">-</span>'}</span></div>
-                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">青菜</span><span class="font-medium text-slate-800">${d.vege || '<span class="text-slate-300">-</span>'}</span></div>
-                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">湯</span><span class="font-medium text-slate-800">${d.soup || '<span class="text-slate-300">-</span>'}</span></div>
-              </div>
-            </div>`;
-        }).join('');
-      } else {
-        container.innerHTML = WEEKDAYS.map(day => {
-          let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
-          let exactD = window.getExactDateForWeekDay(w, day.d);
-          return `
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 class="font-bold text-emerald-800 mb-2">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
-              <div class="space-y-1.5 text-sm">
-                <label class="block text-xs text-slate-500 font-semibold">主食</label>
-                <input id="m-${day.d}-main" value="${d.main}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
-                <label class="block text-xs text-slate-500 font-semibold">主菜</label>
-                <input id="m-${day.d}-d1" value="${d.dish1}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
-                <label class="block text-xs text-slate-500 font-semibold">副菜</label>
-                <input id="m-${day.d}-d2" value="${d.dish2}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
-                <label class="block text-xs text-slate-500 font-semibold">青菜</label>
-                <input id="m-${day.d}-vege" value="${d.vege}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
-                <label class="block text-xs text-slate-500 font-semibold">湯</label>
-                <input id="m-${day.d}-s" value="${d.soup}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
-              </div>
-            </div>`;
-        }).join('');
-      }
-    };
-
-    window.saveWeeklyMenu = async () => {
-      if (window.userRole !== 'admin') return;
-      const y = parseInt(document.getElementById('daily-year')?.value || 115), w = parseInt(document.getElementById('menu-week')?.value || 1);
-      let days = {};
-      WEEKDAYS.forEach(day => {
-        days[day.d] = {
-          main: document.getElementById(`m-${day.d}-main`)?.value || '', dish1: document.getElementById(`m-${day.d}-d1`)?.value || '',
-          dish2: document.getElementById(`m-${day.d}-d2`)?.value || '', vege: document.getElementById(`m-${day.d}-vege`)?.value || '',
-          soup: document.getElementById(`m-${day.d}-s`)?.value || ''
-        };
-      });
-      try { 
-        await setDoc(doc(db, "weekly_menus", `${y}_1_${w}`), { academicYear: y, semester: 1, week: w, days, updatedAt: serverTimestamp() }, { merge: true }); 
-        window.showNotice('菜單更新', '✅ 菜單更新成功！'); 
-      } catch (e) { 
-        window.showNotice('儲存失敗', e.message, false); 
-      }
-    };
-
-    const imgUploadEl = document.getElementById('menu-image-upload');
-    if (imgUploadEl) {
-      imgUploadEl.addEventListener('change', function(e) {
-        if (e.target.files && e.target.files[0]) {
-          let reader = new FileReader();
-          reader.onload = function(ev) {
-            const preview = document.getElementById('menu-image-preview');
-            if (preview) preview.src = ev.target.result;
-            document.getElementById('image-preview-container')?.classList.remove('hidden');
-          };
-          reader.readAsDataURL(e.target.files[0]);
-        }
-      });
-    }
-
-    window.recognizeMenuImage = async () => {
-      const apiKey = window.cloudGeminiKey;
-      const fileInput = document.getElementById('menu-image-upload');
-      const btn = document.getElementById('btn-ai-recognize');
-      const hint = document.getElementById('ai-status-hint');
-      
-      if (!apiKey) return window.showNotice('尚未設定 API 金鑰', '請先至「⚙ 系統與匯入設定」儲存集中管理之 Gemini API Key！', false);
-      if (!fileInput.files || fileInput.files.length === 0) return window.showNotice('提示', '請先選擇菜單圖檔', false);
-
-      btn.innerText = "⏳ AI 圖片辨識中..."; btn.disabled = true;
-      if (hint) hint.innerText = "正在連線 Google Gemini 模組解析菜單文字...";
-
-      try {
-        const file = fileInput.files[0];
-        const base64String = await new Promise((res, rej) => {
-          const r = new FileReader();
-          r.onload = () => res(r.result.split(',')[1]);
-          r.onerror = rej;
-          r.readAsDataURL(file);
-        });
-
-        const activeModel = await window.getAvailableGeminiModel(apiKey);
-        const prompt = `請分析這張午餐菜單圖片，擷取週一、週二、週四、週五的菜色內容（週三若有請忽略）。
-菜單欄位對應說明：主食(main)、主菜(dish1)、副菜(dish2)、青菜/蔬菜(vege)、湯/湯品(soup)。
-請務必輸出嚴格 JSON 格式，不要包含任何 markdown 標記：
-{"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"4":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"5":{"main":"","dish1":"","dish2":"","vege":"","soup":""}}`;
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }] }] })
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-          throw new Error(data.error?.message || "模型解析未輸出文字內容");
-        }
-
-        let textResult = data.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-        const menuJson = JSON.parse(textResult);
-
-        WEEKDAYS.forEach(day => {
-          if (menuJson[day.d]) {
-            if (document.getElementById(`m-${day.d}-main`)) document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
-            if (document.getElementById(`m-${day.d}-d1`)) document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
-            if (document.getElementById(`m-${day.d}-d2`)) document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
-            if (document.getElementById(`m-${day.d}-vege`)) document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
-            if (document.getElementById(`m-${day.d}-s`)) document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
-          }
-        });
-        if (hint) hint.innerText = `🎉 辨識成功！使用模型：${activeModel}`;
-        window.showNotice('辨識完成', `✨ 菜單辨識完成！（已使用雲端模型：${activeModel}）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
-      } catch (err) {
-        window.showNotice('辨識失敗', err.message, false);
-        if (hint) hint.innerText = `辨識失敗：${err.message}`;
-      } finally {
-        btn.innerText = "✨ 開始辨識";
-        btn.disabled = false;
-      }
-    };
-
-    window.calcWeeklyReport = async () => {
-      const y = parseInt(document.getElementById('daily-year')?.value || 115);
-      const w = parseInt(document.getElementById('weekly-select-week')?.value || 1);
-      window.refreshAllWeekLabels();
-
-      const [cur, prv] = await Promise.all([
-        getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
-        getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w-1)))
-      ]);
-      const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
-
-      let stats = window.CLASSES.map(c => {
-        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
-        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
-        
-        let tw = cc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
-        let tc = cc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
-        let pw = pc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
-        let pco = pc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
-        
-        let per = tc>0 ? Number((tw/tc).toFixed(1)) : null;
-        let pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
-        let dec = (per!==null && pPer>0) ? Number(((pPer-per)/pPer*100).toFixed(1)) : null;
-        return { ...c, tw: tw.toFixed(0), tc, per, pPer, dec, isProg: dec>=5.0 };
-      });
-
-      let champs = {};
-      ['低年級','中年級','高年級'].forEach(stg => {
-        let s = stats.filter(x=>x.stage===stg && x.per!==null).sort((a,b)=>a.per-b.per);
-        if (s.length>0) champs[stg] = s[0];
-      });
-
-      const cardsContainer = document.getElementById('weekly-cards');
-      if (cardsContainer) {
-        cardsContainer.innerHTML = ['低年級','中年級','高年級'].map(stg => `
-          <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
-            <div class="text-xs font-bold text-emerald-800">🏆 ${stg}週冠軍</div>
-            <div class="text-xl font-bold mt-1">${champs[stg] ? champs[stg].name : '-'}</div>
-            <div class="text-sm text-emerald-600">${champs[stg] ? champs[stg].per+' g/人' : ''}</div>
-          </div>`).join('');
-      }
-      
-      let progs = stats.filter(x=>x.isProg).sort((a,b)=>b.dec-a.dec);
-      const progBox = document.getElementById('weekly-progress-box');
-      if (progBox) {
-        progBox.innerHTML = progs.length ? `<b>🌟 進步獎(減幅≥5%)：</b>` + progs.map(p=>`<span class="ml-2 bg-white px-2 py-1 rounded text-amber-800 text-xs shadow-sm">${p.name} (-${p.dec}%)</span>`).join('') : '本週尚無進步獎。';
-      }
-
-      const tableBody = document.getElementById('weekly-table-body');
-      if (tableBody) {
-        tableBody.innerHTML = stats.map(s => {
-          let isC = Object.values(champs).some(c=>c&&c.id===s.id);
-          return `<tr class="${isC?'bg-emerald-50':''}">
-            <td class="p-3">${s.name}</td><td class="p-3 text-right">${s.tw}</td><td class="p-3 text-right">${s.tc}</td>
-            <td class="p-3 text-right font-bold text-emerald-700">${s.per||'-'}</td><td class="p-3 text-right text-slate-400">${s.pPer||'-'}</td>
-            <td class="p-3 text-right ${s.dec>0?'text-blue-600':''}">${s.dec||'-'}%</td><td class="p-3 text-center">${isC?'🏆':''}${s.isProg?'🌟':''}</td>
-          </tr>`;
-        }).join('');
-      }
-      window.currWeekData = { w, champs, progs };
-    };
-
-    window.copyWeeklySpeech = () => {
-      if (!window.currWeekData) return;
-      let d = window.currWeekData;
-      let cStr = ['低年級','中年級','高年級'].map(s=>d.champs[s]?`${s}${d.champs[s].name}`:'').filter(Boolean).join('、');
-      let pStr = d.progs.map(p=>`${p.name}`).join('、');
-      const textToCopy = `【午餐惜食第 ${d.w} 週成果】\n🏆 年段週冠軍：${cStr}！\n🌟 週進步獎：${pStr||'無'}。\n感謝大家落實吃多少盛多少！`;
-      
-      const textArea = document.createElement("textarea");
-      textArea.value = textToCopy;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        window.showNotice('複製成功', '已複製週表揚廣播詞至剪貼簿！');
-      } catch (err) {
-        window.showNotice('提示', textToCopy);
-      }
-      document.body.removeChild(textArea);
-    };
-
+    // 核心還原：標準穩定的 POST 交叉診斷邏輯
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
-      const detected = await window.getAvailableGeminiModel(apiKey);
-      const candidateModels = [detected, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter((v, i, a) => v && a.indexOf(v) === i);
+      const candidateModels = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
 
       const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
 【基本數據】
@@ -1745,15 +891,18 @@
       let lastError = null;
       for (const model of candidateModels) {
         try {
-          const res = await fetch(`[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`, {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
           });
 
-          const resJson = await res.json();
-          if (!res.ok || resJson.error) throw new Error(`[${model}] ${resJson.error?.message || `HTTP ${res.status}`}`);
+          if (!res.ok) {
+            const errBody = await res.text();
+            throw new Error(`[${model}] HTTP ${res.status}: ${errBody.slice(0, 100)}`);
+          }
 
+          const resJson = await res.json();
           if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
             window._cachedGeminiModel = model;
             return { text: resJson.candidates[0].content.parts[0].text.trim(), modelUsed: model };
@@ -1779,7 +928,6 @@
 
       const cacheDocId = `${y}_1_${w}`;
 
-      // 優先檢查是否有歷史診斷紀錄 (Cache-First 快速載入)
       if (!forceReRun) {
         if (con) con.innerHTML = '<div class="text-center p-8 text-slate-400 bg-white rounded-xl border">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
         try {
@@ -1963,7 +1111,7 @@
                 <div class="pt-2 border-t border-rose-200/60 text-slate-800">
                   <div class="flex items-center justify-between flex-wrap gap-1">
                     <span class="inline-flex items-center gap-1 font-bold ${isCloudAI ? 'text-indigo-800' : 'text-slate-800'}">
-                      ${isCloudAI ? `✨ 營養師 AI 雲端深度診斷 (${cloudModelName || 'Gemini'}):` : '🤖 診斷(在地啟發式推論):'}
+                      ${isCloudAI ? `✨ 營養師 AI 雲端深度診斷 (${cloudModelName || 'Gemini 3.8 Flash'}):` : '🤖 診斷(在地啟發式推論):'}
                     </span>
                     ${isFromCache && cacheDateStr ? `
                       <span class="text-[10px] text-slate-500 bg-white/80 border border-slate-200 px-1.5 py-0.5 rounded font-mono">
@@ -1989,12 +1137,10 @@
           ? `${menu.main || '-'}, ${menu.dish1 || '-'}, ${menu.dish2 || '-'}, ${menu.vege || '-'}, ${menu.soup || '-'}`
           : '<span class="text-slate-400">無紀錄</span>';
 
-        // 🔒 嚴格判定：僅超標日顯示客觀事由多人討論串
         let noteBlockHtml = '';
         if (hasRecordedData && isSpike) {
           let noteList = Array.isArray(d.notes) ? d.notes : [];
 
-          // 取得目前操作者身分與名稱 (用於比對是否能修改刪除)
           let currentUserName = '';
           if (window.userRole === 'admin') {
             currentUserName = window.currentUser?.displayName || window.currentUser?.email || '系統管理員';
@@ -2006,7 +1152,6 @@
           const commentsListHtml = noteList.length > 0 ? `
             <div class="space-y-1.5 mb-2.5">
               ${noteList.map((item, idx) => {
-                // 權限檢查：只有「系統管理員」或「原留言人」可編輯/刪除
                 const canModify = (window.userRole === 'admin') || (isAuthorized && item.author === currentUserName);
 
                 return `
@@ -2033,7 +1178,6 @@
             <div class="text-[11px] text-slate-400 mb-2 italic">尚無客觀事由備註，歡迎授權同仁補述說明。</div>
           `;
 
-          // 單列極簡輸入框設計 (h-9, py-1.5)
           const inputAreaHtml = isAuthorized ? `
             <div class="flex gap-2 items-center mt-2">
               <input type="text" id="note-input-${day.d}" placeholder="填寫補述意見（例如：本日辦理運動會、特定年級停餐、體育週等）..." class="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-1.5 h-9 bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm">
@@ -2132,10 +1276,7 @@
 
         await setDoc(docRef, data, { merge: true });
 
-        // 更新記憶體快取
         window.currentAnalysisDaysData = data.days;
-
-        // 即時重繪畫面
         window.renderAnalysisCards(data.days, true, data.savedAtFormatted || '', weekNum);
 
         if (input) input.value = '';
@@ -2148,7 +1289,6 @@
       }
     };
 
-    // 進入單筆留言編輯模式
     window.editDayNote = (dayNum, weekNum, noteIndex) => {
       const textEl = document.getElementById(`comment-text-${dayNum}-${noteIndex}`);
       const actionEl = document.getElementById(`comment-actions-${dayNum}-${noteIndex}`);
@@ -2166,7 +1306,6 @@
       setTimeout(() => document.getElementById(`edit-input-${dayNum}-${noteIndex}`)?.focus(), 50);
     };
 
-    // 儲存已修改的留言至 Firestore
     window.saveEditedDayNote = async (dayNum, weekNum, noteIndex) => {
       const input = document.getElementById(`edit-input-${dayNum}-${noteIndex}`);
       const newText = (input?.value || '').trim();
@@ -2200,7 +1339,6 @@
       }
     };
 
-    // 刪除單筆留言
     window.deleteDayNote = async (dayNum, weekNum, noteIndex) => {
       const ok = await window.confirmAction('確定要刪除這筆客觀事由留言紀錄嗎？（刪除後無法復原）');
       if (!ok) return;
@@ -2481,7 +1619,7 @@
           c.defaultCount = v;
           await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
         }
-        window.showNotice('更新成功', '🧑‍🤝‍🧑 班級人數設定更新成功！');
+        window.showNotice('更新成功', '🧑‍🤝‍‍🧑 班級人數設定更新成功！');
       } catch (e){ window.showNotice('更新失敗', e.message, false); }
     };
 
