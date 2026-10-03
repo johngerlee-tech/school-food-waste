@@ -566,6 +566,9 @@
     let confirmResolver = null;
     window.pendingPermissionRole = 'admin';
 
+    // 存放當前週次的診斷與留言資料，確保切換分頁或局部修改時不丟失
+    window.currentAnalysisDaysData = {};
+
     /* --- 彈出通知與自訂視窗 --- */
     window.showNotice = (title, message, isSuccess = true) => {
       const modal = document.getElementById('notice-modal');
@@ -593,83 +596,7 @@
       document.getElementById('permission-modal-title').innerText = `🔒「${tabName}」權限不足`;
       
       const currentIdentity = (window.userRole === 'staff') ? '工作小組' : '訪客模式';
-      document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;
-      
-      if (requiredRole === '系統管理員') {
-        actionBtn.innerText = '🔐 管理員登入';
-        actionBtn.className = 'flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition';
-      } else {
-        actionBtn.innerText = '👥 工作小組登入';
-        actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';
-      }
-
-      document.getElementById('permission-modal').classList.remove('hidden');
-    };
-
-    window.handlePermissionAction = () => {
-      window.closePermissionModal();
-      window.openLoginModal(window.pendingPermissionRole || 'admin');
-    };
-
-    window.closePermissionModal = () => {
-      document.getElementById('permission-modal').classList.add('hidden');
-    };
-
-    window.confirmAction = (msg) => {
-      return new Promise((resolve) => {
-        confirmResolver = resolve;
-        document.getElementById('confirm-modal-msg').innerText = msg;
-        document.getElementById('confirm-modal').classList.remove('hidden');
-      });
-    };
-
-    window.closeConfirmModal = (result) => {
-      document.getElementById('confirm-modal').classList.add('hidden');
-      if (confirmResolver) {
-        confirmResolver(result);
-        confirmResolver = null;
-      }
-    };
-
-    window.confirmLogout = async () => {
-      const ok = await window.confirmAction('確定要登出並切換回訪客模式嗎？');
-      if (ok) await signOut(auth);
-    };
-
-    /* --- 解鎖/鎖定設定頁面輸入框核心函式 --- */
-    window.unlockSettingsFields = () => {
-      const isAdm = (window.userRole === 'admin');
-      
-      const fieldIds = [
-        'sys-gemini-key', 'sys-year', 'sys-sem', 'sys-start', 'sys-end', 
-        'sys-threshold', 'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'
-      ];
-      fieldIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.disabled = !isAdm;
-          if (isAdm) {
-            el.removeAttribute('disabled');
-            el.classList.remove('bg-slate-100', 'cursor-not-allowed');
-            if (id === 'sys-threshold') {
-              el.className = "border border-rose-300 rounded w-full p-1.5 bg-rose-50 font-bold text-rose-800";
-            } else if (id === 'sys-gemini-key') {
-              el.className = "border border-indigo-200 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-indigo-500 font-mono";
-            } else if (id === 'input-new-staff-name') {
-              el.className = "border border-indigo-200 rounded px-2.5 py-1 text-xs w-28 bg-white focus:outline-indigo-500";
-            } else if (id !== 'csv-upload' && !id.startsWith('input-new')) {
-              el.className = "border border-slate-300 rounded w-full p-1.5 bg-white text-slate-800 focus:outline-emerald-500";
-            }
-          } else {
-            el.setAttribute('disabled', 'true');
-            el.classList.add('bg-slate-100', 'cursor-not-allowed');
-          }
-        }
-      });
-
-      // 班級預設人數欄位解鎖
-      window.CLASSES.forEach(c => {
-        const inp = document.getElementById(`set-${c.id}`);
+      document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;              if (requiredRole === '系統管理員') {         actionBtn.innerText = '🔐 管理員登入';         actionBtn.className = 'flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition';       } else {         actionBtn.innerText = '👥 工作小組登入';         actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';       }        document.getElementById('permission-modal').classList.remove('hidden');     };      window.handlePermissionAction = () => {       window.closePermissionModal();       window.openLoginModal(window.pendingPermissionRole \vert{}\vert{} 'admin');     };      window.closePermissionModal = () => {       document.getElementById('permission-modal').classList.add('hidden');     };      window.confirmAction = (msg) => {       return new Promise((resolve) => {         confirmResolver = resolve;         document.getElementById('confirm-modal-msg').innerText = msg;         document.getElementById('confirm-modal').classList.remove('hidden');       });     };      window.closeConfirmModal = (result) => {       document.getElementById('confirm-modal').classList.add('hidden');       if (confirmResolver) {         confirmResolver(result);         confirmResolver = null;       }     };      window.confirmLogout = async () => {       const ok = await window.confirmAction('確定要登出並切換回訪客模式嗎？');       if (ok) await signOut(auth);     };      /* --- 解鎖/鎖定設定頁面輸入框核心函式 --- */     window.unlockSettingsFields = () => {       const isAdm = (window.userRole === 'admin');              const fieldIds = [         'sys-gemini-key', 'sys-year', 'sys-sem', 'sys-start', 'sys-end',          'sys-threshold', 'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'       ];       fieldIds.forEach(id => {         const el = document.getElementById(id);         if (el) {           el.disabled = !isAdm;           if (isAdm) {             el.removeAttribute('disabled');             el.classList.remove('bg-slate-100', 'cursor-not-allowed');             if (id === 'sys-threshold') {               el.className = "border border-rose-300 rounded w-full p-1.5 bg-rose-50 font-bold text-rose-800";             } else if (id === 'sys-gemini-key') {               el.className = "border border-indigo-200 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-indigo-500 font-mono";             } else if (id === 'input-new-staff-name') {               el.className = "border border-indigo-200 rounded px-2.5 py-1 text-xs w-28 bg-white focus:outline-indigo-500";             } else if (id !== 'csv-upload' && !id.startsWith('input-new')) {               el.className = "border border-slate-300 rounded w-full p-1.5 bg-white text-slate-800 focus:outline-emerald-500";             }           } else {             el.setAttribute('disabled', 'true');             el.classList.add('bg-slate-100', 'cursor-not-allowed');           }         }       });        // 班級預設人數欄位解鎖       window.CLASSES.forEach(c => {         const inp = document.getElementById(`set-${c.id}`);
         if (inp) {
           inp.disabled = !isAdm;
           if (isAdm) {
@@ -688,64 +615,10 @@
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
       
       try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.models && Array.isArray(data.models)) {
-            const valid = data.models
-              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-              .map(m => m.name.replace(/^models\//, ''));
-
-            const detected = valid.find(m => m.includes('3.8-flash')) ||
-                             valid.find(m => m.includes('3.7-flash')) ||
-                             valid.find(m => m.includes('3.5-flash')) ||
-                             valid.find(m => m.includes('flash') && !m.includes('image') && !m.includes('tts') && !m.includes('live')) ||
-                             valid.find(m => m.includes('gemini') && !m.includes('image') && !m.includes('tts') && !m.includes('live'));
-            
-            if (detected) {
-              window._cachedGeminiModel = detected;
-              return detected;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("自動抓取可用模型清單逾時或受限，啟用保底端點:", err);
-      }
-
-      return "gemini-3.8-flash";
-    };
-
-    /* --- 測試 Gemini API Key 連線 --- */
-    window.testGeminiKey = async () => {
-      const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
-      if (!keyVal) {
-        return window.showNotice('提示', '請先輸入欲測試的 Gemini API Key！', false);
-      }
-
-      const btn = document.getElementById('key-test-btn');
-      if (btn) { btn.disabled = true; btn.innerText = "⏳ 測試中..."; }
-
-      try {
-        window._cachedGeminiModel = null;
-        const model = await window.getAvailableGeminiModel(keyVal);
-        
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }]
-          })
-        });
-
-        const resData = await res.json();
-        if (!res.ok || resData.error) {
-          throw new Error(resData.error?.message || `HTTP ${res.status}`);
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);         if (res.ok) {           const data = await res.json();           if (data.models && Array.isArray(data.models)) {             const valid = data.models               .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))               .map(m => m.name.replace(/^models\//, ''));              const detected = valid.find(m => m.includes('3.8-flash')) \vert{}\vert{}                              valid.find(m => m.includes('3.7-flash')) \vert{}\vert{}                              valid.find(m => m.includes('3.5-flash')) \vert{}\vert{}                              valid.find(m => m.includes('flash') && !m.includes('image') && !m.includes('tts') && !m.includes('live')) \vert{}\vert{}                              valid.find(m => m.includes('gemini') && !m.includes('image') && !m.includes('tts') && !m.includes('live'));                          if (detected) {               window._cachedGeminiModel = detected;               return detected;             }           }         }       } catch (err) {         console.warn("自動抓取可用模型清單逾時或受限，啟用保底端點:", err);       }        return "gemini-3.8-flash";     };      /* --- 測試 Gemini API Key 連線 --- */     window.testGeminiKey = async () => {       const keyVal = (document.getElementById('sys-gemini-key')?.value \vert{}\vert{} window.cloudGeminiKey \vert{}\vert{} '').trim();       if (!keyVal) {         return window.showNotice('提示', '請先輸入欲測試的 Gemini API Key！', false);       }        const btn = document.getElementById('key-test-btn');       if (btn) { btn.disabled = true; btn.innerText = "⏳ 測試中..."; }        try {         window._cachedGeminiModel = null;         const model = await window.getAvailableGeminiModel(keyVal);                  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {           method: "POST",           headers: { "Content-Type": "application/json" },           body: JSON.stringify({             contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }]           })         });          const resData = await res.json();         if (!res.ok \vert{}\vert{} resData.error) {           throw new Error(resData.error?.message \vert{}\vert{} `HTTP ${res.status}`);
         }
 
-        window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動偵測並綁定最佳模型端點：[${model}]`);
-        window.updateKeyStatusUI();
-      } catch (e) {
-        window.showNotice('連線失敗', `連線測試未通過：\n${e.message}\n\n建議確認：\n1. Google AI Studio 金鑰是否有效且未受限\n2. 專案是否有啟用 Generative Language API`, false);
+        window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動偵測並綁定最佳模型端點：[${model}]`);         window.updateKeyStatusUI();       } catch (e) {         window.showNotice('連線失敗', `連線測試未通過：\n${e.message}\n\n建議確認：\n1. Google AI Studio 金鑰是否有效且未受限\n2. 專案是否有啟用 Generative Language API`, false);
       } finally {
         if (btn) { btn.disabled = false; btn.innerText = "🧪 測試連線"; }
       }
@@ -874,8 +747,7 @@
       const adminCount = document.getElementById('admin-count-badge');
       const staffCount = document.getElementById('staff-count-badge');
 
-      if (adminCount) adminCount.innerText = `${window.ADMIN_EMAILS.length} 位`;
-      if (staffCount) staffCount.innerText = `${window.STAFF_MEMBERS.length} 位`;
+      if (adminCount) adminCount.innerText = `${window.ADMIN_EMAILS.length} 位`;       if (staffCount) staffCount.innerText = `${window.STAFF_MEMBERS.length} 位`;
 
       if (adminList) {
         adminList.innerHTML = window.ADMIN_EMAILS.map((email, idx) => `
@@ -1535,7 +1407,7 @@
     /* --- CSV Import --- */
     window.downloadCsvTemplate = () => {
       const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n" +
-                         "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,1,201,1500,24\n";
+                         "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,201,1500,24\n";
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -2099,7 +1971,7 @@
       throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
     };
 
-    /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構) --- */
+    /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構，支援留言持久化) --- */
     window.loadOrRunAnalysis = async (forceReRun = false) => {
       const y = parseInt(document.getElementById('daily-year').value);
       const w = parseInt(document.getElementById('analysis-week').value);
@@ -2121,7 +1993,8 @@
           const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
           if (cacheSnap.exists() && cacheSnap.data().days) {
             const cachedData = cacheSnap.data();
-            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '');
+            window.currentAnalysisDaysData = cachedData.days || {};
+            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
             
             if (hint) {
               hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
@@ -2146,12 +2019,14 @@
       con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
       
       try {
-        const [dSnap, mSnap] = await Promise.all([
+        const [dSnap, mSnap, oldCacheSnap] = await Promise.all([
           getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
-          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
+          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)),
+          getDoc(doc(db, "menu_diagnoses", cacheDocId))
         ]);
         const logs = dSnap.docs.map(d=>d.data());
         const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+        const oldDays = (oldCacheSnap.exists() && oldCacheSnap.data().days) ? oldCacheSnap.data().days : {};
 
         let analysisDayResults = {};
 
@@ -2193,7 +2068,7 @@
             const midAvg = calcStageAvg('中年級');
             const highAvg = calcStageAvg('高年級');
 
-            // 呼叫雲端 Gemini LLM 深度診斷
+            // 呼叫雲端 Gemini LLM 深度診斷 (首選 gemini-3.8-flash)
             if (window.cloudGeminiKey) {
               try {
                 const aiResult = await window.callGeminiMenuDiagnosis(
@@ -2258,9 +2133,13 @@
             }
           }
 
+          // 保留舊有的留言陣列，防止 AI 重算覆蓋已存在的討論串
+          const oldNotes = (oldDays[day.d] && Array.isArray(oldDays[day.d].notes)) ? oldDays[day.d].notes : [];
+
           analysisDayResults[day.d] = {
             hasRecordedData, hasMenu, isSpike, per, threshold,
             alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
+            notes: oldNotes,
             menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
           };
         }
@@ -2292,7 +2171,8 @@
         }
 
         // 4. 渲染畫面
-        window.renderAnalysisCards(analysisDayResults, false, formattedDate);
+        window.currentAnalysisDaysData = analysisDayResults;
+        window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
 
       } catch (err) {
         con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
@@ -2304,10 +2184,15 @@
       }
     };
 
-    /* --- 渲染卡片 HTML 函式 --- */
-    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr) => {
+    /* --- 渲染卡片 HTML 函式（含客觀事由與多人討論串） --- */
+    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
       const con = document.getElementById('analysis-results-container');
+      const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
       
+      const currentUserName = (window.userRole === 'admin')
+        ? (window.currentUser?.displayName || window.currentUser?.email || '系統管理員')
+        : (window.STAFF_MEMBERS.find(s => s.email === window.currentUser?.email)?.name || window.currentUser?.displayName || window.currentUser?.email || '工作小組');
+
       const cardsHtml = WEEKDAYS.map(day => {
         const d = daysData[day.d] || {};
         const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu } = d;
@@ -2329,7 +2214,7 @@
                 <div class="pt-2 border-t border-rose-200/60 text-slate-800">
                   <div class="flex items-center justify-between flex-wrap gap-1">
                     <span class="inline-flex items-center gap-1 font-bold ${isCloudAI ? 'text-indigo-800' : 'text-slate-800'}">
-                      ${isCloudAI ? `✨ 營養師 AI 雲端深度診斷 (${cloudModelName || 'Gemini'}):` : '🤖 診斷(在地啟發式推論):'}
+                      ${isCloudAI ? `✨ 營養師 AI 雲端深度診斷 (${cloudModelName || 'gemini-3.8-flash'}):` : '🤖 診斷(在地啟發式推論):'}
                     </span>
                     ${isFromCache && cacheDateStr ? `
                       <span class="text-[10px] text-slate-500 bg-white/80 border border-slate-200 px-1.5 py-0.5 rounded font-mono">
@@ -2337,7 +2222,7 @@
                       </span>
                     ` : ''}
                   </div>
-                  <p class="mt-1 whitespace-pre-line leading-relaxed text-slate-700">${aiDeduction || ''}</p>
+                  <p class="mt-1 whitespace-pre-line leading-relaxed text-slate-700 font-normal">${aiDeduction || ''}</p>
                   ${!isCloudAI && cloudErrorReason ? `
                     <div class="mt-2 text-[10px] text-amber-700 bg-amber-100/70 p-1.5 rounded border border-amber-200/60 flex items-center justify-between">
                       <span>ℹ️ 雲端 AI 備援觸發原因：${cloudErrorReason}</span>
@@ -2349,6 +2234,71 @@
           } else {
             diagnosticHtml = `<div class="text-xs text-emerald-600 mt-2 font-medium">✅ 人均於標準範圍內 (${per} g ≤ ${threshold} g)，菜色接受度良好。</div>`;
           }
+        }
+
+        // 🔒 嚴格限定：只有「當日有過磅數據且人均廚餘超標」才顯示客觀事由討論串
+        let noteBlockHtml = '';
+        if (hasRecordedData && isSpike) {
+          const noteList = Array.isArray(d.notes) ? d.notes : [];
+
+          const commentsListHtml = noteList.length > 0 ? `
+            <div class="space-y-2 mb-2.5">
+              ${noteList.map((item, idx) => {
+                const isAuthor = (item.author === currentUserName) || (window.currentUser?.email && item.authorEmail === window.currentUser.email);
+                const canManage = (window.userRole === 'admin') || isAuthor;
+
+                return `
+                <div id="comment-box-${day.d}-${idx}" class="bg-rose-50 border border-rose-200 rounded-lg p-2.5 shadow-sm text-xs">
+                  <div class="flex items-center justify-between gap-2">
+                    <div id="comment-content-${day.d}-${idx}" class="text-rose-900 font-bold leading-relaxed whitespace-pre-wrap flex-1">
+                      ${item.text}
+                      <span class="text-[11px] font-normal text-rose-700 ml-2 inline-flex items-center gap-1">
+                        <span>👤 ${item.author || '工作人員'}</span>
+                        <span class="text-slate-400 font-mono text-[10px]">${item.time \vert{}\vert{} ''}</span>${item.isEdited ? '<span class="text-[10px] text-slate-400 italic">(已編輯)</span>' : ''}
+                      </span>
+                    </div>
+                    ${canManage ? `
+                      <div id="comment-actions-${day.d}-${idx}" class="flex items-center gap-1 shrink-0">
+                        <button onclick="window.editDayNote('${day.d}', ${weekNum}, ${idx})" class="px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:text-indigo-600 bg-white border border-slate-200 rounded shadow-xs transition" title="修改留言">
+                          ✏️ 修改
+                        </button>
+                        <button onclick="window.deleteDayNote('${day.d}', ${weekNum}, ${idx})" class="px-2 py-0.5 text-[11px] font-semibold text-rose-600 hover:text-rose-800 bg-white border border-rose-200 rounded shadow-xs transition" title="刪除留言">
+                          🗑️ 刪除
+                        </button>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              `;}).join('')}
+            </div>
+          ` : `
+            <div class="text-[11px] text-slate-400 mb-2 italic">尚無客觀事由備註，歡迎授權同仁補述說明。</div>
+          `;
+
+          // 下方輸入區（單列精簡文字框）
+          const inputAreaHtml = isAuthorized ? `
+            <div class="flex gap-2 items-center mt-2">
+              <input type="text" id="note-input-${day.d}" placeholder="填寫補述意見（例如：本日辦理運動競賽、校外參訪、特定年段停餐等）..." class="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-1.5 h-9 bg-white text-slate-800 focus:outline-emerald-500 shadow-sm">
+              <button onclick="window.addDayObjectiveNote('${day.d}', ${weekNum})" id="note-btn-${day.d}" class="px-3.5 py-1.5 h-9 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition shrink-0 flex items-center gap-1">
+                💬 儲存說明
+              </button>
+            </div>
+          ` : `
+            <div class="text-[11px] text-slate-400 italic">（僅工作小組與管理員可補述意見）</div>
+          `;
+
+          noteBlockHtml = `
+            <div class="mt-3 pt-3 border-t border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  <span>📝</span> 客觀事由與補充說明 (討論串)
+                </label>
+                <span class="text-[10px] text-slate-400">共 ${noteList.length} 則紀錄</span>
+              </div>
+              ${commentsListHtml}
+              ${inputAreaHtml}
+            </div>
+          `;
         }
 
         const menuStr = (menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup))
@@ -2367,10 +2317,179 @@
               🍱 <strong>菜單內容</strong>：${menuStr}
             </div>
             ${diagnosticHtml}
+            ${noteBlockHtml}
           </div>`;
       }).join('');
 
       con.innerHTML = cardsHtml;
+    };
+
+    /* --- 新增客觀事由留言 --- */
+    window.addDayObjectiveNote = async (dayNum, weekNum) => {
+      const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
+      if (!isAuthorized) return window.showNotice('權限不足', '只有管理員或工作小組可填寫補充事由！', false);
+
+      const input = document.getElementById(`note-input-${dayNum}`);
+      const btn = document.getElementById(`note-btn-${dayNum}`);
+      const noteVal = input ? input.value.trim() : '';
+
+      if (!noteVal) {
+        return window.showNotice('提示', '請先輸入補充說明的內容！', false);
+      }
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115, 10);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      let authorName = '管理員';
+      let authorEmail = window.currentUser?.email || '';
+      if (window.userRole === 'staff') {
+        const staffObj = window.STAFF_MEMBERS.find(s => s.email === window.currentUser?.email);
+        authorName = staffObj?.name || window.currentUser?.displayName || '工作小組';
+      } else {
+        authorName = window.currentUser?.displayName || window.currentUser?.email || '系統管理員';
+      }
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const docSnap = await getDoc(docRef);
+        
+        let data = docSnap.exists() ? docSnap.data() : { academicYear: y, semester: 1, week: weekNum, days: {} };
+        if (!data.days) data.days = {};
+        if (!data.days[dayNum]) data.days[dayNum] = {};
+        if (!Array.isArray(data.days[dayNum].notes)) {
+          data.days[dayNum].notes = [];
+        }
+
+        data.days[dayNum].notes.push({
+          text: noteVal,
+          author: authorName,
+          authorEmail: authorEmail,
+          time: timeStr,
+          isEdited: false
+        });
+        data.updatedAt = serverTimestamp();
+
+        await setDoc(docRef, data, { merge: true });
+
+        // 同步更新記憶體快取
+        if (!window.currentAnalysisDaysData[dayNum]) window.currentAnalysisDaysData[dayNum] = {};
+        window.currentAnalysisDaysData[dayNum].notes = data.days[dayNum].notes;
+
+        // 即時重繪卡片
+        window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', weekNum);
+
+        if (input) input.value = '';
+        window.showNotice('儲存成功', `✅ 留言已儲存！\n發言人：${authorName}\n時間：${timeStr}`);
+      } catch (err) {
+        console.error("儲存客觀事由失敗:", err);
+        window.showNotice('儲存失敗', err.message, false);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = "💬 儲存說明"; }
+      }
+    };
+
+    /* --- 就地單行編輯留言 --- */
+    window.editDayNote = (dayNum, weekNum, noteIdx) => {
+      const contentEl = document.getElementById(`comment-content-${dayNum}-${noteIdx}`);
+      const actionsEl = document.getElementById(`comment-actions-${dayNum}-${noteIdx}`);
+      const d = window.currentAnalysisDaysData[dayNum];
+      if (!d || !d.notes || !d.notes[noteIdx]) return;
+
+      const currentNote = d.notes[noteIdx];
+      
+      contentEl.innerHTML = `
+        <div class="flex gap-2 items-center w-full">
+          <input type="text" id="inline-edit-input-${dayNum}-${noteIdx}" value="${currentNote.text.replace(/"/g, '&quot;')}" class="flex-1 text-xs border border-rose-300 rounded px-2 py-1 bg-white text-slate-800 font-bold focus:outline-emerald-500">
+          <button onclick="window.saveEditedDayNote('${dayNum}', ${weekNum}, ${noteIdx})" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition">
+            💾 儲存
+          </button>
+          <button onclick="window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', ${weekNum})" class="px-2 py-1 text-xs font-medium rounded bg-slate-200 hover:bg-slate-300 text-slate-600 transition">
+            ✕ 取消
+          </button>
+        </div>
+      `;
+      if (actionsEl) actionsEl.classList.add('hidden');
+
+      const editInput = document.getElementById(`inline-edit-input-${dayNum}-${noteIdx}`);
+      if (editInput) {
+        editInput.focus();
+        editInput.select();
+      }
+    };
+
+    /* --- 儲存已修改的留言 --- */
+    window.saveEditedDayNote = async (dayNum, weekNum, noteIdx) => {
+      const editInput = document.getElementById(`inline-edit-input-${dayNum}-${noteIdx}`);
+      const newText = (editInput?.value || '').trim();
+      if (!newText) return window.showNotice('提示', '留言內容不能為空！', false);
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115, 10);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) return;
+
+        let data = docSnap.data();
+        if (data.days && data.days[dayNum] && Array.isArray(data.days[dayNum].notes) && data.days[dayNum].notes[noteIdx]) {
+          data.days[dayNum].notes[noteIdx].text = newText;
+          data.days[dayNum].notes[noteIdx].time = timeStr;
+          data.days[dayNum].notes[noteIdx].isEdited = true;
+          data.updatedAt = serverTimestamp();
+
+          await setDoc(docRef, data, { merge: true });
+
+          // 同步快取並重繪
+          window.currentAnalysisDaysData[dayNum].notes = data.days[dayNum].notes;
+          window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', weekNum);
+
+          window.showNotice('修改成功', '✅ 留言內容已更新！');
+        }
+      } catch (err) {
+        window.showNotice('修改失敗', err.message, false);
+      }
+    };
+
+    /* --- 刪除留言（二次確認） --- */
+    window.deleteDayNote = async (dayNum, weekNum, noteIdx) => {
+      const ok = await window.confirmAction('確定要刪除這筆客觀事由留言紀錄嗎？（刪除後無法復原）');
+      if (!ok) return;
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115, 10);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) return;
+
+        let data = docSnap.data();
+        if (data.days && data.days[dayNum] && Array.isArray(data.days[dayNum].notes)) {
+          data.days[dayNum].notes.splice(noteIdx, 1);
+          data.updatedAt = serverTimestamp();
+
+          await setDoc(docRef, data, { merge: true });
+
+          // 同步快取並重繪
+          window.currentAnalysisDaysData[dayNum].notes = data.days[dayNum].notes;
+          window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', weekNum);
+
+          window.showNotice('刪除成功', '🗑️ 該筆留言已自資料庫刪除！');
+        }
+      } catch (err) {
+        window.showNotice('刪除失敗', err.message, false);
+      }
     };
 
     /* --- 每月榮譽榜計算 (前端精確過濾) --- */
