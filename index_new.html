@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>雲林縣溪洲國小─午餐智慧惜食與菜單追蹤系統</title>
+  <title>溪洲國小午餐智慧惜食與廚餘追蹤系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @media print {
@@ -23,7 +23,7 @@
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
-          🌱 雲林縣溪洲國小─午餐智慧惜食與菜單追蹤系統
+          🌱 溪洲國小午餐智慧惜食與廚餘追蹤系統
         </h1>
         <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・CSV 批次匯入・動態門檻設定・雲端權限控管・Gemini 智能診斷快取</p>
       </div>
@@ -74,7 +74,7 @@
       <!-- 非常態秤重日上方琥珀色提示橫幅 -->
       <div id="non-weighing-day-banner" class="hidden bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm">
         <span>ℹ️</span>
-        <span>本日未設定為常態秤重日，輸入框與操作功能已自動鎖定反白。</span>
+        <span>本日未設定為常態秤重日，輸入框與操作功能已自動鎖定反白。如需登記，請由管理員至「⚙ 系統與匯入設定」開啟該星期。</span>
       </div>
 
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-4">
@@ -104,7 +104,7 @@
         <!-- 免秤重設定區塊 -->
         <div class="flex items-center gap-2 ml-2 mt-4 md:mt-0 bg-rose-50 px-3 py-1.5 rounded border border-rose-100">
           <input type="checkbox" id="daily-skip-cb" onchange="window.toggleSkipDay()" class="w-4 h-4 text-rose-600 rounded cursor-pointer">
-          <label for="daily-skip-cb" class="text-sm font-semibold text-rose-800 cursor-pointer">本日全校停餐 / 免秤重</label>
+          <label for="daily-skip-cb" class="text-xs font-semibold text-rose-800 cursor-pointer">本日全校停餐 / 免秤重</label>
         </div>
 
         <div id="today-menu-hint" class="text-xs bg-emerald-50 text-emerald-800 px-3 py-2 rounded border border-emerald-100 hidden md:block">
@@ -377,7 +377,7 @@
           <div class="flex items-center gap-2">
             <input type="password" id="sys-waste-pass" placeholder="輸入欲設定的通行密碼" class="border border-amber-300 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-amber-500 font-mono font-bold text-amber-950">
             <button onclick="window.toggleWastePassVisibility()" type="button" class="px-2.5 py-1.5 border border-amber-300 bg-white rounded text-xs text-amber-800 hover:bg-amber-100/50">
-              👁️ 顯示/隱藏
+              👁 顯示/隱藏
             </button>
           </div>
           <p id="waste-pass-status-text" class="text-[11px] text-amber-800/80 font-medium">提示：點擊儲存後立即寫入 Firestore 雲端設定，每日登記畫面的按鈕將即時啟用此密碼。</p>
@@ -456,7 +456,7 @@
       <!-- 【區塊 4】班級預設人數管理 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
         <div class="flex justify-between items-center mb-4 border-b pb-2">
-          <div><h2 class="text-base font-bold text-slate-800">🧑‍🤝‍‍🧑 班級預設用餐人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值，節省登記時間。</p></div>
+          <div><h2 class="text-base font-bold text-slate-800">🧑‍🤝‍🧑 班級預設用餐人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值，節省登記時間。</p></div>
           <button onclick="window.saveClassSettings()" id="settings-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm">🔒 需登入</button>
         </div>
         <div class="overflow-x-auto">
@@ -936,7 +936,7 @@
       window.renderWeighingRulesUI();
     };
 
-    /* --- 動態偵測最佳可用 Gemini 模型端點 (防禦性解析) --- */
+    /* --- 動態偵測最佳可用 Gemini 模型端點 (標準 POST 呼叫加固) --- */
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
       
@@ -952,11 +952,11 @@
               .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
               .map(m => m.name.replace(/^models\//, ''));
 
-            const detected = valid.find(m => m.includes('3.8-flash')) ||
+            const detected = valid.find(m => m === 'gemini-3.8-flash') ||
+                             valid.find(m => m.includes('3.8-flash')) ||
                              valid.find(m => m.includes('3.7-flash')) ||
                              valid.find(m => m.includes('3.5-flash')) ||
-                             valid.find(m => m.includes('flash') && !m.includes('image') && !m.includes('tts') && !m.includes('live')) ||
-                             valid.find(m => m.includes('gemini') && !m.includes('image') && !m.includes('tts') && !m.includes('live'));
+                             valid.find(m => m.includes('flash') && !m.includes('image') && !m.includes('tts') && !m.includes('live'));
             
             if (detected) {
               window._cachedGeminiModel = detected;
@@ -971,7 +971,7 @@
       return "gemini-3.8-flash";
     };
 
-    /* --- 測試 Gemini API Key 連線 (純文字安全解析) --- */
+    /* --- 測試 Gemini API Key 連線 (強制 POST 與純文字安全解析) --- */
     window.testGeminiKey = async () => {
       const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
       if (!keyVal) {
@@ -998,7 +998,7 @@
         try {
           resData = JSON.parse(rawText);
         } catch (pe) {
-          throw new Error(`伺服器回傳非 JSON 格式 (HTTP ${res.status}): ${rawText.slice(0, 80)}`);
+          throw new Error(`伺服器傳回非預期格式 (HTTP ${res.status})：${rawText.slice(0, 100)}`);
         }
 
         if (!res.ok || resData.error) {
@@ -1037,7 +1037,7 @@
         window.cloudGeminiKey = keyVal;
         window._cachedGeminiModel = null;
         window.updateKeyStatusUI();
-        window.showNotice('金鑰儲存成功', keyVal ? '✅ 雲端 Gemini API Key 已成功儲存！所有工作小組與管理員將共享此金鑰。' : 'ℹ️ 已清除雲端 Gemini API Key，系統將回退至在地專家推論模式。');
+        window.showNotice('金鑰儲存成功', keyVal ? '✅ 雲端 Gemini API Key 已成功儲存！所有工作小組與管理員將共享此金鑰。' : 'ℹ️️ 已清除雲端 Gemini API Key，系統將回退至在地專家推論模式。');
       } catch (e) {
         window.showNotice('儲存失敗', e.message, false);
       }
@@ -1735,7 +1735,7 @@
       window.refreshAllWeekLabels();
     };
 
-    /* --- 行事曆與門檻參數 --- */
+    /* --- 行事曆與門檻參數 (精確反映當前真實星期，不強制轉週一) --- */
     window.loadSystemConfig = async () => {
       try {
         const snap = await getDoc(doc(db, "system_config", "main"));
@@ -1766,15 +1766,11 @@
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             currentWeek = Math.floor(diffDays / 7) + 1;
             
-            let dayOfWeek = today.getDay();
-            if (dayOfWeek === 3) dayOfWeek = 4;
-            if (dayOfWeek === 0 || dayOfWeek === 6) dayOfWeek = 1;
+            const dayOfWeek = today.getDay();
 
             const selectWd = document.getElementById('daily-weekday');
-            for (let i = 0; i < selectWd.options.length; i++) {
-              if (parseInt(selectWd.options[i].value) === dayOfWeek) {
-                selectWd.selectedIndex = i; break;
-              }
+            if (selectWd) {
+              selectWd.value = String(dayOfWeek);
             }
           }
           window.calculatedCurrentWeek = currentWeek;
@@ -2535,7 +2531,7 @@
       document.body.removeChild(textArea);
     };
 
-    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 (防禦性純文字安全讀取，杜絕 < 崩潰) --- */
+    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 (強制 POST 與純文字安全解析) --- */
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
       const candidateModels = [
@@ -2579,7 +2575,7 @@
           try {
             resJson = JSON.parse(rawText);
           } catch (pe) {
-            throw new Error(`[${model}] 伺服器傳回非 JSON 內容 (HTTP ${response.status}): ${rawText.slice(0, 80)}`);
+            throw new Error(`[${model}] 伺服器傳回非預期格式 (HTTP ${response.status})：${rawText.slice(0, 100)}`);
           }
 
           if (!response.ok || resJson.error) {
@@ -2838,7 +2834,7 @@
                   <p class="mt-1 whitespace-pre-line leading-relaxed text-slate-700">${aiDeduction || ''}</p>
                   ${!isCloudAI && cloudErrorReason ? `
                     <div class="mt-2 text-[10px] text-amber-700 bg-amber-100/70 p-1.5 rounded border border-amber-200/60 flex items-center justify-between">
-                      <span>ℹ️ 雲端 AI 備援觸發原因：${cloudErrorReason}</span>
+                      <span>ℹ️️ 雲端 AI 備援觸發原因：${cloudErrorReason}</span>
                       <span class="font-bold text-slate-500">已自動切換在地引擎</span>
                     </div>
                   ` : ''}
