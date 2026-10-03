@@ -71,10 +71,10 @@
 
     <!-- 【頁面 1】每日登記 -->
     <section id="page-daily" class="space-y-4">
-      <!-- 非常態秤重日上方琥珀色警示橫幅 -->
+      <!-- 非常態秤重日上方琥珀色提示橫幅 -->
       <div id="non-weighing-day-banner" class="hidden bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm">
-        <span>ℹ️️</span>
-        <span>本日未設定為常態秤重日，輸入框與操作功能已自動鎖定反白。如需登記，請由管理員至「⚙ 系統與匯入設定」開啟該星期。</span>
+        <span>ℹ️</span>
+        <span>本日未設定為常態秤重日，輸入框與操作功能已自動鎖定反白。</span>
       </div>
 
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-4">
@@ -384,7 +384,7 @@
         </div>
       </div>
 
-      <!-- 【區塊 1.6】📅 彈性秤重星期與班級適用範圍設定 (全新升級模組) -->
+      <!-- 【區塊 1.6】📅 彈性秤重星期與班級適用範圍設定 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
         <div class="flex flex-wrap justify-between items-center mb-4 border-b pb-2 gap-2">
           <div>
@@ -402,9 +402,7 @@
           <!-- 星期設定 -->
           <div class="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
             <span class="text-xs font-bold text-purple-900 block mb-2">🗓 常態秤重星期配置（預設：週一、二、四、五）</span>
-            <div class="grid grid-cols-4 sm:grid-cols-7 gap-2" id="rule-weekdays-container">
-              <!-- 由 JS 動態生成週一至週日獨立方塊 -->
-            </div>
+            <div class="grid grid-cols-4 sm:grid-cols-7 gap-2" id="rule-weekdays-container"></div>
           </div>
 
           <!-- 班級設定 -->
@@ -417,9 +415,7 @@
                 <button onclick="window.toggleAllClassesRule(false)" type="button" class="text-[11px] text-slate-500 hover:underline">全不選</button>
               </div>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="rule-classes-container">
-              <!-- 由 JS 動態生成 12 班獨立方塊 -->
-            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="rule-classes-container"></div>
           </div>
         </div>
       </div>
@@ -460,7 +456,7 @@
       <!-- 【區塊 4】班級預設人數管理 -->
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
         <div class="flex justify-between items-center mb-4 border-b pb-2">
-          <div><h2 class="text-base font-bold text-slate-800">🧑‍🤝‍🧑 班級預設用餐人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值，節省登記時間。</p></div>
+          <div><h2 class="text-base font-bold text-slate-800">🧑‍🤝‍‍🧑 班級預設用餐人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值，節省登記時間。</p></div>
           <button onclick="window.saveClassSettings()" id="settings-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm">🔒 需登入</button>
         </div>
         <div class="overflow-x-auto">
@@ -563,12 +559,10 @@
         <button onclick="window.closeLoginModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
       </div>
 
-      <!-- 登入身分引導提示 -->
       <div id="login-modal-hint" class="text-xs p-2.5 rounded-lg mb-4 bg-slate-50 border border-slate-200 text-slate-600 leading-relaxed">
         授權成員請使用登記於系統之 Email 登入。
       </div>
 
-      <!-- Google 帳號快速登入 -->
       <button onclick="window.loginWithGoogle()" class="w-full py-2.5 px-4 border rounded-lg flex items-center justify-center gap-2 hover:bg-slate-50 text-slate-700 font-medium text-sm transition mb-4">
         <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.9c2.27-2.1 3.65-5.2 3.65-9.15z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.72-2.1-6.66-4.93H1.27v3.15C3.25 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.34 14.27c-.24-.72-.37-1.49-.37-2.27s.13-1.55.37-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.07-3.15z"/><path fill="#EA4335" d="M12 4.77c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.58l4.07 3.15c.94-2.83 3.56-4.96 6.66-4.96z"/></svg>
         使用 Google 帳號快速登入
@@ -579,7 +573,6 @@
         <div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-slate-400">或使用任何 Email 密碼</span></div>
       </div>
 
-      <!-- 任何 Email / 密碼 登入與註冊 -->
       <div class="space-y-3">
         <div>
           <label class="block text-[11px] font-semibold text-slate-500 mb-1">電子信箱</label>
@@ -621,7 +614,6 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 專屬 Firebase 專案金鑰
     const firebaseConfig = {
       apiKey: "AIzaSyB6xjT4asS3xcpRrgLD33jrssSIzmh0ix4",
       authDomain: "school-food-waste.firebaseapp.com",
@@ -635,23 +627,17 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // ==========================================
-    // 🔐 預設管理者名單（初始啟動保底名單，後台可隨時動態修改）
-    // ==========================================
     window.ADMIN_EMAILS = [
       "johngerlee@gmail.com",
       "rodyg103022@gmail.com"
     ];
 
-    // 工作小組成員清單（格式：[{ email: '...', name: '...', canDaily: false }]）
     window.STAFF_MEMBERS = []; 
 
-    // 當前角色：'guest' (訪客) | 'waste_monitor' (廚餘長) | 'staff' (工作小組) | 'admin' (系統管理員)
     window.userRole = 'guest';
     window.currentStaffCanDaily = false;
     window.classSavedStatus = {}; 
 
-    // 全校 12 班編制（一至六年級）
     window.CLASSES = [
       { id: '101', name: '一年甲班', stage: '低年級', defaultCount: 22 }, { id: '102', name: '一年乙班', stage: '低年級', defaultCount: 21 },
       { id: '201', name: '二年甲班', stage: '低年級', defaultCount: 24 }, { id: '202', name: '二年乙班', stage: '低年級', defaultCount: 23 },
@@ -661,15 +647,9 @@
       { id: '601', name: '六年甲班', stage: '高年級', defaultCount: 28 }, { id: '602', name: '六年乙班', stage: '高年級', defaultCount: 27 },
     ];
 
-    // ==========================================
-    // 📅 彈性秤重星期與班級規則設定 (全域預設值)
-    // ==========================================
-    // 預設常態秤重星期：週一、二、四、五
     window.ACTIVE_WEEKDAYS = [1, 2, 4, 5];
-    // 預設適用秤重班級：二至六年級（不含一年級）
     window.ACTIVE_CLASS_IDS = ['201', '202', '301', '302', '401', '402', '501', '502', '601', '602'];
 
-    // 菜單與診斷支援的星期常數對照
     const ALL_AVAILABLE_DAYS = [
       { d: 1, name: '週一' }, { d: 2, name: '週二' }, { d: 3, name: '週三' },
       { d: 4, name: '週四' }, { d: 5, name: '週五' }, { d: 6, name: '週六' }, { d: 0, name: '週日' }
@@ -678,8 +658,8 @@
 
     window.currentUser = null;
     window.calculatedCurrentWeek = 1;
-    window.systemThreshold = 120; // 預設 120g
-    window.cloudGeminiKey = '';   // 集中管理之雲端 Gemini API Key
+    window.systemThreshold = 120;
+    window.cloudGeminiKey = '';
     window._cachedGeminiModel = null;
     let confirmResolver = null;
     window.pendingPermissionRole = 'admin';
@@ -707,9 +687,7 @@
     window.showPermissionDenied = (tabName, requiredRole = '系統管理員') => {
       window.pendingPermissionRole = (requiredRole === '系統管理員') ? 'admin' : 'staff';
       const actionBtn = document.getElementById('permission-modal-action-btn');
-
       document.getElementById('permission-modal-title').innerText = `🔒「${tabName}」權限不足`;
-      
       const currentIdentity = (window.userRole === 'staff') ? '工作小組' : (window.userRole === 'waste_monitor' ? '廚餘長模式' : '訪客模式');
       document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;
       
@@ -720,7 +698,6 @@
         actionBtn.innerText = '👥 工作小組登入';
         actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';
       }
-
       document.getElementById('permission-modal').classList.remove('hidden');
     };
 
@@ -942,7 +919,6 @@
         }
       });
 
-      // 班級預設人數欄位解鎖
       window.CLASSES.forEach(c => {
         const inp = document.getElementById(`set-${c.id}`);
         if (inp) {
@@ -960,15 +936,18 @@
       window.renderWeighingRulesUI();
     };
 
-    /* --- 動態偵測最佳可用 Gemini 模型端點 (支援 3.8 / 3.7 / 3.5 系列，維持穩定架構) --- */
+    /* --- 動態偵測最佳可用 Gemini 模型端點 (防禦性解析) --- */
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
       
       try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
         if (res.ok) {
-          const data = await res.json();
-          if (data.models && Array.isArray(data.models)) {
+          const rawText = await res.text();
+          let data = null;
+          try { data = JSON.parse(rawText); } catch(pe) { data = null; }
+          
+          if (data && data.models && Array.isArray(data.models)) {
             const valid = data.models
               .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
               .map(m => m.name.replace(/^models\//, ''));
@@ -992,7 +971,7 @@
       return "gemini-3.8-flash";
     };
 
-    /* --- 測試 Gemini API Key 連線 --- */
+    /* --- 測試 Gemini API Key 連線 (純文字安全解析) --- */
     window.testGeminiKey = async () => {
       const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
       if (!keyVal) {
@@ -1014,7 +993,14 @@
           })
         });
 
-        const resData = await res.json();
+        const rawText = await res.text();
+        let resData = null;
+        try {
+          resData = JSON.parse(rawText);
+        } catch (pe) {
+          throw new Error(`伺服器回傳非 JSON 格式 (HTTP ${res.status}): ${rawText.slice(0, 80)}`);
+        }
+
         if (!res.ok || resData.error) {
           throw new Error(resData.error?.message || `HTTP ${res.status}`);
         }
@@ -1031,16 +1017,12 @@
     /* --- 集中 Gemini API Key 讀取與儲存 --- */
     window.toggleKeyVisibility = () => {
       const input = document.getElementById('sys-gemini-key');
-      if (input) {
-        input.type = (input.type === 'password') ? 'text' : 'password';
-      }
+      if (input) input.type = (input.type === 'password') ? 'text' : 'password';
     };
 
     window.toggleWastePassVisibility = () => {
       const input = document.getElementById('sys-waste-pass');
-      if (input) {
-        input.type = (input.type === 'password') ? 'text' : 'password';
-      }
+      if (input) input.type = (input.type === 'password') ? 'text' : 'password';
     };
 
     window.saveGeminiApiKey = async () => {
@@ -1071,7 +1053,6 @@
           if (localKey) window.cloudGeminiKey = localKey.trim();
         }
       } catch (e) {
-        console.warn("載入雲端 Gemini Key 失敗，檢查本機快取:", e);
         const localKey = localStorage.getItem('food_waste_gemini_key');
         if (localKey) window.cloudGeminiKey = localKey.trim();
       }
@@ -1083,12 +1064,9 @@
       const text = document.getElementById('gemini-key-status-text');
       const engineBadge = document.getElementById('analysis-engine-badge');
       const menuKeyInd = document.getElementById('menu-key-status-indicator');
-
       const hasKey = Boolean(window.cloudGeminiKey);
 
-      if (input && window.cloudGeminiKey) {
-        input.value = window.cloudGeminiKey;
-      }
+      if (input && window.cloudGeminiKey) input.value = window.cloudGeminiKey;
 
       if (text) {
         text.className = hasKey ? "text-[11px] text-emerald-600 font-semibold" : "text-[11px] text-slate-400 font-medium";
@@ -1356,7 +1334,7 @@
     onAuthStateChanged(auth, async (user) => {
       await window.loadRoleSettings();
       await window.loadGeminiApiKey();
-      await window.loadWeighingRules(); // 載入彈性秤重規則
+      await window.loadWeighingRules();
 
       if (user) {
         const userEmail = (user.email || "").trim().toLowerCase();
@@ -1607,7 +1585,6 @@
 
     window.closeLoginModal = () => document.getElementById('login-modal').classList.add('hidden');
     
-    // Google 快速登入
     window.loginWithGoogle = async () => { 
       try { 
         await signInWithPopup(auth, new GoogleAuthProvider()); 
@@ -1619,7 +1596,6 @@
       } 
     };
 
-    // 任何 Email 密碼登入
     window.loginWithEmail = async () => { 
       const email = document.getElementById('login-email').value.trim();
       const pwd = document.getElementById('login-password').value;
@@ -1642,7 +1618,6 @@
       } 
     };
 
-    // 任何 Email 首次設定密碼 (註冊)
     window.registerWithEmail = async () => {
       const emailEl = document.getElementById('login-email');
       const pwdEl = document.getElementById('login-password');
@@ -1741,7 +1716,7 @@
           analysisInput.value = pastWeek;
         }
         window.updateKeyStatusUI();
-        window.loadOrRunAnalysis(false); // 預設優先讀取快取
+        window.loadOrRunAnalysis(false);
       }
       if (tabId === 'monthly') {
         const curYear = document.getElementById('sys-year')?.value || 115;
@@ -1993,7 +1968,6 @@
       
       window.refreshAllWeekLabels();
 
-      // 檢查本日是否被勾選為常態秤重星期
       const isDayActive = window.ACTIVE_WEEKDAYS.includes(weekday);
       const dayBanner = document.getElementById('non-weighing-day-banner');
       if (dayBanner) {
@@ -2007,7 +1981,6 @@
       const saveBtn = document.getElementById('save-btn');
       const canEditGlobal = ((window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily));
 
-      // 若非秤重星期，右上角儲存按鈕一律反白鎖定
       if (saveBtn) {
         if (!isDayActive || !canEditGlobal) {
           saveBtn.disabled = true;
@@ -2055,10 +2028,7 @@
           let w = rec.weightKg !== undefined ? rec.weightKg : '';
           let count = rec.eaterCount || c.defaultCount;
           
-          // 班級是否被納入秤重設定
           const isClassActive = window.ACTIVE_CLASS_IDS.includes(c.id);
-
-          // 核心條件：全校該星期是否啟用 且 班級是否啟用
           const isRowOperable = isDayActive && isClassActive;
 
           let per = '-';
@@ -2073,7 +2043,6 @@
           let isAlreadySaved = (w !== '' || isClassSkipped);
           window.classSavedStatus[c.id] = isAlreadySaved;
 
-          // 樣式判定
           let rowBgClass = 'bg-white hover:bg-emerald-50/20';
           if (!isDayActive || !isClassActive) {
             rowBgClass = 'bg-slate-100 text-slate-400 cursor-not-allowed';
@@ -2126,7 +2095,7 @@
                   canEditThisRow ? (
                     isAlreadySaved ? `
                       <button onclick="window.toggleEditRow('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition">
-                        ✏️️ 修改
+                        ✏ 修改
                       </button>
                     ` : `
                       <button onclick="window.saveSingleClassRecord('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
@@ -2262,7 +2231,6 @@
         await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
         
         if (!isSkipped) {
-          // 只處理被啟用的班級
           const targetClasses = window.CLASSES.filter(c => window.ACTIVE_CLASS_IDS.includes(c.id));
           let promises = targetClasses.map(async c => {
             const isRowSkipped = document.getElementById(`skip-row-${c.id}`)?.checked || false;
@@ -2435,7 +2403,13 @@
               })
             });
 
-            data = await res.json();
+            const rawText = await res.text();
+            try {
+              data = JSON.parse(rawText);
+            } catch (jsonErr) {
+              throw new Error(`伺服器傳回非預期格式 (HTTP ${res.status}): ${rawText.slice(0, 80)}`);
+            }
+
             const errMsg = data.error?.message || '';
             const isHighDemand = res.status === 503 || res.status === 429 || errMsg.toLowerCase().includes('high demand') || errMsg.toLowerCase().includes('overloaded');
 
@@ -2497,7 +2471,6 @@
       ]);
       const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
 
-      // 自動過濾未啟用的秤重班級
       const activeClasses = window.CLASSES.filter(c => window.ACTIVE_CLASS_IDS.includes(c.id));
 
       let stats = activeClasses.map(c => {
@@ -2562,7 +2535,7 @@
       document.body.removeChild(textArea);
     };
 
-    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
+    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 (防禦性純文字安全讀取，杜絕 < 崩潰) --- */
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
       const candidateModels = [
@@ -2601,7 +2574,13 @@
             })
           });
 
-          const resJson = await response.json();
+          const rawText = await response.text();
+          let resJson = null;
+          try {
+            resJson = JSON.parse(rawText);
+          } catch (pe) {
+            throw new Error(`[${model}] 伺服器傳回非 JSON 內容 (HTTP ${response.status}): ${rawText.slice(0, 80)}`);
+          }
 
           if (!response.ok || resJson.error) {
             const errDetail = resJson.error?.message || `HTTP ${response.status}`;
@@ -2624,7 +2603,7 @@
       throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
     };
 
-    /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構，排除未啟用班級) --- */
+    /* --- 菜單關聯異常分析 (Cache-First 快取優先) --- */
     window.loadOrRunAnalysis = async (forceReRun = false) => {
       const y = parseInt(document.getElementById('daily-year').value);
       const w = parseInt(document.getElementById('analysis-week').value);
@@ -2639,7 +2618,6 @@
 
       const cacheDocId = `${y}_1_${w}`;
 
-      // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
       if (!forceReRun) {
         con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
         try {
@@ -2664,7 +2642,6 @@
         }
       }
 
-      // 2. 啟動運算
       if (btn) { btn.disabled = true; }
       if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
       if (hint) { hint.innerText = "正在執行即時運算..."; }
@@ -2681,7 +2658,6 @@
         let analysisDayResults = {};
 
         for (const day of WEEKDAYS) {
-          // 只比對納入評比之班級
           let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && window.ACTIVE_CLASS_IDS.includes(l.classId) && (parseInt(l.eaterCount) || 0) > 0);
           
           let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
@@ -2719,7 +2695,6 @@
             const midAvg = calcStageAvg('中年級');
             const highAvg = calcStageAvg('高年級');
 
-            // 呼叫雲端 Gemini LLM 深度診斷
             if (window.cloudGeminiKey) {
               try {
                 const aiResult = await window.callGeminiMenuDiagnosis(
@@ -2739,7 +2714,6 @@
               cloudErrorReason = "系統尚未設定集中 Gemini API Key";
             }
 
-            // 在地專家啟發式推論引擎保底
             if (!aiDeduction) {
               let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
               let specificAdvice = '';
@@ -2791,7 +2765,6 @@
           };
         }
 
-        // 3. 儲存快取至 Firestore (menu_diagnoses)
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -2817,7 +2790,6 @@
           if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
         }
 
-        // 4. 渲染畫面
         window.renderAnalysisCards(analysisDayResults, false, formattedDate);
 
       } catch (err) {
@@ -2899,7 +2871,7 @@
       con.innerHTML = cardsHtml;
     };
 
-    /* --- 每月榮譽榜計算 (連動排除未啟用的班級) --- */
+    /* --- 每月榮譽榜計算 (排除未啟用班級) --- */
     window.calcMonthlyReport = async () => {
       const yearInput = document.getElementById('monthly-year') || document.getElementById('daily-year') || document.getElementById('sys-year');
       const y = parseInt(yearInput?.value) || 115;
@@ -2932,7 +2904,6 @@
           hint.innerText = `統計範圍：第 ${wStart} ~ ${wEnd} 週 (共納入 ${logs.length} 筆當月秤重紀錄)`;
         }
 
-        // 自動過濾未啟用的秤重班級
         const activeClasses = window.CLASSES.filter(c => window.ACTIVE_CLASS_IDS.includes(c.id));
 
         if (logs.length === 0) {
