@@ -77,18 +77,20 @@
           <div class="flex items-center gap-2 mt-1">
             <input type="number" id="daily-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50" value="115">
             <span class="text-xs">學年 第</span>
-            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.onDailyWeekOrDayChange()">
+            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.loadDailyRecords()">
             <span class="text-xs">週</span>
             <span id="daily-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium"></span>
           </div>
         </div>
+        
+        <!-- 秤重星期與日期 (淡紫底紫字，國曆日期粗體) -->
         <div>
           <label class="text-xs font-semibold text-slate-500">秤重星期與日期</label>
           <div class="flex items-center gap-2 mt-1">
             <span id="daily-exact-date" class="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-lg shadow-sm">
               <span class="font-bold text-purple-800" id="daily-exact-date-text">-- / --</span>
             </span>
-            <select id="daily-weekday" class="border border-purple-200 rounded-lg px-3 py-1 text-sm bg-purple-100 text-purple-700 font-semibold focus:outline-purple-400 shadow-sm" onchange="window.onDailyWeekOrDayChange()">
+            <select id="daily-weekday" class="border border-purple-200 rounded-lg px-3 py-1 text-sm bg-purple-100 text-purple-700 font-semibold focus:outline-purple-400 shadow-sm" onchange="window.loadDailyRecords()">
               <option value="1">週一</option>
               <option value="2">週二</option>
               <option value="4">週四</option>
@@ -401,20 +403,12 @@
   <!-- 訪客/未授權權限拒絕提示 Modal -->
   <div id="permission-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
-      <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
-        🔒
-      </div>
+      <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">🔒</div>
       <h3 class="text-base font-bold text-slate-800 mb-1" id="permission-modal-title">權限不足</h3>
-      <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line" id="permission-modal-msg">
-        您目前權限不足，無法使用此功能喔！
-      </p>
+      <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line" id="permission-modal-msg">您目前權限不足，無法使用此功能喔！</p>
       <div class="flex gap-2">
-        <button onclick="window.closePermissionModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
-          我知道了
-        </button>
-        <button id="permission-modal-action-btn" onclick="window.handlePermissionAction()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
-          管理員登入
-        </button>
+        <button onclick="window.closePermissionModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">我知道了</button>
+        <button id="permission-modal-action-btn" onclick="window.handlePermissionAction()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">管理員登入</button>
       </div>
     </div>
   </div>
@@ -422,52 +416,38 @@
   <!-- 系統通用通知 Modal -->
   <div id="notice-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
-      <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl" id="notice-modal-icon">
-        ℹ
-      </div>
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl" id="notice-modal-icon">ℹ</div>
       <h3 class="text-base font-bold text-slate-800 mb-2" id="notice-modal-title">系統提示</h3>
       <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line text-left bg-slate-50 p-3 rounded-lg border font-mono" id="notice-modal-msg"></p>
-      <button onclick="window.closeNoticeModal()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
-        確定
-      </button>
+      <button onclick="window.closeNoticeModal()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">確定</button>
     </div>
   </div>
 
   <!-- 確認對話框 Modal -->
   <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
-      <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
-        ⚠️
-      </div>
+      <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">⚠️</div>
       <h3 class="text-base font-bold text-slate-800 mb-1" id="confirm-modal-title">確認操作</h3>
       <p class="text-xs text-slate-600 mb-5 leading-relaxed" id="confirm-modal-msg"></p>
       <div class="flex gap-2">
-        <button onclick="window.closeConfirmModal(false)" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
-          取消
-        </button>
-        <button onclick="window.closeConfirmModal(true)" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow transition">
-          確認執行
-        </button>
+        <button onclick="window.closeConfirmModal(false)" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">取消</button>
+        <button onclick="window.closeConfirmModal(true)" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow transition">確認執行</button>
       </div>
     </div>
   </div>
 
-  <!-- 登入 Modal (支援 Google 與 非Google Email/密碼 註冊與登入) -->
+  <!-- 登入 Modal -->
   <div id="login-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="text-base font-bold text-slate-800 flex items-center gap-1.5" id="login-modal-title">
-          🔐 後臺管理登入
-        </h3>
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-1.5" id="login-modal-title">🔐 後臺管理登入</h3>
         <button onclick="window.closeLoginModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
       </div>
 
-      <!-- 登入身分引導提示 -->
       <div id="login-modal-hint" class="text-xs p-2.5 rounded-lg mb-4 bg-slate-50 border border-slate-200 text-slate-600 leading-relaxed">
         授權成員請使用登記於系統之 Email 登入。
       </div>
 
-      <!-- Google 帳號快速登入 -->
       <button onclick="window.loginWithGoogle()" class="w-full py-2.5 px-4 border rounded-lg flex items-center justify-center gap-2 hover:bg-slate-50 text-slate-700 font-medium text-sm transition mb-4">
         <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.9c2.27-2.1 3.65-5.2 3.65-9.15z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.72-2.1-6.66-4.93H1.27v3.15C3.25 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.34 14.27c-.24-.72-.37-1.49-.37-2.27s.13-1.55.37-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.07-3.15z"/><path fill="#EA4335" d="M12 4.77c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.58l4.07 3.15c.94-2.83 3.56-4.96 6.66-4.96z"/></svg>
         使用 Google 帳號快速登入
@@ -478,7 +458,6 @@
         <div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-slate-400">或使用任何 Email 密碼</span></div>
       </div>
 
-      <!-- 任何 Email / 密碼 登入與註冊 -->
       <div class="space-y-3">
         <div>
           <label class="block text-[11px] font-semibold text-slate-500 mb-1">電子信箱</label>
@@ -489,14 +468,9 @@
           <input type="password" id="login-password" placeholder="請輸入欲設定或現有的 6 碼以上密碼" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-emerald-500">
         </div>
         
-        <!-- 操作按鈕群：首次設定密碼為翠綠色按鈕 -->
         <div class="flex gap-2 pt-2">
-          <button onclick="window.loginWithEmail()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm transition">
-            🔑 密碼登入
-          </button>
-          <button onclick="window.registerWithEmail()" id="btn-register-email" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition" title="非 Google 信箱首次使用，請輸入信箱與欲設定的密碼後點此">
-            🌱 首次設定密碼
-          </button>
+          <button onclick="window.loginWithEmail()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm transition">🔑 密碼登入</button>
+          <button onclick="window.registerWithEmail()" id="btn-register-email" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition">🌱 首次設定密碼</button>
         </div>
 
         <div class="flex justify-between items-center pt-2 border-t text-[11px] text-slate-400">
@@ -521,7 +495,6 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 專屬 Firebase 專案金鑰
     const firebaseConfig = {
       apiKey: "AIzaSyB6xjT4asS3xcpRrgLD33jrssSIzmh0ix4",
       authDomain: "school-food-waste.firebaseapp.com",
@@ -535,18 +508,12 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // ==========================================
-    // 🔐 預設管理者名單（初始啟動保底名單，後台可隨時動態修改）
-    // ==========================================
     window.ADMIN_EMAILS = [
       "johngerlee@gmail.com",
       "rodyg103022@gmail.com"
     ];
 
-    // 工作小組成員清單（格式：[{ email: '...', name: '...' }]）
     window.STAFF_MEMBERS = []; 
-
-    // 當前角色：'guest' (訪客) | 'staff' (工作小組) | 'admin' (系統管理員)
     window.userRole = 'guest';
 
     const WEEKDAYS = [{d:1, name:'週一'}, {d:2, name:'週二'}, {d:4, name:'週四'}, {d:5, name:'週五'}];
@@ -560,8 +527,8 @@
     ];
     window.currentUser = null;
     window.calculatedCurrentWeek = 1;
-    window.systemThreshold = 120; // 預設 120g
-    window.cloudGeminiKey = '';   // 集中管理之雲端 Gemini API Key
+    window.systemThreshold = 120;
+    window.cloudGeminiKey = '';
     window._cachedGeminiModel = null;
     let confirmResolver = null;
     window.pendingPermissionRole = 'admin';
@@ -573,6 +540,7 @@
     window.showNotice = (title, message, isSuccess = true) => {
       const modal = document.getElementById('notice-modal');
       const icon = document.getElementById('notice-modal-icon');
+      if (!modal) return;
       document.getElementById('notice-modal-title').innerText = title;
       document.getElementById('notice-modal-msg').innerText = message;
       if (isSuccess) {
@@ -586,17 +554,90 @@
     };
 
     window.closeNoticeModal = () => {
-      document.getElementById('notice-modal').classList.add('hidden');
+      document.getElementById('notice-modal')?.classList.add('hidden');
     };
 
     window.showPermissionDenied = (tabName, requiredRole = '系統管理員') => {
       window.pendingPermissionRole = (requiredRole === '系統管理員') ? 'admin' : 'staff';
       const actionBtn = document.getElementById('permission-modal-action-btn');
+      const modal = document.getElementById('permission-modal');
+      if (!modal) return;
 
       document.getElementById('permission-modal-title').innerText = `🔒「${tabName}」權限不足`;
-      
       const currentIdentity = (window.userRole === 'staff') ? '工作小組' : '訪客模式';
-      document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;              if (requiredRole === '系統管理員') {         actionBtn.innerText = '🔐 管理員登入';         actionBtn.className = 'flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition';       } else {         actionBtn.innerText = '👥 工作小組登入';         actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';       }        document.getElementById('permission-modal').classList.remove('hidden');     };      window.handlePermissionAction = () => {       window.closePermissionModal();       window.openLoginModal(window.pendingPermissionRole \vert{}\vert{} 'admin');     };      window.closePermissionModal = () => {       document.getElementById('permission-modal').classList.add('hidden');     };      window.confirmAction = (msg) => {       return new Promise((resolve) => {         confirmResolver = resolve;         document.getElementById('confirm-modal-msg').innerText = msg;         document.getElementById('confirm-modal').classList.remove('hidden');       });     };      window.closeConfirmModal = (result) => {       document.getElementById('confirm-modal').classList.add('hidden');       if (confirmResolver) {         confirmResolver(result);         confirmResolver = null;       }     };      window.confirmLogout = async () => {       const ok = await window.confirmAction('確定要登出並切換回訪客模式嗎？');       if (ok) await signOut(auth);     };      /* --- 解鎖/鎖定設定頁面輸入框核心函式 --- */     window.unlockSettingsFields = () => {       const isAdm = (window.userRole === 'admin');              const fieldIds = [         'sys-gemini-key', 'sys-year', 'sys-sem', 'sys-start', 'sys-end',          'sys-threshold', 'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'       ];       fieldIds.forEach(id => {         const el = document.getElementById(id);         if (el) {           el.disabled = !isAdm;           if (isAdm) {             el.removeAttribute('disabled');             el.classList.remove('bg-slate-100', 'cursor-not-allowed');             if (id === 'sys-threshold') {               el.className = "border border-rose-300 rounded w-full p-1.5 bg-rose-50 font-bold text-rose-800";             } else if (id === 'sys-gemini-key') {               el.className = "border border-indigo-200 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-indigo-500 font-mono";             } else if (id === 'input-new-staff-name') {               el.className = "border border-indigo-200 rounded px-2.5 py-1 text-xs w-28 bg-white focus:outline-indigo-500";             } else if (id !== 'csv-upload' && !id.startsWith('input-new')) {               el.className = "border border-slate-300 rounded w-full p-1.5 bg-white text-slate-800 focus:outline-emerald-500";             }           } else {             el.setAttribute('disabled', 'true');             el.classList.add('bg-slate-100', 'cursor-not-allowed');           }         }       });        // 班級預設人數欄位解鎖       window.CLASSES.forEach(c => {         const inp = document.getElementById(`set-${c.id}`);
+      document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;
+      
+      if (requiredRole === '系統管理員') {
+        actionBtn.innerText = '🔐 管理員登入';
+        actionBtn.className = 'flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition';
+      } else {
+        actionBtn.innerText = '👥 工作小組登入';
+        actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';
+      }
+      modal.classList.remove('hidden');
+    };
+
+    window.handlePermissionAction = () => {
+      window.closePermissionModal();
+      window.openLoginModal(window.pendingPermissionRole || 'admin');
+    };
+
+    window.closePermissionModal = () => {
+      document.getElementById('permission-modal')?.classList.add('hidden');
+    };
+
+    window.confirmAction = (msg) => {
+      return new Promise((resolve) => {
+        confirmResolver = resolve;
+        document.getElementById('confirm-modal-msg').innerText = msg;
+        document.getElementById('confirm-modal')?.classList.remove('hidden');
+      });
+    };
+
+    window.closeConfirmModal = (result) => {
+      document.getElementById('confirm-modal')?.classList.add('hidden');
+      if (confirmResolver) {
+        confirmResolver(result);
+        confirmResolver = null;
+      }
+    };
+
+    window.confirmLogout = async () => {
+      const ok = await window.confirmAction('確定要登出並切換回訪客模式嗎？');
+      if (ok) await signOut(auth);
+    };
+
+    window.unlockSettingsFields = () => {
+      const isAdm = (window.userRole === 'admin');
+      const fieldIds = [
+        'sys-gemini-key', 'sys-year', 'sys-sem', 'sys-start', 'sys-end', 
+        'sys-threshold', 'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'
+      ];
+      fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.disabled = !isAdm;
+          if (isAdm) {
+            el.removeAttribute('disabled');
+            el.classList.remove('bg-slate-100', 'cursor-not-allowed');
+            if (id === 'sys-threshold') {
+              el.className = "border border-rose-300 rounded w-full p-1.5 bg-rose-50 font-bold text-rose-800";
+            } else if (id === 'sys-gemini-key') {
+              el.className = "border border-indigo-200 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-indigo-500 font-mono";
+            } else if (id === 'input-new-staff-name') {
+              el.className = "border border-indigo-200 rounded px-2.5 py-1 text-xs w-28 bg-white focus:outline-indigo-500";
+            } else if (id !== 'csv-upload' && !id.startsWith('input-new')) {
+              el.className = "border border-slate-300 rounded w-full p-1.5 bg-white text-slate-800 focus:outline-emerald-500";
+            }
+          } else {
+            el.setAttribute('disabled', 'true');
+            el.classList.add('bg-slate-100', 'cursor-not-allowed');
+          }
+        }
+      });
+
+      window.CLASSES.forEach(c => {
+        const inp = document.getElementById(`set-${c.id}`);
         if (inp) {
           inp.disabled = !isAdm;
           if (isAdm) {
@@ -610,37 +651,76 @@
       });
     };
 
-    /* --- 動態偵測最佳可用 Gemini 模型端點 (支援 3.8 / 3.7 / 3.5 系列) --- */
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
-      
       try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);         if (res.ok) {           const data = await res.json();           if (data.models && Array.isArray(data.models)) {             const valid = data.models               .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))               .map(m => m.name.replace(/^models\//, ''));              const detected = valid.find(m => m.includes('3.8-flash')) \vert{}\vert{}                              valid.find(m => m.includes('3.7-flash')) \vert{}\vert{}                              valid.find(m => m.includes('3.5-flash')) \vert{}\vert{}                              valid.find(m => m.includes('flash') && !m.includes('image') && !m.includes('tts') && !m.includes('live')) \vert{}\vert{}                              valid.find(m => m.includes('gemini') && !m.includes('image') && !m.includes('tts') && !m.includes('live'));                          if (detected) {               window._cachedGeminiModel = detected;               return detected;             }           }         }       } catch (err) {         console.warn("自動抓取可用模型清單逾時或受限，啟用保底端點:", err);       }        return "gemini-3.8-flash";     };      /* --- 測試 Gemini API Key 連線 --- */     window.testGeminiKey = async () => {       const keyVal = (document.getElementById('sys-gemini-key')?.value \vert{}\vert{} window.cloudGeminiKey \vert{}\vert{} '').trim();       if (!keyVal) {         return window.showNotice('提示', '請先輸入欲測試的 Gemini API Key！', false);       }        const btn = document.getElementById('key-test-btn');       if (btn) { btn.disabled = true; btn.innerText = "⏳ 測試中..."; }        try {         window._cachedGeminiModel = null;         const model = await window.getAvailableGeminiModel(keyVal);                  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {           method: "POST",           headers: { "Content-Type": "application/json" },           body: JSON.stringify({             contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }]           })         });          const resData = await res.json();         if (!res.ok \vert{}\vert{} resData.error) {           throw new Error(resData.error?.message \vert{}\vert{} `HTTP ${res.status}`);
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.models && Array.isArray(data.models)) {
+            const valid = data.models
+              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+              .map(m => m.name.replace(/^models\//, ''));
+
+            const detected = valid.find(m => m.includes('3.8-flash')) ||
+                             valid.find(m => m.includes('3.7-flash')) ||
+                             valid.find(m => m.includes('3.5-flash')) ||
+                             valid.find(m => m.includes('flash') && !m.includes('8b') && !m.includes('image'));
+            
+            if (detected) {
+              window._cachedGeminiModel = detected;
+              return detected;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("自動抓取可用模型清單逾時或受限，啟用保底主力端點:", err);
+      }
+      return "gemini-3.8-flash";
+    };
+
+    window.testGeminiKey = async () => {
+      const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
+      if (!keyVal) {
+        return window.showNotice('提示', '請先輸入欲測試的 Gemini API Key！', false);
+      }
+
+      const btn = document.getElementById('key-test-btn');
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 測試中..."; }
+
+      try {
+        window._cachedGeminiModel = null;
+        const model = await window.getAvailableGeminiModel(keyVal);
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }] })
+        });
+
+        const resData = await res.json();
+        if (!res.ok || resData.error) {
+          throw new Error(resData.error?.message || `HTTP ${res.status}`);
         }
 
-        window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動偵測並綁定最佳模型端點：[${model}]`);         window.updateKeyStatusUI();       } catch (e) {         window.showNotice('連線失敗', `連線測試未通過：\n${e.message}\n\n建議確認：\n1. Google AI Studio 金鑰是否有效且未受限\n2. 專案是否有啟用 Generative Language API`, false);
+        window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動偵測並綁定最佳模型端點：[${model}]`);
+        window.updateKeyStatusUI();
+      } catch (e) {
+        window.showNotice('連線失敗', `連線測試未通過：\n${e.message}\n\n建議確認：\n1. Google AI Studio 金鑰是否有效且未受限\n2. 專案是否有啟用 Generative Language API`, false);
       } finally {
         if (btn) { btn.disabled = false; btn.innerText = "🧪 測試連線"; }
       }
     };
 
-    /* --- 集中 Gemini API Key 讀取與儲存 --- */
     window.toggleKeyVisibility = () => {
       const input = document.getElementById('sys-gemini-key');
-      if (input) {
-        input.type = (input.type === 'password') ? 'text' : 'password';
-      }
+      if (input) input.type = (input.type === 'password') ? 'text' : 'password';
     };
 
     window.saveGeminiApiKey = async () => {
       if (window.userRole !== 'admin') return;
       const keyVal = (document.getElementById('sys-gemini-key')?.value || '').trim();
       try {
-        await setDoc(doc(db, "system_config", "gemini_api"), {
-          apiKey: keyVal,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-
+        await setDoc(doc(db, "system_config", "gemini_api"), { apiKey: keyVal, updatedAt: serverTimestamp() }, { merge: true });
         window.cloudGeminiKey = keyVal;
         window._cachedGeminiModel = null;
         window.updateKeyStatusUI();
@@ -660,7 +740,6 @@
           if (localKey) window.cloudGeminiKey = localKey.trim();
         }
       } catch (e) {
-        console.warn("載入雲端 Gemini Key 失敗，檢查本機快取:", e);
         const localKey = localStorage.getItem('food_waste_gemini_key');
         if (localKey) window.cloudGeminiKey = localKey.trim();
       }
@@ -674,10 +753,7 @@
       const menuKeyInd = document.getElementById('menu-key-status-indicator');
 
       const hasKey = Boolean(window.cloudGeminiKey);
-
-      if (input && window.cloudGeminiKey) {
-        input.value = window.cloudGeminiKey;
-      }
+      if (input && window.cloudGeminiKey) input.value = window.cloudGeminiKey;
 
       if (text) {
         text.className = hasKey ? "text-[11px] text-emerald-600 font-semibold" : "text-[11px] text-slate-400 font-medium";
@@ -700,7 +776,6 @@
       }
     };
 
-    /* --- 雲端角色名單讀取與儲存 (Firestore 同步，支援姓名與 Email) --- */
     window.loadRoleSettings = async () => {
       try {
         const snap = await getDoc(doc(db, "system_roles", "main"));
@@ -729,11 +804,7 @@
     window.saveRoleSettings = async () => {
       if (window.userRole !== 'admin') return;
       try {
-        await setDoc(doc(db, "system_roles", "main"), {
-          admins: window.ADMIN_EMAILS,
-          staffs: window.STAFF_MEMBERS,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        await setDoc(doc(db, "system_roles", "main"), { admins: window.ADMIN_EMAILS, staffs: window.STAFF_MEMBERS, updatedAt: serverTimestamp() }, { merge: true });
         window.showNotice('權限設定成功', '👥 管理員與工作小組成員名單（含姓名）已同步儲存至雲端資料庫！');
       } catch (e) {
         window.showNotice('儲存失敗', e.message, false);
@@ -747,7 +818,8 @@
       const adminCount = document.getElementById('admin-count-badge');
       const staffCount = document.getElementById('staff-count-badge');
 
-      if (adminCount) adminCount.innerText = `${window.ADMIN_EMAILS.length} 位`;       if (staffCount) staffCount.innerText = `${window.STAFF_MEMBERS.length} 位`;
+      if (adminCount) adminCount.innerText = `${window.ADMIN_EMAILS.length} 位`;
+      if (staffCount) staffCount.innerText = `${window.STAFF_MEMBERS.length} 位`;
 
       if (adminList) {
         adminList.innerHTML = window.ADMIN_EMAILS.map((email, idx) => `
@@ -778,16 +850,12 @@
     };
 
     window.addMemberRole = (role) => {
-      if (window.userRole !== 'admin') {
-        return window.showNotice('權限不足', '只有系統管理員可以新增成員權限喔！', false);
-      }
+      if (window.userRole !== 'admin') return window.showNotice('權限不足', '只有系統管理員可以新增成員權限喔！', false);
 
       if (role === 'admin') {
         const input = document.getElementById('input-new-admin');
         const email = (input?.value || '').trim().toLowerCase();
-        if (!email || !email.includes('@')) {
-          return window.showNotice('格式不符', '請輸入有效的電子郵件地址！', false);
-        }
+        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的電子郵件地址！', false);
         if (!window.ADMIN_EMAILS.includes(email)) {
           window.ADMIN_EMAILS.push(email);
           window.STAFF_MEMBERS = window.STAFF_MEMBERS.filter(s => s.email !== email);
@@ -801,22 +869,15 @@
         const name = (nameInput?.value || '').trim();
         const email = (emailInput?.value || '').trim().toLowerCase();
 
-        if (!email || !email.includes('@')) {
-          return window.showNotice('格式不符', '請輸入有效的工作小組電子郵件！', false);
-        }
-        if (window.ADMIN_EMAILS.includes(email)) {
-          return window.showNotice('提示', '該信箱已經是系統管理員，無需重複加入工作小組！', false);
-        }
+        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的工作小組電子郵件！', false);
+        if (window.ADMIN_EMAILS.includes(email)) return window.showNotice('提示', '該信箱已經是系統管理員，無需重複加入工作小組！', false);
 
         const existingIdx = window.STAFF_MEMBERS.findIndex(s => s.email === email);
         if (existingIdx >= 0) {
           window.STAFF_MEMBERS[existingIdx].name = name || window.STAFF_MEMBERS[existingIdx].name;
           window.showNotice('已更新', `已更新成員【${email}】的姓名為「${window.STAFF_MEMBERS[existingIdx].name}」！`);
         } else {
-          window.STAFF_MEMBERS.push({
-            email: email,
-            name: name || '工作小組成員'
-          });
+          window.STAFF_MEMBERS.push({ email: email, name: name || '工作小組成員' });
           window.showNotice('已暫存清單', `已將【${name ? name + ' (' + email + ')' : email}】加入工作小組，請記得點擊「💾 儲存成員權限」儲存至資料庫！`);
         }
 
@@ -829,9 +890,7 @@
     window.removeMemberRole = (role, idx) => {
       if (window.userRole !== 'admin') return;
       if (role === 'admin') {
-        if (window.ADMIN_EMAILS.length <= 1) {
-          return window.showNotice('無法移除', '系統必須至少保留一位管理員！', false);
-        }
+        if (window.ADMIN_EMAILS.length <= 1) return window.showNotice('無法移除', '系統必須至少保留一位管理員！', false);
         window.ADMIN_EMAILS.splice(idx, 1);
       } else {
         window.STAFF_MEMBERS.splice(idx, 1);
@@ -857,7 +916,6 @@
         const targetMon = new Date(baseMonday);
         targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
         
-        // 星期對應日位移：週一為 0、週二為 1...週日(0)為 6
         const wVal = parseInt(weekday, 10);
         const dayOffset = (wVal === 0) ? 6 : (wVal - 1);
         
@@ -875,31 +933,35 @@
 
     /* --- 日期區間計算核心工具 (週一至週五) --- */
     window.getWeekDateRange = (weekNum) => {
-      const startStr = document.getElementById('sys-start')?.value || '2026-08-31';
-      if (!startStr) return '';
-      const parts = startStr.split('-');
-      if (parts.length < 3) return '';
-      
-      const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-      const day = start.getDay();
-      const diffToMon = day === 0 ? -6 : (1 - day);
-      
-      const baseMonday = new Date(start);
-      baseMonday.setDate(start.getDate() + diffToMon);
-      
-      const targetMon = new Date(baseMonday);
-      targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
-      
-      const targetFri = new Date(targetMon);
-      targetFri.setDate(targetMon.getDate() + 4);
-      
-      const pad = (n) => String(n).padStart(2, '0');
-      const m1 = pad(targetMon.getMonth() + 1);
-      const d1 = pad(targetMon.getDate());
-      const m2 = pad(targetFri.getMonth() + 1);
-      const d2 = pad(targetFri.getDate());
-      
-      return `${m1}/${d1} ~ ${m2}/${d2}`;
+      try {
+        const startStr = document.getElementById('sys-start')?.value || '2026-08-31';
+        if (!startStr) return '';
+        const parts = startStr.split('-');
+        if (parts.length < 3) return '';
+        
+        const start = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const day = start.getDay();
+        const diffToMon = day === 0 ? -6 : (1 - day);
+        
+        const baseMonday = new Date(start);
+        baseMonday.setDate(start.getDate() + diffToMon);
+        
+        const targetMon = new Date(baseMonday);
+        targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
+        
+        const targetFri = new Date(targetMon);
+        targetFri.setDate(targetMon.getDate() + 4);
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const m1 = pad(targetMon.getMonth() + 1);
+        const d1 = pad(targetMon.getDate());
+        const m2 = pad(targetFri.getMonth() + 1);
+        const d2 = pad(targetFri.getDate());
+        
+        return `${m1}/${d1} ~ ${m2}/${d2}`;
+      } catch (e) {
+        return '';
+      }
     };
 
     /* --- 動態渲染星期下拉選單（自動注入當週實體日期，含週六/日） --- */
@@ -922,44 +984,40 @@
         return `<option value="${item.v}">${exactDate} (${item.name})</option>`;
       }).join('');
 
-      // 維持原有選取或預設
       if (weekdaysList.some(w => w.v === currentSelectedVal)) {
         selectWd.value = currentSelectedVal;
       }
     };
 
     window.refreshAllWeekLabels = () => {
-      const dw = parseInt(document.getElementById('daily-week')?.value || 1, 10);
-      const dWd = document.getElementById('daily-weekday')?.value || "1";
-      const mw = parseInt(document.getElementById('menu-week')?.value || 1, 10);
-      const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1, 10);
-      const aw = parseInt(document.getElementById('analysis-week')?.value || 1, 10);
+      try {
+        const dw = parseInt(document.getElementById('daily-week')?.value || 1, 10);
+        const dWd = document.getElementById('daily-weekday')?.value || "1";
+        const mw = parseInt(document.getElementById('menu-week')?.value || 1, 10);
+        const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1, 10);
+        const aw = parseInt(document.getElementById('analysis-week')?.value || 1, 10);
 
-      // 動態更新星期選單各選項的日期
-      window.renderWeekdayOptionsWithDates(dw);
+        window.renderWeekdayOptionsWithDates(dw);
 
-      // 更新實體日期徽章 (淡紫底紫字、日期粗體)
-      const exactDateText = document.getElementById('daily-exact-date-text');
-      if (exactDateText) {
-        exactDateText.innerText = window.getExactDateForWeekDay(dw, dWd);
+        const exactDateText = document.getElementById('daily-exact-date-text');
+        if (exactDateText) {
+          exactDateText.innerText = window.getExactDateForWeekDay(dw, dWd);
+        }
+
+        const dSpan = document.getElementById('daily-week-range');
+        if (dSpan) dSpan.innerText = window.getWeekDateRange(dw);
+
+        const mSpan = document.getElementById('menu-week-range');
+        if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
+
+        const wSpan = document.getElementById('weekly-week-range');
+        if (wSpan) wSpan.innerText = window.getWeekDateRange(ww);
+
+        const aSpan = document.getElementById('analysis-week-range');
+        if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
+      } catch (err) {
+        console.warn("更新標籤例外:", err);
       }
-
-      const dSpan = document.getElementById('daily-week-range');
-      if (dSpan) dSpan.innerText = window.getWeekDateRange(dw);
-
-      const mSpan = document.getElementById('menu-week-range');
-      if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
-
-      const wSpan = document.getElementById('weekly-week-range');
-      if (wSpan) wSpan.innerText = window.getWeekDateRange(ww);
-
-      const aSpan = document.getElementById('analysis-week-range');
-      if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
-    };
-
-    window.onDailyWeekOrDayChange = () => {
-      window.refreshAllWeekLabels();
-      window.loadDailyRecords();
     };
 
     /* --- Auth State & 三層權限判斷 (訪客 / 工作小組 / 管理員) --- */
@@ -995,7 +1053,6 @@
       window.switchTab('daily'); 
     });
 
-    /* --- 依角色動態更新介面元素與標籤 --- */
     window.updateUIForRole = () => {
       const badge = document.getElementById('auth-badge');
       const tabMenuText = document.getElementById('tab-menu-text');
@@ -1014,27 +1071,33 @@
       const role = window.userRole;
 
       if (role === 'admin') {
-        badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${window.currentUser.displayName || window.currentUser.email}`;
-        
-        btnStaffLogin.classList.add('hidden');
-        btnLoginModal.classList.add('hidden');
-        btnLogout.classList.remove('hidden');
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${window.currentUser?.displayName || window.currentUser?.email}`;
+        }
+        btnStaffLogin?.classList.add('hidden');
+        btnLoginModal?.classList.add('hidden');
+        btnLogout?.classList.remove('hidden');
 
-        tabMenuText.innerText = "4. 🤖 AI 菜單維護";
-        tabMenuBadge.classList.remove('hidden');
-        tabMenuBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
-        tabMenuBadge.innerText = "🔓";
+        if (tabMenuText) tabMenuText.innerText = "4. 🤖 AI 菜單維護";
+        if (tabMenuBadge) {
+          tabMenuBadge.classList.remove('hidden');
+          tabMenuBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
+          tabMenuBadge.innerText = "🔓";
+        }
 
         if (menuWeekTitle) menuWeekTitle.innerText = "維護週次：第";
-        if (menuSaveBtn) menuSaveBtn.classList.remove('hidden');
-        if (menuAiSection) menuAiSection.classList.remove('hidden');
+        menuSaveBtn?.classList.remove('hidden');
+        menuAiSection?.classList.remove('hidden');
 
-        tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
-        tabAnalysisBadge.innerText = "🔓";
-
-        tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
-        tabSettingsBadge.innerText = "🔓";
+        if (tabAnalysisBadge) {
+          tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
+          tabAnalysisBadge.innerText = "🔓";
+        }
+        if (tabSettingsBadge) {
+          tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium";
+          tabSettingsBadge.innerText = "🔓";
+        }
 
         ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn'].forEach(id => {
           let b = document.getElementById(id);
@@ -1060,29 +1123,33 @@
         window.unlockSettingsFields();
 
       } else if (role === 'staff') {
-        const curEmail = (window.currentUser.email || '').trim().toLowerCase();
+        const curEmail = (window.currentUser?.email || '').trim().toLowerCase();
         const staffObj = window.STAFF_MEMBERS.find(s => s.email === curEmail);
-        const staffDisplayName = staffObj?.name || window.currentUser.displayName || window.currentUser.email;
+        const staffDisplayName = staffObj?.name || window.currentUser?.displayName || window.currentUser?.email;
 
-        badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-indigo-100 text-indigo-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span>工作小組：${staffDisplayName}`;
-        
-        btnStaffLogin.classList.add('hidden');
-        btnLoginModal.classList.add('hidden');
-        btnLogout.classList.remove('hidden');
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-indigo-100 text-indigo-800";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span>工作小組：${staffDisplayName}`;
+        }
+        btnStaffLogin?.classList.add('hidden');
+        btnLoginModal?.classList.add('hidden');
+        btnLogout?.classList.remove('hidden');
 
-        tabMenuText.innerText = "4. 菜單查詢";
-        tabMenuBadge.classList.add('hidden');
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
 
         if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
-        if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
-        if (menuAiSection) menuAiSection.classList.add('hidden');
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
 
-        tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium";
-        tabAnalysisBadge.innerText = "👀 檢視";
-
-        tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabSettingsBadge.innerText = "🔒";
+        if (tabAnalysisBadge) {
+          tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium";
+          tabAnalysisBadge.innerText = "👀 檢視";
+        }
+        if (tabSettingsBadge) {
+          tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
+          tabSettingsBadge.innerText = "🔒";
+        }
 
         ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn'].forEach(id => {
           let b = document.getElementById(id);
@@ -1097,25 +1164,29 @@
         window.unlockSettingsFields();
 
       } else {
-        badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
-        
-        btnStaffLogin.classList.remove('hidden');
-        btnLoginModal.classList.remove('hidden');
-        btnLogout.classList.add('hidden');
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
+        }
+        btnStaffLogin?.classList.remove('hidden');
+        btnLoginModal?.classList.remove('hidden');
+        btnLogout?.classList.add('hidden');
 
-        tabMenuText.innerText = "4. 菜單查詢";
-        tabMenuBadge.classList.add('hidden');
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
 
         if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
-        if (menuSaveBtn) menuSaveBtn.classList.add('hidden');
-        if (menuAiSection) menuAiSection.classList.add('hidden');
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
 
-        tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabAnalysisBadge.innerText = "🔒";
-
-        tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
-        tabSettingsBadge.innerText = "🔒";
+        if (tabAnalysisBadge) {
+          tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
+          tabAnalysisBadge.innerText = "🔒";
+        }
+        if (tabSettingsBadge) {
+          tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal";
+          tabSettingsBadge.innerText = "🔒";
+        }
 
         ['save-btn', 'settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn'].forEach(id => {
           let b = document.getElementById(id);
@@ -1134,7 +1205,6 @@
       window.updateKeyStatusUI();
     };
 
-    /* --- 開啟登入視窗 --- */
     window.openLoginModal = (targetRole = 'staff') => {
       const modal = document.getElementById('login-modal');
       const title = document.getElementById('login-modal-title');
@@ -1142,24 +1212,27 @@
       const emailInput = document.getElementById('login-email');
 
       if (targetRole === 'staff') {
-        title.innerHTML = `👥 工作小組登入`;
-        hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-indigo-50 border border-indigo-100 text-indigo-800 leading-relaxed";
-        hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用（如 Yahoo/教育局信箱），請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
+        if (title) title.innerHTML = `👥 工作小組登入`;
+        if (hint) {
+          hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-indigo-50 border border-indigo-100 text-indigo-800 leading-relaxed";
+          hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用（如 Yahoo/教育局信箱），請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
+        }
       } else {
-        title.innerHTML = `🔐 後臺管理登入`;
-        hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-emerald-50 border border-emerald-100 text-emerald-800 leading-relaxed";
-        hint.innerHTML = `🛡️ <strong>系統管理員入口</strong>：可進行每日登記儲存、AI 菜單維護與系統權限設定。`;
+        if (title) title.innerHTML = `🔐 後臺管理登入`;
+        if (hint) {
+          hint.className = "text-xs p-2.5 rounded-lg mb-4 bg-emerald-50 border border-emerald-100 text-emerald-800 leading-relaxed";
+          hint.innerHTML = `🛡️ <strong>系統管理員入口</strong>：可進行每日登記儲存、AI 菜單維護與系統權限設定。`;
+        }
       }
 
-      modal.classList.remove('hidden');
+      modal?.classList.remove('hidden');
       if (emailInput && !emailInput.value) {
         setTimeout(() => emailInput.focus(), 150);
       }
     };
 
-    window.closeLoginModal = () => document.getElementById('login-modal').classList.add('hidden');
+    window.closeLoginModal = () => document.getElementById('login-modal')?.classList.add('hidden');
     
-    // Google 快速登入
     window.loginWithGoogle = async () => { 
       try { 
         await signInWithPopup(auth, new GoogleAuthProvider()); 
@@ -1171,13 +1244,12 @@
       } 
     };
 
-    // 任何 Email 密碼登入
     window.loginWithEmail = async () => { 
-      const email = document.getElementById('login-email').value.trim();
-      const pwd = document.getElementById('login-password').value;
+      const email = document.getElementById('login-email')?.value.trim();
+      const pwd = document.getElementById('login-password')?.value;
       if (!email || !pwd) {
-        if (!email) document.getElementById('login-email').focus();
-        else document.getElementById('login-password').focus();
+        if (!email) document.getElementById('login-email')?.focus();
+        else document.getElementById('login-password')?.focus();
         return window.showNotice('請填寫完整', '請先輸入電子信箱與密碼！', false);
       }
       try { 
@@ -1194,23 +1266,22 @@
       } 
     };
 
-    // 任何 Email 首次設定密碼 (註冊)
     window.registerWithEmail = async () => {
       const emailEl = document.getElementById('login-email');
       const pwdEl = document.getElementById('login-password');
-      const email = emailEl.value.trim().toLowerCase();
-      const pwd = pwdEl.value;
+      const email = emailEl?.value.trim().toLowerCase();
+      const pwd = pwdEl?.value;
 
       if (!email || !email.includes('@')) {
-        emailEl.focus();
+        emailEl?.focus();
         return window.showNotice('請先輸入信箱', '請先於上方欄位填寫您的電子信箱（如 Yahoo、教育局信箱等）！', false);
       }
       if (!pwd) {
-        pwdEl.focus();
+        pwdEl?.focus();
         return window.showNotice('請輸入自訂密碼', '請在密碼欄位輸入您想要設定的密碼（至少 6 位數）！', false);
       }
       if (pwd.length < 6) {
-        pwdEl.focus();
+        pwdEl?.focus();
         return window.showNotice('密碼過短', '為了帳號安全，請自訂至少 6 位數以上的密碼！', false);
       }
 
@@ -1236,9 +1307,9 @@
     };
 
     window.sendPasswordReset = async () => {
-      const email = document.getElementById('login-email').value.trim();
+      const email = document.getElementById('login-email')?.value.trim();
       if (!email || !email.includes('@')) {
-        document.getElementById('login-email').focus();
+        document.getElementById('login-email')?.focus();
         return window.showNotice('請輸入信箱', '請在上方電子信箱欄位輸入您要重設密碼的 Email！', false);
       }
       try {
@@ -1264,16 +1335,19 @@
       }
 
       ['daily', 'menu', 'weekly', 'analysis', 'monthly', 'settings'].forEach(t => {
-        document.getElementById(`page-${t}`).classList.add('hidden');
-        document.getElementById(`tab-${t}`).className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
+        document.getElementById(`page-${t}`)?.classList.add('hidden');
+        const tabBtn = document.getElementById(`tab-${t}`);
+        if (tabBtn) tabBtn.className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
       });
-      document.getElementById(`page-${tabId}`).classList.remove('hidden');
-      document.getElementById(`tab-${tabId}`).className = "px-4 py-2 tab-active flex items-center gap-1.5";
+      document.getElementById(`page-${tabId}`)?.classList.remove('hidden');
+      const activeTabBtn = document.getElementById(`tab-${tabId}`);
+      if (activeTabBtn) activeTabBtn.className = "px-4 py-2 tab-active flex items-center gap-1.5";
 
       if (tabId === 'daily') window.loadDailyRecords();
       if (tabId === 'menu') { 
         if (window.calculatedCurrentWeek) {
-          document.getElementById('menu-week').value = window.calculatedCurrentWeek;
+          const mw = document.getElementById('menu-week');
+          if (mw) mw.value = window.calculatedCurrentWeek;
         }
         window.loadWeeklyMenu(); 
         window.updateKeyStatusUI();
@@ -1293,14 +1367,13 @@
           analysisInput.value = currentW;
         }
         window.updateKeyStatusUI();
-        window.loadOrRunAnalysis(false); // 預設優先讀取快取
+        window.loadOrRunAnalysis(false);
       }
       if (tabId === 'monthly') {
         const curYear = document.getElementById('sys-year')?.value || 115;
         const myInput = document.getElementById('monthly-year');
         if (myInput) myInput.value = curYear;
         
-        // 自動對應瀏覽當天所屬月份 (9~12 月)
         const currentMonth = new Date().getMonth() + 1;
         const selectMonth = document.getElementById('monthly-select-month');
         if (selectMonth && [9, 10, 11, 12].includes(currentMonth)) {
@@ -1325,23 +1398,23 @@
         const snap = await getDoc(doc(db, "system_config", "main"));
         if (snap.exists()) {
           const d = snap.data();
-          if (d.year) document.getElementById('sys-year').value = d.year;
-          if (d.semester) document.getElementById('sys-sem').value = d.semester;
-          if (d.startDate) document.getElementById('sys-start').value = d.startDate;
-          if (d.endDate) document.getElementById('sys-end').value = d.endDate;
+          if (d.year && document.getElementById('sys-year')) document.getElementById('sys-year').value = d.year;
+          if (d.semester && document.getElementById('sys-sem')) document.getElementById('sys-sem').value = d.semester;
+          if (d.startDate && document.getElementById('sys-start')) document.getElementById('sys-start').value = d.startDate;
+          if (d.endDate && document.getElementById('sys-end')) document.getElementById('sys-end').value = d.endDate;
           if (d.threshold !== undefined) {
-            window.systemThreshold = parseFloat(d.threshold);
-            document.getElementById('sys-threshold').value = window.systemThreshold;
+            window.systemThreshold = parseFloat(d.threshold) || 120;
+            if (document.getElementById('sys-threshold')) document.getElementById('sys-threshold').value = window.systemThreshold;
           }
         }
 
         const thLabel = document.getElementById('current-threshold-label');
         if (thLabel) thLabel.innerText = window.systemThreshold;
 
-        const startStr = document.getElementById('sys-start').value;
+        const startStr = document.getElementById('sys-start')?.value || '2026-08-31';
         if (startStr) {
           const parts = startStr.split('-');
-          const startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          const startDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
           const today = new Date();
           
           let currentWeek = 1;
@@ -1352,20 +1425,18 @@
           }
           window.calculatedCurrentWeek = currentWeek;
 
-          // 自動定位最新實際星期（0~6）
           let dayOfWeek = today.getDay();
           const selectWd = document.getElementById('daily-weekday');
           if (selectWd) {
             selectWd.value = String(dayOfWeek);
           }
 
-          // 全面預設停留在最新週次
-          const sysYearVal = document.getElementById('sys-year').value;
-          document.getElementById('daily-year').value = sysYearVal;
-          document.getElementById('daily-week').value = currentWeek;
-          document.getElementById('menu-week').value = currentWeek;
-          document.getElementById('weekly-select-week').value = currentWeek;
-          document.getElementById('analysis-week').value = currentWeek;
+          const sysYearVal = document.getElementById('sys-year')?.value || 115;
+          if (document.getElementById('daily-year')) document.getElementById('daily-year').value = sysYearVal;
+          if (document.getElementById('daily-week')) document.getElementById('daily-week').value = currentWeek;
+          if (document.getElementById('menu-week')) document.getElementById('menu-week').value = currentWeek;
+          if (document.getElementById('weekly-select-week')) document.getElementById('weekly-select-week').value = currentWeek;
+          if (document.getElementById('analysis-week')) document.getElementById('analysis-week').value = currentWeek;
           
           const myInput = document.getElementById('monthly-year');
           if (myInput) myInput.value = sysYearVal;
@@ -1378,20 +1449,22 @@
 
           window.refreshAllWeekLabels();
         }
-      } catch (e) { console.warn("載入行事曆設定失敗", e); }
+      } catch (e) { 
+        console.warn("載入行事曆設定失敗", e); 
+      }
     };
 
     window.saveSystemConfig = async () => {
       if (window.userRole !== 'admin') return;
       try {
-        const thresholdVal = parseFloat(document.getElementById('sys-threshold').value) || 120;
+        const thresholdVal = parseFloat(document.getElementById('sys-threshold')?.value) || 120;
         window.systemThreshold = thresholdVal;
 
         await setDoc(doc(db, "system_config", "main"), {
-          year: parseInt(document.getElementById('sys-year').value),
-          semester: parseInt(document.getElementById('sys-sem').value),
-          startDate: document.getElementById('sys-start').value,
-          endDate: document.getElementById('sys-end').value,
+          year: parseInt(document.getElementById('sys-year')?.value, 10),
+          semester: parseInt(document.getElementById('sys-sem')?.value, 10),
+          startDate: document.getElementById('sys-start')?.value,
+          endDate: document.getElementById('sys-end')?.value,
           threshold: thresholdVal,
           updatedAt: serverTimestamp()
         }, { merge: true });
@@ -1401,10 +1474,11 @@
 
         window.refreshAllWeekLabels();
         window.showNotice('設定成功', '📅 行事曆與異常警示門檻設定已儲存！');
-      } catch (e) { window.showNotice('儲存失敗', e.message, false); }
+      } catch (e) { 
+        window.showNotice('儲存失敗', e.message, false); 
+      }
     };
 
-    /* --- CSV Import --- */
     window.downloadCsvTemplate = () => {
       const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n" +
                          "115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,201,1500,24\n";
@@ -1439,13 +1513,13 @@
           for (let i = 1; i < lines.length; i++) {
             const cols = lines[i].split(',');
             if (cols.length >= 7) {
-              const year = parseInt(cols[0].trim());
-              const sem = parseInt(cols[1].trim());
-              const week = parseInt(cols[2].trim());
-              const weekday = parseInt(cols[3].trim());
+              const year = parseInt(cols[0].trim(), 10);
+              const sem = parseInt(cols[1].trim(), 10);
+              const week = parseInt(cols[2].trim(), 10);
+              const weekday = parseInt(cols[3].trim(), 10);
               const classId = cols[4].trim();
               const weight = parseFloat(cols[5].trim());
-              const count = parseInt(cols[6].trim());
+              const count = parseInt(cols[6].trim(), 10);
               
               const classInfo = window.CLASSES.find(c => c.id === classId);
               if (!isNaN(year) && !isNaN(week) && classInfo && !isNaN(weight)) {
@@ -1475,7 +1549,6 @@
       reader.readAsText(file);
     };
 
-    /* --- 班級預設人數管理 --- */
     window.loadClassSettings = async () => {
       try {
         const snap = await getDocs(collection(db, "class_settings"));
@@ -1487,8 +1560,10 @@
     };
     
     window.renderSettings = () => {
-      const isAdm = window.userRole === 'admin';
-      document.getElementById('settings-rows').innerHTML = window.CLASSES.map(c => `
+      const isAdm = (window.userRole === 'admin');
+      const setRows = document.getElementById('settings-rows');
+      if (!setRows) return;
+      setRows.innerHTML = window.CLASSES.map(c => `
         <tr class="hover:bg-slate-50">
           <td class="p-3 text-slate-500">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
           <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAdm ? '' : 'disabled'} class="border rounded px-2 py-1 w-24 text-right ${isAdm ? 'bg-white text-slate-800' : 'bg-slate-100 cursor-not-allowed text-slate-500'}"> 人</td>
@@ -1500,86 +1575,103 @@
       if (window.userRole !== 'admin') return;
       try {
         for (let c of window.CLASSES){
-          let v = parseInt(document.getElementById(`set-${c.id}`).value, 10);
+          let v = parseInt(document.getElementById(`set-${c.id}`)?.value, 10);
           c.defaultCount = v;
           await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
         }
         window.showNotice('更新成功', '🧑‍🤝‍🧑 班級人數設定更新成功！');
-      } catch (e){ window.showNotice('更新失敗', e.message, false); }
+      } catch (e){ 
+        window.showNotice('更新失敗', e.message, false); 
+      }
     };
 
-    /* --- Daily Entry --- */
     window.toggleSkipDay = () => {
-      const isSkipped = document.getElementById('daily-skip-cb').checked;
+      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
       const tableCon = document.getElementById('daily-table-container');
       const overlay = document.getElementById('skip-overlay');
       
       if (isSkipped) {
-        tableCon.classList.add('hidden');
-        overlay.classList.remove('hidden');
+        tableCon?.classList.add('hidden');
+        overlay?.classList.remove('hidden');
       } else {
-        tableCon.classList.remove('hidden');
-        overlay.classList.add('hidden');
+        tableCon?.classList.remove('hidden');
+        overlay?.classList.add('hidden');
       }
     };
     
     window.toggleRowSkip = (classId) => {
-      const isSkipped = document.getElementById(`skip-row-${classId}`).checked;
+      const isSkipped = document.getElementById(`skip-row-${classId}`)?.checked || false;
       const weightInput = document.getElementById(`w-${classId}`);
       const countInput = document.getElementById(`c-${classId}`);
       const perText = document.getElementById(`per-${classId}`);
       
       if (isSkipped) {
-        weightInput.value = '';
-        weightInput.disabled = true;
-        countInput.disabled = true;
-        weightInput.classList.add('bg-slate-100');
-        countInput.classList.add('bg-slate-100');
-        perText.innerText = '停餐';
-        perText.classList.replace('text-emerald-700', 'text-slate-400');
+        if (weightInput) {
+          weightInput.value = '';
+          weightInput.disabled = true;
+          weightInput.classList.add('bg-slate-100');
+        }
+        if (countInput) {
+          countInput.disabled = true;
+          countInput.classList.add('bg-slate-100');
+        }
+        if (perText) {
+          perText.innerText = '停餐';
+          perText.classList.replace('text-emerald-700', 'text-slate-400');
+        }
       } else {
-        weightInput.disabled = false;
-        countInput.disabled = false;
-        weightInput.classList.remove('bg-slate-100');
-        countInput.classList.remove('bg-slate-100');
-        perText.classList.replace('text-slate-400', 'text-emerald-700');
+        if (weightInput) {
+          weightInput.disabled = false;
+          weightInput.classList.remove('bg-slate-100');
+        }
+        if (countInput) {
+          countInput.disabled = false;
+          countInput.classList.remove('bg-slate-100');
+        }
+        if (perText) {
+          perText.classList.replace('text-slate-400', 'text-emerald-700');
+        }
         window.calcRow(classId);
       }
     };
 
     window.loadDailyRecords = async () => {
-      const year = parseInt(document.getElementById('daily-year').value);
-      const week = parseInt(document.getElementById('daily-week').value);
-      const weekday = parseInt(document.getElementById('daily-weekday').value);
+      const year = parseInt(document.getElementById('daily-year')?.value || 115, 10);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1, 10);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1, 10);
       
       window.refreshAllWeekLabels();
 
       const tbody = document.getElementById('daily-rows');
+      if (!tbody) return;
       tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">讀取中...</td></tr>';
       
       const hint = document.getElementById('today-menu-hint');
       try {
         const menuSnap = await getDoc(doc(db, "weekly_menus", `${year}_1_${week}`));
-        if (menuSnap.exists() && menuSnap.data().days[weekday]) {
+        if (menuSnap.exists() && menuSnap.data().days && menuSnap.data().days[weekday]) {
           const d = menuSnap.data().days[weekday];
-          hint.innerHTML = `🍱 <strong>今日菜單</strong>：${d.main}, ${d.dish1}, ${d.vege}, ${d.soup}`;
-        } else { hint.innerHTML = '🍱 今日無菜單紀錄'; }
+          if (hint) hint.innerHTML = `🍱 <strong>今日菜單</strong>：${d.main || '-'}, ${d.dish1 || '-'}, ${d.vege || '-'}, ${d.soup || '-'}`;
+        } else { 
+          if (hint) hint.innerHTML = '🍱 今日無菜單紀錄'; 
+        }
       } catch (e) {}
 
       try {
         const statusSnap = await getDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`));
+        const cb = document.getElementById('daily-skip-cb');
         if (statusSnap.exists() && statusSnap.data().isSkipped) {
-          document.getElementById('daily-skip-cb').checked = true;
+          if (cb) cb.checked = true;
           window.toggleSkipDay();
         } else {
-          document.getElementById('daily-skip-cb').checked = false;
+          if (cb) cb.checked = false;
           window.toggleSkipDay();
         }
 
         const snap = await getDocs(query(collection(db, "daily_records"), where("academicYear", "==", year), where("week", "==", week), where("weekday", "==", weekday)));
         let map = {}; snap.forEach(d => map[d.data().classId] = d.data());
         
-        const canEdit = window.userRole === 'admin';
+        const canEdit = (window.userRole === 'admin');
         tbody.innerHTML = window.CLASSES.map(c => {
           let rec = map[c.id] || {};
           let isClassSkipped = rec.isSkipped || false;
@@ -1587,7 +1679,7 @@
           let count = rec.eaterCount || c.defaultCount;
           let per = (w !== '' && count > 0) ? (w/count).toFixed(1) : '-';
           
-          let rowHtml = `
+          return `
             <tr>
               <td class="p-3">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
               <td class="p-3"><input type="number" id="w-${c.id}" value="${isClassSkipped ? '' : w}" oninput="window.calcRow('${c.id}')" ${!canEdit || isClassSkipped ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isClassSkipped ? 'bg-slate-100' : ''}"> g</td>
@@ -1597,39 +1689,41 @@
                 <input type="checkbox" id="skip-row-${c.id}" onchange="window.toggleRowSkip('${c.id}')" ${isClassSkipped ? 'checked' : ''} ${!canEdit ? 'disabled' : ''} class="w-4 h-4 text-rose-600 rounded cursor-pointer">
               </td>
             </tr>`;
-          return rowHtml;
         }).join('');
-      } catch (e) { tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-red-500">讀取失敗</td></tr>'; }
+      } catch (e) { 
+        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-red-500">讀取失敗</td></tr>'; 
+      }
     };
 
     window.calcRow = (id) => {
-      let w = parseFloat(document.getElementById(`w-${id}`).value);
-      let c = parseInt(document.getElementById(`c-${id}`).value);
-      document.getElementById(`per-${id}`).innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
+      let w = parseFloat(document.getElementById(`w-${id}`)?.value);
+      let c = parseInt(document.getElementById(`c-${id}`)?.value, 10);
+      const perEl = document.getElementById(`per-${id}`);
+      if (perEl) perEl.innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
     };
 
     window.saveAllDailyRecords = async () => {
       if (window.userRole !== 'admin') return;
-      const year = parseInt(document.getElementById('daily-year').value);
-      const week = parseInt(document.getElementById('daily-week').value);
-      const weekday = parseInt(document.getElementById('daily-weekday').value);
-      const isSkipped = document.getElementById('daily-skip-cb').checked;
+      const year = parseInt(document.getElementById('daily-year')?.value || 115, 10);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1, 10);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1, 10);
+      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
 
       try {
         await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
         
         if (!isSkipped) {
           let promises = window.CLASSES.map(async c => {
-            const isRowSkipped = document.getElementById(`skip-row-${c.id}`).checked;
+            const isRowSkipped = document.getElementById(`skip-row-${c.id}`)?.checked || false;
             if (isRowSkipped) {
                await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
                 isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
               }, { merge: true });
             } else {
-              let wStr = document.getElementById(`w-${c.id}`).value;
+              let wStr = document.getElementById(`w-${c.id}`)?.value;
               if (wStr === '') return;
-              let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`).value);
+              let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`)?.value, 10);
               let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
@@ -1640,20 +1734,25 @@
           await Promise.all(promises); 
         }
         window.showNotice('儲存成功', isSkipped ? '🚫 已將本日設定為停餐/免秤重並儲存！' : '✅ 廚餘數據儲存成功！');
-      } catch (e) { window.showNotice('儲存失敗', e.message, false); }
+      } catch (e) { 
+        window.showNotice('儲存失敗', e.message, false); 
+      }
     };
 
-    /* --- Menu Mgmt & AI Recognition --- */
     window.loadWeeklyMenu = async () => {
-      const y = parseInt(document.getElementById('daily-year').value) || 115;
-      const w = parseInt(document.getElementById('menu-week').value) || 1;
+      const y = parseInt(document.getElementById('daily-year')?.value, 10) || 115;
+      const w = parseInt(document.getElementById('menu-week')?.value, 10) || 1;
       window.refreshAllWeekLabels();
 
       let menu = {};
-      try { const snap = await getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)); if(snap.exists()) menu = snap.data().days || {}; } catch(e){}
+      try { 
+        const snap = await getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)); 
+        if(snap.exists()) menu = snap.data().days || {}; 
+      } catch(e){}
       
-      const isAdmin = window.userRole === 'admin';
+      const isAdmin = (window.userRole === 'admin');
       const container = document.getElementById('menu-days-container');
+      if (!container) return;
 
       if (!isAdmin) {
         container.innerHTML = WEEKDAYS.map(day => {
@@ -1701,13 +1800,16 @@
 
     window.saveWeeklyMenu = async () => {
       if (window.userRole !== 'admin') return;
-      const y = parseInt(document.getElementById('daily-year').value), w = parseInt(document.getElementById('menu-week').value);
+      const y = parseInt(document.getElementById('daily-year')?.value, 10);
+      const w = parseInt(document.getElementById('menu-week')?.value, 10);
       let days = {};
       WEEKDAYS.forEach(day => {
         days[day.d] = {
-          main: document.getElementById(`m-${day.d}-main`).value, dish1: document.getElementById(`m-${day.d}-d1`).value,
-          dish2: document.getElementById(`m-${day.d}-d2`).value, vege: document.getElementById(`m-${day.d}-vege`).value,
-          soup: document.getElementById(`m-${day.d}-s`).value
+          main: document.getElementById(`m-${day.d}-main`)?.value || '', 
+          dish1: document.getElementById(`m-${day.d}-d1`)?.value || '',
+          dish2: document.getElementById(`m-${day.d}-d2`)?.value || '', 
+          vege: document.getElementById(`m-${day.d}-vege`)?.value || '',
+          soup: document.getElementById(`m-${day.d}-s`)?.value || ''
         };
       });
       try { 
@@ -1718,16 +1820,20 @@
       }
     };
 
-    document.getElementById('menu-image-upload').addEventListener('change', function(e) {
-      if (e.target.files && e.target.files[0]) {
-        let reader = new FileReader();
-        reader.onload = function(ev) {
-          document.getElementById('menu-image-preview').src = ev.target.result;
-          document.getElementById('image-preview-container').classList.remove('hidden');
-        };
-        reader.readAsDataURL(e.target.files[0]);
-      }
-    });
+    const fileInputEl = document.getElementById('menu-image-upload');
+    if (fileInputEl) {
+      fileInputEl.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+          let reader = new FileReader();
+          reader.onload = function(ev) {
+            const prev = document.getElementById('menu-image-preview');
+            if (prev) prev.src = ev.target.result;
+            document.getElementById('image-preview-container')?.classList.remove('hidden');
+          };
+          reader.readAsDataURL(e.target.files[0]);
+        }
+      });
+    }
 
     window.recognizeMenuImage = async () => {
       const apiKey = window.cloudGeminiKey;
@@ -1735,12 +1841,8 @@
       const btn = document.getElementById('btn-ai-recognize');
       const hint = document.getElementById('ai-status-hint');
       
-      if (!apiKey) {
-        return window.showNotice('尚未設定 API 金鑰', '請先至「⚙ 系統與匯入設定」儲存集中管理之 Gemini API Key！', false);
-      }
-      if (!fileInput.files || fileInput.files.length === 0) {
-        return window.showNotice('提示', '請先選擇菜單圖檔', false);
-      }
+      if (!apiKey) return window.showNotice('尚未設定 API 金鑰', '請先至「⚙ 系統與匯入設定」儲存集中管理之 Gemini API Key！', false);
+      if (!fileInput.files || fileInput.files.length === 0) return window.showNotice('提示', '請先選擇菜單圖檔', false);
 
       btn.innerText = "⏳ AI 圖片辨識中..."; btn.disabled = true;
       if (hint) hint.innerText = "正在連線 Google Gemini 模組解析菜單文字...";
@@ -1817,11 +1919,11 @@
 
         WEEKDAYS.forEach(day => {
           if (menuJson[day.d]) {
-            document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
-            document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
-            document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
-            document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
-            document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
+            if (document.getElementById(`m-${day.d}-main`)) document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
+            if (document.getElementById(`m-${day.d}-d1`)) document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
+            if (document.getElementById(`m-${day.d}-d2`)) document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
+            if (document.getElementById(`m-${day.d}-vege`)) document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
+            if (document.getElementById(`m-${day.d}-s`)) document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
           }
         });
         if (hint) hint.innerText = `🎉 辨識成功！目前呼叫集中模型：${activeModel}`;
@@ -1835,10 +1937,9 @@
       }
     };
 
-    /* --- Reports & Analysis --- */
     window.calcWeeklyReport = async () => {
-      const y = parseInt(document.getElementById('daily-year').value);
-      const w = parseInt(document.getElementById('weekly-select-week').value);
+      const y = parseInt(document.getElementById('daily-year')?.value, 10) || 115;
+      const w = parseInt(document.getElementById('weekly-select-week')?.value, 10) || 1;
       window.refreshAllWeekLabels();
 
       const [cur, prv] = await Promise.all([
@@ -1848,13 +1949,13 @@
       const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
 
       let stats = window.CLASSES.map(c => {
-        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
-        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount, 10) || 0) > 0);
+        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount, 10) || 0) > 0);
         
         let tw = cc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
-        let tc = cc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+        let tc = cc.reduce((s,l)=>s+(parseInt(l.eaterCount, 10)||0), 0);
         let pw = pc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
-        let pco = pc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+        let pco = pc.reduce((s,l)=>s+(parseInt(l.eaterCount, 10)||0), 0);
         
         let per = tc>0 ? Number((tw/tc).toFixed(1)) : null;
         let pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
@@ -1868,24 +1969,33 @@
         if (s.length>0) champs[stg] = s[0];
       });
 
-      document.getElementById('weekly-cards').innerHTML = ['低年級','中年級','高年級'].map(stg => `
-        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
-          <div class="text-xs font-bold text-emerald-800">🏆 ${stg}週冠軍</div>
-          <div class="text-xl font-bold mt-1">${champs[stg] ? champs[stg].name : '-'}</div>
-          <div class="text-sm text-emerald-600">${champs[stg] ? champs[stg].per+' g/人' : ''}</div>
-        </div>`).join('');
+      const cardsContainer = document.getElementById('weekly-cards');
+      if (cardsContainer) {
+        cardsContainer.innerHTML = ['低年級','中年級','高年級'].map(stg => `
+          <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
+            <div class="text-xs font-bold text-emerald-800">🏆 ${stg}週冠軍</div>
+            <div class="text-xl font-bold mt-1">${champs[stg] ? champs[stg].name : '-'}</div>
+            <div class="text-sm text-emerald-600">${champs[stg] ? champs[stg].per+' g/人' : ''}</div>
+          </div>`).join('');
+      }
       
       let progs = stats.filter(x=>x.isProg).sort((a,b)=>b.dec-a.dec);
-      document.getElementById('weekly-progress-box').innerHTML = progs.length ? `<b>🌟 進步獎(減幅≥5%)：</b>` + progs.map(p=>`<span class="ml-2 bg-white px-2 py-1 rounded text-amber-800 text-xs shadow-sm">${p.name} (-${p.dec}%)</span>`).join('') : '本週尚無進步獎。';
+      const progBox = document.getElementById('weekly-progress-box');
+      if (progBox) {
+        progBox.innerHTML = progs.length ? `<b>🌟 進步獎(減幅≥5%)：</b>` + progs.map(p=>`<span class="ml-2 bg-white px-2 py-1 rounded text-amber-800 text-xs shadow-sm">${p.name} (-${p.dec}%)</span>`).join('') : '本週尚無進步獎。';
+      }
 
-      document.getElementById('weekly-table-body').innerHTML = stats.map(s => {
-        let isC = Object.values(champs).some(c=>c&&c.id===s.id);
-        return `<tr class="${isC?'bg-emerald-50':''}">
-          <td class="p-3">${s.name}</td><td class="p-3 text-right">${s.tw}</td><td class="p-3 text-right">${s.tc}</td>
-          <td class="p-3 text-right font-bold text-emerald-700">${s.per||'-'}</td><td class="p-3 text-right text-slate-400">${s.pPer||'-'}</td>
-          <td class="p-3 text-right ${s.dec>0?'text-blue-600':''}">${s.dec||'-'}%</td><td class="p-3 text-center">${isC?'🏆':''}${s.isProg?'🌟':''}</td>
-        </tr>`;
-      }).join('');
+      const tableBody = document.getElementById('weekly-table-body');
+      if (tableBody) {
+        tableBody.innerHTML = stats.map(s => {
+          let isC = Object.values(champs).some(c=>c&&c.id===s.id);
+          return `<tr class="${isC?'bg-emerald-50':''}">
+            <td class="p-3">${s.name}</td><td class="p-3 text-right">${s.tw}</td><td class="p-3 text-right">${s.tc}</td>
+            <td class="p-3 text-right font-bold text-emerald-700">${s.per||'-'}</td><td class="p-3 text-right text-slate-400">${s.pPer||'-'}</td>
+            <td class="p-3 text-right ${s.dec>0?'text-blue-600':''}">${s.dec||'-'}%</td><td class="p-3 text-center">${isC?'🏆':''}${s.isProg?'🌟':''}</td>
+          </tr>`;
+        }).join('');
+      }
       window.currWeekData = { w, champs, progs };
     };
 
@@ -1909,7 +2019,7 @@
       document.body.removeChild(textArea);
     };
 
-    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
+    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 (Stable01 經典架構) --- */
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
       const candidateModels = [
@@ -1973,8 +2083,8 @@
 
     /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構，支援留言持久化) --- */
     window.loadOrRunAnalysis = async (forceReRun = false) => {
-      const y = parseInt(document.getElementById('daily-year').value);
-      const w = parseInt(document.getElementById('analysis-week').value);
+      const y = parseInt(document.getElementById('daily-year')?.value || 115, 10);
+      const w = parseInt(document.getElementById('analysis-week')?.value || 1, 10);
       const con = document.getElementById('analysis-results-container');
       const btn = document.getElementById('btn-run-analysis');
       const btnText = document.getElementById('analysis-btn-text');
@@ -1986,9 +2096,8 @@
 
       const cacheDocId = `${y}_1_${w}`;
 
-      // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
       if (!forceReRun) {
-        con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
+        if (con) con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
         try {
           const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
           if (cacheSnap.exists() && cacheSnap.data().days) {
@@ -2012,11 +2121,10 @@
         }
       }
 
-      // 2. 若無快取或管理者點擊「重新執行」，則啟動運算
       if (btn) { btn.disabled = true; }
       if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
       if (hint) { hint.innerText = "正在執行即時運算..."; }
-      con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
+      if (con) con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
       
       try {
         const [dSnap, mSnap, oldCacheSnap] = await Promise.all([
@@ -2031,13 +2139,13 @@
         let analysisDayResults = {};
 
         for (const day of WEEKDAYS) {
-          let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+          let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount, 10) || 0) > 0);
           
           let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
           let hasRecordedData = validClasses.length > 0;
 
           let tw = validClasses.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
-          let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+          let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount, 10)||0), 0);
           let per = (hasRecordedData && tc > 0) ? Number((tw/tc).toFixed(1)) : 0;
           let menu = menus[day.d] || null;
           let hasMenu = menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup);
@@ -2049,7 +2157,7 @@
             alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
 
             let spikeClasses = validClasses.map(l => {
-              let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
+              let p = (parseInt(l.eaterCount, 10) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount, 10)).toFixed(1)) : 0;
               return { className: l.className, stage: l.stage, per: p };
             }).filter(c => c.per > threshold);
 
@@ -2060,7 +2168,7 @@
             const calcStageAvg = (stg) => {
               let sl = validClasses.filter(l => l.stage === stg);
               let wSum = sl.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
-              let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+              let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount, 10) || 0), 0);
               return cSum > 0 ? Number((wSum / cSum).toFixed(1)) : 0;
             };
 
@@ -2068,7 +2176,6 @@
             const midAvg = calcStageAvg('中年級');
             const highAvg = calcStageAvg('高年級');
 
-            // 呼叫雲端 Gemini LLM 深度診斷 (首選 gemini-3.8-flash)
             if (window.cloudGeminiKey) {
               try {
                 const aiResult = await window.callGeminiMenuDiagnosis(
@@ -2088,7 +2195,6 @@
               cloudErrorReason = "系統尚未設定集中 Gemini API Key";
             }
 
-            // 在地專家啟發式推論引擎保底
             if (!aiDeduction) {
               let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
               let specificAdvice = '';
@@ -2133,7 +2239,6 @@
             }
           }
 
-          // 保留舊有的留言陣列，防止 AI 重算覆蓋已存在的討論串
           const oldNotes = (oldDays[day.d] && Array.isArray(oldDays[day.d].notes)) ? oldDays[day.d].notes : [];
 
           analysisDayResults[day.d] = {
@@ -2144,7 +2249,6 @@
           };
         }
 
-        // 3. 儲存快取至 Firestore (menu_diagnoses)
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -2170,12 +2274,11 @@
           if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
         }
 
-        // 4. 渲染畫面
         window.currentAnalysisDaysData = analysisDayResults;
         window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
 
       } catch (err) {
-        con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
+        if (con) con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
       } finally {
         if (btn) { btn.disabled = false; }
         if (btnText) {
@@ -2187,6 +2290,8 @@
     /* --- 渲染卡片 HTML 函式（含客觀事由與多人討論串） --- */
     window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
       const con = document.getElementById('analysis-results-container');
+      if (!con) return;
+
       const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
       
       const currentUserName = (window.userRole === 'admin')
@@ -2275,7 +2380,6 @@
             <div class="text-[11px] text-slate-400 mb-2 italic">尚無客觀事由備註，歡迎授權同仁補述說明。</div>
           `;
 
-          // 下方輸入區（單列精簡文字框）
           const inputAreaHtml = isAuthorized ? `
             <div class="flex gap-2 items-center mt-2">
               <input type="text" id="note-input-${day.d}" placeholder="填寫補述意見（例如：本日辦理運動競賽、校外參訪、特定年段停餐等）..." class="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-1.5 h-9 bg-white text-slate-800 focus:outline-emerald-500 shadow-sm">
@@ -2324,7 +2428,6 @@
       con.innerHTML = cardsHtml;
     };
 
-    /* --- 新增客觀事由留言 --- */
     window.addDayObjectiveNote = async (dayNum, weekNum) => {
       const isAuthorized = (window.userRole === 'admin' || window.userRole === 'staff');
       if (!isAuthorized) return window.showNotice('權限不足', '只有管理員或工作小組可填寫補充事由！', false);
@@ -2377,11 +2480,9 @@
 
         await setDoc(docRef, data, { merge: true });
 
-        // 同步更新記憶體快取
         if (!window.currentAnalysisDaysData[dayNum]) window.currentAnalysisDaysData[dayNum] = {};
         window.currentAnalysisDaysData[dayNum].notes = data.days[dayNum].notes;
 
-        // 即時重繪卡片
         window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', weekNum);
 
         if (input) input.value = '';
@@ -2394,7 +2495,6 @@
       }
     };
 
-    /* --- 就地單行編輯留言 --- */
     window.editDayNote = (dayNum, weekNum, noteIdx) => {
       const contentEl = document.getElementById(`comment-content-${dayNum}-${noteIdx}`);
       const actionsEl = document.getElementById(`comment-actions-${dayNum}-${noteIdx}`);
@@ -2423,7 +2523,6 @@
       }
     };
 
-    /* --- 儲存已修改的留言 --- */
     window.saveEditedDayNote = async (dayNum, weekNum, noteIdx) => {
       const editInput = document.getElementById(`inline-edit-input-${dayNum}-${noteIdx}`);
       const newText = (editInput?.value || '').trim();
@@ -2450,7 +2549,6 @@
 
           await setDoc(docRef, data, { merge: true });
 
-          // 同步快取並重繪
           window.currentAnalysisDaysData[dayNum].notes = data.days[dayNum].notes;
           window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', weekNum);
 
@@ -2461,7 +2559,6 @@
       }
     };
 
-    /* --- 刪除留言（二次確認） --- */
     window.deleteDayNote = async (dayNum, weekNum, noteIdx) => {
       const ok = await window.confirmAction('確定要刪除這筆客觀事由留言紀錄嗎？（刪除後無法復原）');
       if (!ok) return;
@@ -2481,7 +2578,6 @@
 
           await setDoc(docRef, data, { merge: true });
 
-          // 同步快取並重繪
           window.currentAnalysisDaysData[dayNum].notes = data.days[dayNum].notes;
           window.renderAnalysisCards(window.currentAnalysisDaysData, true, '', weekNum);
 
@@ -2492,18 +2588,17 @@
       }
     };
 
-    /* --- 每月榮譽榜計算 (前端精確過濾) --- */
     window.calcMonthlyReport = async () => {
       const yearInput = document.getElementById('monthly-year') || document.getElementById('daily-year') || document.getElementById('sys-year');
-      const y = parseInt(yearInput?.value) || 115;
-      const m = parseInt(document.getElementById('monthly-select-month').value);
+      const y = parseInt(yearInput?.value, 10) || 115;
+      const m = parseInt(document.getElementById('monthly-select-month')?.value, 10) || 9;
       
       const tbody = document.getElementById('monthly-table-body');
       const cards = document.getElementById('monthly-cards');
       const hint = document.getElementById('monthly-status-hint');
 
-      tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">⏳ 正在彙整全月數據，請稍候...</td></tr>';
-      cards.innerHTML = '';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">⏳ 正在彙整全月數據，請稍候...</td></tr>';
+      if (cards) cards.innerHTML = '';
       if (hint) hint.innerText = `正在讀取 ${y} 學年度資料...`;
 
       let weekRanges = { 9: [1, 4], 10: [5, 8], 11: [9, 12], 12: [13, 17] };
@@ -2517,7 +2612,7 @@
 
         const allLogs = snap.docs.map(d => d.data());
         const logs = allLogs.filter(d => {
-          const wk = parseInt(d.week);
+          const wk = parseInt(d.week, 10);
           return !isNaN(wk) && wk >= wStart && wk <= wEnd;
         });
 
@@ -2526,23 +2621,27 @@
         }
 
         if (logs.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">
-            ℹ️ 目前在 <b>${y} 學年度 第 ${wStart} ~ ${wEnd} 週</b> 尚未查詢到有效的秤重登記資料。<br>
-            <span class="text-xs text-slate-400 mt-1 block">（請至「1. 每日登記」檢查該學年度與週次是否已「☁️ 儲存上傳」數據）</span>
-          </td></tr>`;
-          cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
-            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
-              <div class="text-xs font-bold text-slate-500">👑 ${m}月 ${stg}惜食總冠軍</div>
-              <div class="text-xl font-bold mt-1 text-slate-400">-</div>
-              <div class="text-sm font-semibold text-slate-400">尚無資料</div>
-            </div>`).join('');
+          if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">
+              ℹ️ 目前在 <b>${y} 學年度 第 ${wStart} ~ ${wEnd} 週</b> 尚未查詢到有效的秤重登記資料。<br>
+              <span class="text-xs text-slate-400 mt-1 block">（請至「1. 每日登記」檢查該學年度與週次是否已「☁️ 儲存上傳」數據）</span>
+            </td></tr>`;
+          }
+          if (cards) {
+            cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+              <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
+                <div class="text-xs font-bold text-slate-500">👑 ${m}月 ${stg}惜食總冠軍</div>
+                <div class="text-xl font-bold mt-1 text-slate-400">-</div>
+                <div class="text-sm font-semibold text-slate-400">尚無資料</div>
+              </div>`).join('');
+          }
           return;
         }
 
         let stats = window.CLASSES.map(c => {
-          let classLogs = logs.filter(l => l.classId === c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+          let classLogs = logs.filter(l => l.classId === c.id && !l.isSkipped && (parseInt(l.eaterCount, 10) || 0) > 0);
           let tw = classLogs.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
-          let tc = classLogs.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+          let tc = classLogs.reduce((s, l) => s + (parseInt(l.eaterCount, 10) || 0), 0);
           let per = tc > 0 ? Number((tw / tc).toFixed(1)) : null;
           return { ...c, tw: tw.toFixed(0), tc, per };
         });
@@ -2553,28 +2652,32 @@
           if (s.length > 0) champs[stg] = s[0];
         });
 
-        cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
-          <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center shadow-sm">
-            <div class="text-xs font-bold text-indigo-800">👑 ${m}月 ${stg}惜食總冠軍</div>
-            <div class="text-xl font-bold mt-1 text-slate-800">${champs[stg] ? champs[stg].name : '-'}</div>
-            <div class="text-sm font-semibold text-indigo-600">${champs[stg] ? champs[stg].per + ' g/人' : '無有效人均'}</div>
-          </div>`).join('');
+        if (cards) {
+          cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+            <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center shadow-sm">
+              <div class="text-xs font-bold text-indigo-800">👑 ${m}月 ${stg}惜食總冠軍</div>
+              <div class="text-xl font-bold mt-1 text-slate-800">${champs[stg] ? champs[stg].name : '-'}</div>
+              <div class="text-sm font-semibold text-indigo-600">${champs[stg] ? champs[stg].per + ' g/人' : '無有效人均'}</div>
+            </div>`).join('');
+        }
 
-        tbody.innerHTML = stats.map(s => {
-          let isC = Object.values(champs).some(c => c && c.id === s.id);
-          return `
-            <tr class="${isC ? 'bg-indigo-50/50 font-semibold' : 'hover:bg-slate-50'}">
-              <td class="p-3">${s.name}</td>
-              <td class="p-3 text-right">${s.tw}</td>
-              <td class="p-3 text-right">${s.tc}</td>
-              <td class="p-3 text-right font-bold text-indigo-700">${s.per !== null ? s.per : '-'}</td>
-              <td class="p-3 text-center">${isC ? '👑 月冠軍' : '-'}</td>
-            </tr>`;
-        }).join('');
+        if (tbody) {
+          tbody.innerHTML = stats.map(s => {
+            let isC = Object.values(champs).some(c => c && c.id === s.id);
+            return `
+              <tr class="${isC ? 'bg-indigo-50/50 font-semibold' : 'hover:bg-slate-50'}">
+                <td class="p-3">${s.name}</td>
+                <td class="p-3 text-right">${s.tw}</td>
+                <td class="p-3 text-right">${s.tc}</td>
+                <td class="p-3 text-right font-bold text-indigo-700">${s.per !== null ? s.per : '-'}</td>
+                <td class="p-3 text-center">${isC ? '👑 月冠軍' : '-'}</td>
+              </tr>`;
+          }).join('');
+        }
 
       } catch (err) {
         console.error("每月榮譽榜計算異常:", err);
-        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">❌ 彙整數據失敗：${err.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">❌ 彙整數據失敗：${err.message}</td></tr>`;
         if (hint) hint.innerText = '讀取發生錯誤';
       }
     };
