@@ -2090,6 +2090,7 @@
 
 /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構，維持 Stable01 原架構) --- */
     window.loadOrRunAnalysis = async (forceReRun = false) => {
+  	  window.refreshAllWeekLabels(); // 👈 【lee edit】
       const y = parseInt(document.getElementById('daily-year').value);
       const w = parseInt(document.getElementById('analysis-week').value);
       const con = document.getElementById('analysis-results-container');
