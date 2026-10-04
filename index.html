@@ -23,9 +23,9 @@
     <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
-          🌱 溪洲國小午餐智慧惜食與廚餘追蹤系統 V4.2
+          🌱 溪洲國小午餐智慧惜食與廚餘追蹤系統 V4.3
         </h1>
-        <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・彈性秤重配置・動態門檻設定・雲端權限控管・Gemini 智能診斷快取</p>
+        <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・彈性秤重配置・餐桶自動扣重・動態門檻設定・雲端權限控管・Gemini 智能診斷快取</p>
       </div>
       <div class="flex items-center gap-2.5 no-print flex-wrap">
         <!-- 身分狀態標籤 -->
@@ -124,6 +124,15 @@
         </div>
       </div>
 
+      <!-- 空桶扣重啟用狀態提示列 -->
+      <div id="daily-tare-hint-bar" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 px-3.5 text-xs text-emerald-800 font-semibold flex items-center justify-between shadow-sm">
+        <div class="flex items-center gap-1.5">
+          <span>🥣</span>
+          <span id="daily-tare-hint-text">已啟用餐桶自動扣重功能（輸入含桶總重後，系統自動扣除空桶重 1055g 計算實際淨重）</span>
+        </div>
+        <span class="text-[11px] bg-white text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded font-mono">去皮模式</span>
+      </div>
+
       <!-- 非秤重星期提示橫幅 -->
       <div id="non-active-day-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 font-medium flex items-center gap-2 shadow-sm">
         <span>ℹ️</span>
@@ -137,7 +146,7 @@
             <tr>
               <th class="p-3">年段</th>
               <th class="p-3">班級</th>
-              <th class="p-3">廚餘重量 (g)</th>
+              <th class="p-3" id="th-weight-header">廚餘重量 (g)</th>
               <th class="p-3">用餐人數 (人)</th>
               <th class="p-3 text-right">今日人均 (g/人)</th>
               <th class="p-3 text-center text-rose-600">班級停餐</th>
@@ -267,11 +276,11 @@
           <span class="text-sm font-semibold">分析週次：第</span>
           <input type="number" id="analysis-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-indigo-800" value="1" min="1" onchange="window.loadOrRunAnalysis(false)">
           <span class="text-sm font-semibold">週</span>
-          <span id="analysis-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
+          <span id="analysis-week-range" class="text-xs text-indigo-700 bg-emerald-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
           
           <!-- 主要診斷 / 重新產生按鈕 -->
           <button onclick="window.loadOrRunAnalysis(true)" id="btn-run-analysis" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition flex items-center gap-1.5">
-          <span id="analysis-btn-text">🚀 啟動菜單與廚餘關聯診斷</span>
+            <span id="analysis-btn-text">🚀 啟動菜單與廚餘關聯診斷</span>
           </button>
           
           <span id="analysis-engine-badge" class="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">
@@ -414,6 +423,35 @@
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="rule-classes-container"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- 【區塊 1.7】🥣 餐桶空桶扣重設定 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex flex-wrap justify-between items-center mb-3 border-b pb-2 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-1.5">
+              <span>🥣 餐桶空桶扣重設定</span>
+            </h2>
+            <p class="text-xs text-slate-500">啟用後，每日登記時輸入「含桶總重」，系統將自動扣除空桶重量計算實際廚餘淨重，現場磅秤無需手動歸零。</p>
+          </div>
+          <button onclick="window.saveTareWeightConfig()" id="tare-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+            🔒 需登入
+          </button>
+        </div>
+        <div class="max-w-md space-y-3">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer bg-slate-50 p-2.5 rounded-lg border">
+            <input type="checkbox" id="sys-tare-enabled" class="w-4 h-4 text-emerald-600 rounded">
+            <span>啟用系統自動扣除空桶重量 (磅秤不需手動去皮)</span>
+          </label>
+          <div class="flex items-center gap-3">
+            <label class="text-xs font-semibold text-slate-600 shrink-0">餐桶空桶預設重量：</label>
+            <div class="flex items-center gap-1.5">
+              <input type="number" id="sys-tare-weight" value="1055" min="0" max="5000" class="border border-slate-300 rounded px-2.5 py-1 text-xs w-28 text-right bg-slate-50 font-bold text-slate-800 focus:bg-white focus:outline-emerald-500">
+              <span class="text-xs text-slate-500 font-medium">公克 (g)</span>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400">說明：啟用後，若輸入 3500g 且空桶為 1055g，系統將以 2445g 作為實際廚餘量記錄與評比。</p>
         </div>
       </div>
 
@@ -561,7 +599,7 @@
       </div>
 
       <div id="line-browser-alert" class="hidden text-[11px] p-2.5 rounded-lg mb-3 bg-amber-50 border border-amber-200 text-amber-800 leading-relaxed">
-        ⚠️️ <strong>您目前正於通訊軟體內建瀏覽器開啟</strong><br>
+        ⚠ <strong>您目前正於通訊軟體內建瀏覽器開啟</strong><br>
         Google 官方政策已限制在 App 內進行彈窗授權。<br>
         建議點擊右下角使用 <strong>Safari / Chrome</strong> 開啟，或直接使用下方 <strong>Email / 自訂密碼</strong> 登入！
       </div>
@@ -669,6 +707,12 @@
     window.ACTIVE_WEEKDAYS = [1, 2, 4, 5];
     window.ACTIVE_CLASS_IDS = ['201', '202', '301', '302', '401', '402', '501', '502', '601', '602'];
 
+    // 🥣 餐桶空桶扣重配置全域變數
+    window.TARE_CONFIG = {
+      enabled: false,
+      tareWeight: 1055
+    };
+
     window.CLASSES = [
       { id: '101', name: '一年甲班', stage: '低年級', defaultCount: 22 }, { id: '102', name: '一年乙班', stage: '低年級', defaultCount: 21 },
       { id: '201', name: '二年甲班', stage: '低年級', defaultCount: 24 }, { id: '202', name: '二年乙班', stage: '低年級', defaultCount: 23 },
@@ -686,7 +730,7 @@
     window.pendingPermissionRole = 'admin';
 
     /* ========================================================
-       🛡️ 全域函式優先提升宣告（Hoisting 安全防護）
+       🛡️️ 全域函式優先提升宣告（Hoisting 安全防護）
        ======================================================== */
 
     window.getExactDateForWeekDay = (weekNum, weekday) => {
@@ -1011,11 +1055,94 @@
       }
     };
 
+    /* --- 🥣 餐桶空桶扣重設定模組 --- */
+    window.loadTareWeightConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_config", "tare_weight"));
+        if (snap.exists()) {
+          const d = snap.data();
+          window.TARE_CONFIG.enabled = Boolean(d.enabled);
+          if (d.tareWeight !== undefined && !isNaN(parseInt(d.tareWeight, 10))) {
+            window.TARE_CONFIG.tareWeight = Math.max(0, parseInt(d.tareWeight, 10));
+          }
+        }
+      } catch (e) {
+        console.warn("載入空桶扣重設定失敗，使用預設值:", e);
+      }
+      window.renderTareWeightUI();
+    };
+
+    window.renderTareWeightUI = () => {
+      const cb = document.getElementById('sys-tare-enabled');
+      const input = document.getElementById('sys-tare-weight');
+      const isAdm = (window.userRole === 'admin');
+
+      if (cb) {
+        cb.checked = window.TARE_CONFIG.enabled;
+        cb.disabled = !isAdm;
+      }
+      if (input) {
+        input.value = window.TARE_CONFIG.tareWeight;
+        input.disabled = !isAdm;
+      }
+
+      const tareBanner = document.getElementById('daily-tare-hint-bar');
+      const tareText = document.getElementById('daily-tare-hint-text');
+      const thWeight = document.getElementById('th-weight-header');
+
+      if (window.TARE_CONFIG.enabled) {
+        if (tareBanner) tareBanner.classList.remove('hidden');
+        if (tareText) tareText.innerText = `已啟用餐桶自動扣重功能（輸入含桶總重後，系統自動扣除空桶重 ${window.TARE_CONFIG.tareWeight}g 計算實際淨重）`;
+        if (thWeight) thWeight.innerHTML = `含桶總重 (g) <span class="text-[11px] text-emerald-600 font-normal">(-${window.TARE_CONFIG.tareWeight}g去皮)</span>`;
+      } else {
+        if (tareBanner) tareBanner.classList.add('hidden');
+        if (thWeight) thWeight.innerText = '廚餘重量 (g)';
+      }
+    };
+
+    window.saveTareWeightConfig = async () => {
+      if (window.userRole !== 'admin') return;
+      const cb = document.getElementById('sys-tare-enabled');
+      const input = document.getElementById('sys-tare-weight');
+      const enabled = cb ? cb.checked : false;
+      const tareWeight = Math.max(0, parseInt(input?.value || 0, 10));
+
+      try {
+        await setDoc(doc(db, "system_config", "tare_weight"), {
+          enabled,
+          tareWeight,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        window.TARE_CONFIG = { enabled, tareWeight };
+        window.renderTareWeightUI();
+        window.showNotice('儲存成功', `✅ 餐桶空桶扣重設定已同步更新至雲端！\n狀態：${enabled ? '已啟用 (扣除 ' + tareWeight + 'g)' : '已停用'}`);
+        window.loadDailyRecords();
+      } catch (e) {
+        window.showNotice('儲存失敗', e.message, false);
+      }
+    };
+
+    // 扣重計算輔助：傳入輸入框的數值，回傳 { gross, net, tare }
+    window.getCalculatedNetWeight = (inputVal) => {
+      if (inputVal === '' || inputVal === null || inputVal === undefined) return null;
+      let gross = parseFloat(inputVal);
+      if (isNaN(gross)) return null;
+
+      if (window.TARE_CONFIG && window.TARE_CONFIG.enabled) {
+        let tare = window.TARE_CONFIG.tareWeight || 0;
+        let net = Math.max(0, gross - tare); // 淨重不可小於 0
+        return { gross, net, tare };
+      }
+      return { gross, net: gross, tare: 0 };
+    };
+
     window.unlockSettingsFields = () => {
       const isAdm = (window.userRole === 'admin');
       const fieldIds = [
         'sys-gemini-key', 'sys-year', 'sys-sem', 'sys-start', 'sys-end', 
-        'sys-threshold', 'sys-waste-pass', 'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'
+        'sys-threshold', 'sys-waste-pass', 'sys-tare-enabled', 'sys-tare-weight',
+        'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'
       ];
       fieldIds.forEach(id => {
         const el = document.getElementById(id);
@@ -1032,7 +1159,9 @@
               el.className = "border border-amber-300 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-amber-500 font-mono font-bold text-amber-950";
             } else if (id === 'input-new-staff-name') {
               el.className = "border border-indigo-200 rounded px-2.5 py-1 text-xs w-28 bg-white focus:outline-indigo-500";
-            } else if (id !== 'csv-upload' && !id.startsWith('input-new')) {
+            } else if (id === 'sys-tare-weight') {
+              el.className = "border border-slate-300 rounded px-2.5 py-1 text-xs w-28 text-right bg-white font-bold text-slate-800 focus:outline-emerald-500";
+            } else if (id !== 'csv-upload' && id !== 'sys-tare-enabled' && !id.startsWith('input-new')) {
               el.className = "border border-slate-300 rounded w-full p-1.5 bg-white text-slate-800 focus:outline-emerald-500";
             }
           } else {
@@ -1057,9 +1186,10 @@
       });
 
       window.renderWeighingRulesUI();
+      window.renderTareWeightUI();
     };
 
-    /* --- 動態偵測最佳可用 Gemini 模型端點 (支援 3.8 / 3.7 / 3.5 系列，維持 Stable01 原架構) --- */
+    /* --- 100% 還原 Stable05 動態偵測最佳可用 Gemini 模型端點 --- */
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
       
@@ -1091,7 +1221,7 @@
       return "gemini-3.8-flash";
     };
 
-    /* --- 測試 Gemini API Key 連線 (維持 Stable01 原架構) --- */
+    /* --- 100% 還原 Stable05 測試 Gemini API Key 連線 --- */
     window.testGeminiKey = async () => {
       const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
       if (!keyVal) {
@@ -1205,7 +1335,7 @@
       }
 
       if (menuKeyInd) {
-        menuKeyInd.innerText = hasKey ? "🔑 已自動調用集中金鑰" : "⚠️️ 未設定集中金鑰";
+        menuKeyInd.innerText = hasKey ? "🔑 已自動調用集中金鑰" : "⚠ 未設定集中金鑰";
         menuKeyInd.className = hasKey ? "text-[11px] text-emerald-700 font-semibold" : "text-[11px] text-amber-600";
       }
     };
@@ -1379,12 +1509,13 @@
     window.renderInitialEmptyTable = () => {
       const tbody = document.getElementById('daily-rows');
       if (!tbody) return;
+      const placeholderTip = (window.TARE_CONFIG && window.TARE_CONFIG.enabled) ? `含桶總重` : `0`;
       tbody.innerHTML = window.CLASSES.map(c => `
         <tr id="row-${c.id}" class="bg-white hover:bg-emerald-50/20 transition">
           <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
           <td class="p-3 font-semibold">${c.name}</td>
           <td class="p-3">
-            <input type="number" id="w-${c.id}" placeholder="0" disabled class="border rounded px-2 w-24 text-right bg-slate-100"> g
+            <input type="number" id="w-${c.id}" placeholder="${placeholderTip}" disabled class="border rounded px-2 w-24 text-right bg-slate-100"> g
           </td>
           <td class="p-3">
             <input type="number" id="c-${c.id}" value="${c.defaultCount}" disabled class="border rounded px-2 w-16 text-right bg-slate-100"> 人
@@ -1511,6 +1642,7 @@
       const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
       
       window.refreshAllWeekLabels();
+      window.renderTareWeightUI();
       const tbody = document.getElementById('daily-rows');
       if (!tbody) return;
 
@@ -1594,17 +1726,25 @@
           const canEditThisRow = canEditRole;
           const rowBgClass = isAlreadySaved ? 'bg-slate-100/70 text-slate-500' : 'bg-white hover:bg-emerald-50/20';
 
+          let displayGross = isClassSkipped ? '' : (rec.grossWeight !== undefined ? rec.grossWeight : w);
+          let placeholderTip = (window.TARE_CONFIG && window.TARE_CONFIG.enabled) ? `含桶總重` : `0`;
+
+          let perHtml = isClassSkipped ? '停餐' : per;
+          if (!isClassSkipped && per !== '-' && window.TARE_CONFIG.enabled && (rec.tareDeducted > 0 || (displayGross !== '' && w !== ''))) {
+            perHtml = `${per} <span class="text-[10px] text-slate-400 block font-normal">(淨重${w}g)</span>`;
+          }
+
           return `
             <tr id="row-${c.id}" class="${rowBgClass} transition">
               <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
               <td class="p-3 font-semibold">${c.name}</td>
               <td class="p-3">
-                <input type="number" id="w-${c.id}" value="${isClassSkipped ? '' : w}" oninput="window.calcRow('${c.id}')" ${!canEditThisRow || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> g
+                <input type="number" id="w-${c.id}" value="${displayGross}" placeholder="${placeholderTip}" oninput="window.calcRow('${c.id}')" ${!canEditThisRow || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> g
               </td>
               <td class="p-3">
                 <input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${!canEditThisRow || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-16 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> 人
               </td>
-              <td class="p-3 text-right font-bold ${isClassSkipped ? 'text-slate-400' : 'text-emerald-700'}" id="per-${c.id}">${isClassSkipped ? '停餐' : per}</td>
+              <td class="p-3 text-right font-bold ${isClassSkipped ? 'text-slate-400' : 'text-emerald-700'}" id="per-${c.id}">${perHtml}</td>
               <td class="p-3 text-center">
                 <input type="checkbox" id="skip-row-${c.id}" onchange="window.toggleRowSkip('${c.id}')" ${isClassSkipped ? 'checked' : ''} ${!canEditThisRow || isAlreadySaved ? 'disabled' : ''} class="w-4 h-4 text-rose-600 rounded cursor-pointer">
               </td>
@@ -1632,10 +1772,23 @@
     };
 
     window.calcRow = (id) => {
-      let w = parseFloat(document.getElementById(`w-${id}`)?.value);
+      let rawVal = document.getElementById(`w-${id}`)?.value;
       let c = parseInt(document.getElementById(`c-${id}`)?.value);
       const p = document.getElementById(`per-${id}`);
-      if (p) p.innerText = (!isNaN(w) && !isNaN(c) && c>0) ? (w/c).toFixed(1) : '-';
+      
+      const calcResult = window.getCalculatedNetWeight(rawVal);
+      if (calcResult !== null && !isNaN(c) && c > 0) {
+        let per = (calcResult.net / c).toFixed(1);
+        if (p) {
+          if (window.TARE_CONFIG.enabled && calcResult.tare > 0) {
+            p.innerHTML = `<span class="text-emerald-700 font-bold">${per}</span> <span class="text-[10px] text-slate-400 block font-normal">(淨重${calcResult.net}g)</span>`;
+          } else {
+            p.innerText = per;
+          }
+        }
+      } else {
+        if (p) p.innerText = '-';
+      }
     };
 
     window.saveSingleClassRecord = async (classId) => {
@@ -1658,22 +1811,29 @@
         if (isRowSkipped) {
           await setDoc(doc(db, "daily_records", docId), {
             academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
-            isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+            isSkipped: true, weightKg: 0, grossWeight: 0, tareDeducted: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
           }, { merge: true });
         } else {
           let wStr = document.getElementById(`w-${classId}`)?.value;
-          let w = parseFloat(wStr);
+          const calcResult = window.getCalculatedNetWeight(wStr);
           let count = parseInt(document.getElementById(`c-${classId}`)?.value) || cInfo.defaultCount;
           
-          if (wStr === '' || isNaN(w)) {
+          if (wStr === '' || calcResult === null) {
             if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
             return window.showNotice('提示', `請先輸入【${cInfo.name}】的廚餘重量！`, false);
           }
 
+          let w = calcResult.net; // 寫入資料庫的真實廚餘淨重 (g)
           let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
           await setDoc(doc(db, "daily_records", docId), {
             academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
-            isSkipped: false, weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
+            isSkipped: false, 
+            weightKg: w, 
+            grossWeight: calcResult.gross,
+            tareDeducted: calcResult.tare,
+            eaterCount: count, 
+            perCapitaGram: per, 
+            updatedAt: serverTimestamp()
           }, { merge: true });
         }
 
@@ -1744,18 +1904,27 @@
           let promises = activeClasses.map(async c => {
             const isRowSkipped = document.getElementById(`skip-row-${c.id}`)?.checked || false;
             if (isRowSkipped) {
-               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
+              await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
-                isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+                isSkipped: true, weightKg: 0, grossWeight: 0, tareDeducted: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
               }, { merge: true });
             } else {
               let wStr = document.getElementById(`w-${c.id}`)?.value;
               if (wStr === '' || wStr === undefined) return;
-              let w = parseFloat(wStr), count = parseInt(document.getElementById(`c-${c.id}`)?.value) || c.defaultCount;
+              const calcResult = window.getCalculatedNetWeight(wStr);
+              if (calcResult === null) return;
+              let w = calcResult.net; // 真實廚餘淨重寫入資料庫
+              let count = parseInt(document.getElementById(`c-${c.id}`)?.value) || c.defaultCount;
               let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
-                isSkipped: false, weightKg: w, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp()
+                isSkipped: false, 
+                weightKg: w, 
+                grossWeight: calcResult.gross,
+                tareDeducted: calcResult.tare,
+                eaterCount: count, 
+                perCapitaGram: per, 
+                updatedAt: serverTimestamp()
               }, { merge: true });
             }
           });
@@ -2026,18 +2195,17 @@
       document.body.removeChild(textArea);
     };
 
-    /* 🔒 100% 嚴格唯一鎖定 gemini-3.8-flash 進行深度診斷，絕不降級 */
-    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 (完全維持 Stable01 純淨字串端點，杜絕 Markdown 雜質) --- */
-    window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
-      const detected = await window.getAvailableGeminiModel(apiKey);
-      const candidateModels = [
-        detected,
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.5-flash"
-      ].filter((v, i, a) => v && a.indexOf(v) === i);
+/* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
+window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
+  const detected = await window.getAvailableGeminiModel(apiKey);
+  const candidateModels = [
+    detected,
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash"
+  ].filter((v, i, a) => v && a.indexOf(v) === i);
 
-      const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
+  const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
 
 【基本數據】
 - 當日菜單：主食「${menuData.main || '無'}」、主菜「${menuData.dish1 || '無'}」、副菜「${menuData.dish2 || '無'}」、蔬菜「${menuData.vege || '無'}」、湯品「${menuData.soup || '無'}」
@@ -2053,258 +2221,251 @@
 
 請輸出精確的繁體中文，總字數在 160 字以內，語氣專業具建設性。`;
 
-      let lastError = null;
+  let lastError = null;
 
-      for (const model of candidateModels) {
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-          const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }]
-            })
-          });
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
 
-          const resJson = await response.json();
+      const resJson = await response.json();
 
-          if (!response.ok || resJson.error) {
-            const errDetail = resJson.error?.message || `HTTP ${response.status}`;
-            throw new Error(`[${model}] ${errDetail}`);
-          }
-
-          if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
-            window._cachedGeminiModel = model;
-            return {
-              text: resJson.candidates[0].content.parts[0].text.trim(),
-              modelUsed: model
-            };
-          }
-        } catch (e) {
-          lastError = e;
-          console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
-        }
-      }
-      throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
-    };
-
-/* --- 菜單關聯異常分析 (快取優先 Cache-First 架構，維持 Stable01 原架構) --- */
-    window.loadOrRunAnalysis = async (forceReRun = false) => {
-  	  window.refreshAllWeekLabels(); // 👈 【lee edit】
-      const y = parseInt(document.getElementById('daily-year').value);
-      const w = parseInt(document.getElementById('analysis-week').value);
-      const con = document.getElementById('analysis-results-container');
-      const btn = document.getElementById('btn-run-analysis');
-      const btnText = document.getElementById('analysis-btn-text');
-      const hint = document.getElementById('analysis-cache-status-hint');
-      const threshold = window.systemThreshold || 120;
-      
-      const thLabel = document.getElementById('current-threshold-label');
-      if (thLabel) thLabel.innerText = threshold;
-
-      const cacheDocId = `${y}_1_${w}`;
-
-      // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
-      if (!forceReRun) {
-        con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
-        try {
-          const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
-          if (cacheSnap.exists() && cacheSnap.data().days) {
-            const cachedData = cacheSnap.data();
-            /*window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || ''); 【lee edit】 */
-            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
-            
-            if (hint) {
-              hint.innerHTML = ''; // 👈 將原先的 ✅ 已載入歷史存檔 改為清空 ''   【lee edit】
-              /*hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
-                ✅ 已載入歷史存檔 (${cachedData.savedAtFormatted || '已存檔'})
-              </span>`; 【lee edit】 */
-            }
-
-            if (btnText) {
-              btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
-            }
-            return;
-          }
-        } catch (cacheErr) {
-          console.warn("檢查診斷快取失敗或無快取，將執行即時計算:", cacheErr);
-        }
+      if (!response.ok || resJson.error) {
+        const errDetail = resJson.error?.message || `HTTP ${response.status}`;
+        throw new Error(`[${model}] ${errDetail}`);
       }
 
-      // 2. 若無快取或管理者點擊「重新執行」，則啟動運算
-      if (btn) { btn.disabled = true; }
-      if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
-      if (hint) { hint.innerText = "正在執行即時運算..."; }
-      con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
-      
-      try {
-        const [dSnap, mSnap] = await Promise.all([
-          getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
-          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
-        ]);
-        const logs = dSnap.docs.map(d=>d.data());
-        const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+      if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
+        window._cachedGeminiModel = model;
+        return {
+          text: resJson.candidates[0].content.parts[0].text.trim(),
+          modelUsed: model
+        };
+      }
+    } catch (e) {
+      lastError = e;
+      console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
+    }
+  }
+  throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
+};
 
-        let analysisDayResults = {};
+ /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構) --- */
+window.loadOrRunAnalysis = async (forceReRun = false) => {
+  window.refreshAllWeekLabels();
+  const y = parseInt(document.getElementById('daily-year').value);
+  const w = parseInt(document.getElementById('analysis-week').value);
+  const con = document.getElementById('analysis-results-container');
+  const btn = document.getElementById('btn-run-analysis');
+  const btnText = document.getElementById('analysis-btn-text');
+  const hint = document.getElementById('analysis-cache-status-hint');
+  const threshold = window.systemThreshold || 120;
+  
+  const thLabel = document.getElementById('current-threshold-label');
+  if (thLabel) thLabel.innerText = threshold;
 
-        for (const day of WEEKDAYS) {
-          let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
-          
-          let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
-          let hasRecordedData = validClasses.length > 0;
+  const cacheDocId = `${y}_1_${w}`;
 
-          let tw = validClasses.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
-          let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
-          let per = (hasRecordedData && tc > 0) ? Number((tw/tc).toFixed(1)) : 0;
-          let menu = menus[day.d] || null;
-          let hasMenu = menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup);
-          
-          let isSpike = hasRecordedData && (per > threshold);
-          let alertMsg = '', advice = '', aiDeduction = '', isCloudAI = false, cloudModelName = '', cloudErrorReason = '';
-
-          if (hasRecordedData && hasMenu && isSpike) {
-            alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
-
-            let spikeClasses = validClasses.map(l => {
-              let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
-              return { className: l.className, stage: l.stage, per: p };
-            }).filter(c => c.per > threshold);
-
-            let totalCount = validClasses.length;
-            let spikeCount = spikeClasses.length;
-            let spikeRatio = totalCount > 0 ? Math.round((spikeCount / totalCount) * 100) : 0;
-
-            const calcStageAvg = (stg) => {
-              let sl = validClasses.filter(l => l.stage === stg);
-              let wSum = sl.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
-              let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
-              return cSum > 0 ? Number((wSum / cSum).toFixed(1)) : 0;
-            };
-
-            const lowAvg = calcStageAvg('低年級');
-            const midAvg = calcStageAvg('中年級');
-            const highAvg = calcStageAvg('高年級');
-
-            // 呼叫雲端 Gemini LLM 深度診斷
-            if (window.cloudGeminiKey) {
-              try {
-                const aiResult = await window.callGeminiMenuDiagnosis(
-                  window.cloudGeminiKey,
-                  menu,
-                  { per, threshold, spikeRatio, spikeCount, totalCount, spikeClasses, lowAvg, midAvg, highAvg }
-                );
-                aiDeduction = aiResult.text;
-                cloudModelName = aiResult.modelUsed;
-                isCloudAI = true;
-                advice = "依據營養師 AI 即時診斷建議執行。";
-              } catch (aiErr) {
-                console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
-                cloudErrorReason = aiErr.message || "連線或端點異常";
-              }
-            } else {
-              cloudErrorReason = "系統尚未設定集中 Gemini API Key";
-            }
-
-            // 在地專家啟發式推論引擎保底
-            if (!aiDeduction) {
-              let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
-              let specificAdvice = '';
-              if (/魚|排骨|骨|棒腿/.test(str)){
-                specificAdvice = '（含帶骨/刺食材，殘渣比例較高，建議可評估調整為去骨肉類如去骨雞腿丁、里肌柳以減少骨渣重量）';
-              } else if (/苦瓜|青椒|芥藍|茄子/.test(str)){
-                specificAdvice = '（含學童較易排斥之蔬菜品項，建議細切或搭配玉米、胡蘿蔔等甜味食材提升接受度）';
-              } else if (/糙米|五穀|雜糧/.test(str)){
-                specificAdvice = '（含粗糧品項，建議適度微調白米比例或拉長悶煮時間軟化口感）';
-              }
-
-              advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
-
-              let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
-              let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
-              let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
-
-              let patternDesc = '';
-              if (spikeRatio >= 70) {
-                patternDesc = `超標班級高達 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，屬於<b>普遍性現象</b>。`;
-                if (/魚|排骨|骨|棒腿/.test(str)) {
-                  aiDeduction = `${patternDesc}交叉比對當日菜單含帶骨/刺料理（如魚、排骨），推論全校多數廚餘重量主要來自骨頭殘渣與剔刺難度，而非學生大量剩食，屬物理殘渣加成所致。`;
-                } else if (/苦瓜|青椒|芥藍|茄子/.test(str)) {
-                  aiDeduction = `${patternDesc}交叉比對菜單含有明顯低偏好度蔬菜，且全校各年段均同步超標，推論當日蔬菜品項之整體調味或口感普遍未能迎合學生口味，造成全校性剩菜偏高。`;
-                } else {
-                  aiDeduction = `${patternDesc}全校各年段均呈現高人均廚餘，推論可能為整體供餐份量偏多、主食主菜整體調味偏重/偏淡，或是菜色整體組合之接受度偏低。`;
-                }
-              } else if (spikeRatio > 0 && spikeRatio < 35) {
-                let targetStage = (lowSpike > midSpike && lowSpike > highSpike) ? '低年級' :
-                                  (highSpike > lowSpike && highSpike > midSpike) ? '高年級' : '特定少數班級';
-                patternDesc = `超標班級僅佔 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，非全校普遍現象，而是<b>高度集中於${targetStage}</b>。`;
-                
-                if (targetStage === '低年級' && /魚|排骨|骨|棒腿|糙米|五穀/.test(str)) {
-                  aiDeduction = `${patternDesc}推論低年級學童咀嚼能力較弱、食用帶骨刺或高纖粗糧時較易放棄食用，建議導師於用餐時加強巡視與個別關懷盛菜量。`;
-                } else {
-                  aiDeduction = `${patternDesc}全校多數班級均在正常門檻內，推論並非菜色品質問題，可能為少數班級當日盛飯菜份量掌控、班級打菜習慣或班級活動時程延宕影響用餐所致。`;
-                }
-              } else {
-                patternDesc = `超標班級比例為 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，呈現中度分散。`;
-                aiDeduction = `${patternDesc}推論當日菜單之接受度存在班級個別差異，建議針對人均較高之班級（如：${spikeClasses.slice(0, 3).map(c=>c.className).join('、')}等）進一步了解個別剩菜最多的品項。`;
-              }
-            }
-          }
-
-          analysisDayResults[day.d] = {
-            hasRecordedData, hasMenu, isSpike, per, threshold,
-            alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
-            menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
-          };
+  // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
+  if (!forceReRun) {
+    con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
+    try {
+      const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
+      if (cacheSnap.exists() && cacheSnap.data().days) {
+        const cachedData = cacheSnap.data();
+        window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
+        
+        if (hint) {
+          hint.innerHTML = '';
         }
 
-        // 3. 儲存快取至 Firestore (menu_diagnoses)
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-        try {
-          await setDoc(doc(db, "menu_diagnoses", cacheDocId), {
-            academicYear: y,
-            semester: 1,
-            week: w,
-            days: analysisDayResults,
-            savedAtFormatted: formattedDate,
-            updatedAt: serverTimestamp(),
-            updatedBy: window.currentUser ? window.currentUser.email : 'system'
-          }, { merge: true });
-
-          if (hint) {
-            hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
-              ✨ 已自動儲存最新診斷結果 (${formattedDate})
-            </span>`;
-          }
-        } catch (saveErr) {
-          console.warn("診斷結果存入快取資料庫失敗:", saveErr);
-          if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
-        }
-
-        // 4. 渲染畫面
-        /* window.renderAnalysisCards(analysisDayResults, false, formattedDate); */
-        // 🔴 處修改 C：計算完成渲染時，同樣補上第四個參數 w  【lee edit】
-        window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
-
-      } catch (err) {
-        con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
-      } finally {
-        if (btn) { btn.disabled = false; }
         if (btnText) {
           btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
         }
+        return;
       }
-    };
+    } catch (cacheErr) {
+      console.warn("檢查診斷快取失敗或無快取，將執行即時計算:", cacheErr);
+    }
+  }
+
+  // 2. 若無快取或管理者點擊「重新執行」，則啟動運算
+  if (btn) { btn.disabled = true; }
+  if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
+  if (hint) { hint.innerText = "正在執行即時運算..."; }
+  con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
+  
+  try {
+    const [dSnap, mSnap] = await Promise.all([
+      getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
+      getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
+    ]);
+    const logs = dSnap.docs.map(d=>d.data());
+    const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+
+    let analysisDayResults = {};
+
+    for (const day of WEEKDAYS) {
+      let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+      
+      let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
+      let hasRecordedData = validClasses.length > 0;
+
+      let tw = validClasses.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+      let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+      let per = (hasRecordedData && tc > 0) ? Number((tw/tc).toFixed(1)) : 0;
+      let menu = menus[day.d] || null;
+      let hasMenu = menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup);
+      
+      let isSpike = hasRecordedData && (per > threshold);
+      let alertMsg = '', advice = '', aiDeduction = '', isCloudAI = false, cloudModelName = '', cloudErrorReason = '';
+
+      if (hasRecordedData && hasMenu && isSpike) {
+        alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
+
+        let spikeClasses = validClasses.map(l => {
+          let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
+          return { className: l.className, stage: l.stage, per: p };
+        }).filter(c => c.per > threshold);
+
+        let totalCount = validClasses.length;
+        let spikeCount = spikeClasses.length;
+        let spikeRatio = totalCount > 0 ? Math.round((spikeCount / totalCount) * 100) : 0;
+
+        const calcStageAvg = (stg) => {
+          let sl = validClasses.filter(l => l.stage === stg);
+          let wSum = sl.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
+          let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+          return cSum > 0 ? Number((wSum / cSum).toFixed(1)) : 0;
+        };
+
+        const lowAvg = calcStageAvg('低年級');
+        const midAvg = calcStageAvg('中年級');
+        const highAvg = calcStageAvg('高年級');
+
+        // 呼叫雲端 Gemini LLM 深度診斷
+        if (window.cloudGeminiKey) {
+          try {
+            const aiResult = await window.callGeminiMenuDiagnosis(
+              window.cloudGeminiKey,
+              menu,
+              { per, threshold, spikeRatio, spikeCount, totalCount, spikeClasses, lowAvg, midAvg, highAvg }
+            );
+            aiDeduction = aiResult.text;
+            cloudModelName = aiResult.modelUsed;
+            isCloudAI = true;
+            advice = "依據營養師 AI 即時診斷建議執行。";
+          } catch (aiErr) {
+            console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
+            cloudErrorReason = aiErr.message || "連線或端點異常";
+          }
+        } else {
+          cloudErrorReason = "系統尚未設定集中 Gemini API Key";
+        }
+
+        // 在地專家啟發式推論引擎保底
+        if (!aiDeduction) {
+          let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
+          let specificAdvice = '';
+          if (/魚|排骨|骨|棒腿/.test(str)){
+            specificAdvice = '（含帶骨/刺食材，殘渣比例較高，建議可評估調整為去骨肉類如去骨雞腿丁、里肌柳以減少骨渣重量）';
+          } else if (/苦瓜|青椒|芥藍|茄子/.test(str)){
+            specificAdvice = '（含學童較易排斥之蔬菜品項，建議細切或搭配玉米、胡蘿蔔等甜味食材提升接受度）';
+          } else if (/糙米|五穀|雜糧/.test(str)){
+            specificAdvice = '（含粗糧品項，建議適度微調白米比例或拉長悶煮時間軟化口感）';
+          }
+
+          advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
+
+          let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
+          let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
+          let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
+
+          let patternDesc = '';
+          if (spikeRatio >= 70) {
+            patternDesc = `超標班級高達 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，屬於<b>普遍性現象</b>。`;
+            if (/魚|排骨|骨|棒腿/.test(str)) {
+              aiDeduction = `${patternDesc}交叉比對當日菜單含帶骨/刺料理（如魚、排骨），推論全校多數廚餘重量主要來自骨頭殘渣與剔刺難度，而非學生大量剩食，屬物理殘渣加成所致。`;
+            } else if (/苦瓜|青椒|芥藍|茄子/.test(str)) {
+              aiDeduction = `${patternDesc}交叉比對菜單含有明顯低偏好度蔬菜，且全校各年段均同步超標，推論當日蔬菜品項之整體調味或口感普遍未能迎合學生口味，造成全校性剩菜偏高。`;
+            } else {
+              aiDeduction = `${patternDesc}全校各年段均呈現高人均廚餘，推論可能為整體供餐份量偏多、主食主菜整體調味偏重/偏淡，或是菜色整體組合之接受度偏低。`;
+            }
+          } else if (spikeRatio > 0 && spikeRatio < 35) {
+            let targetStage = (lowSpike > midSpike && lowSpike > highSpike) ? '低年級' :
+                              (highSpike > lowSpike && highSpike > midSpike) ? '高年級' : '特定少數班級';
+            patternDesc = `超標班級僅佔 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，非全校普遍現象，而是<b>高度集中於${targetStage}</b>。`;
+            
+            if (targetStage === '低年級' && /魚|排骨|骨|棒腿|糙米|五穀/.test(str)) {
+              aiDeduction = `${patternDesc}推論低年級學童咀嚼能力較弱、食用帶骨刺或高纖粗糧時較易放棄食用，建議導師於用餐時加強巡視與個別關懷盛菜量。`;
+            } else {
+              aiDeduction = `${patternDesc}全校多數班級均在正常門檻內，推論並非菜色品質問題，可能為少數班級當日盛飯菜份量掌控、班級打菜習慣或班級活動時程延宕影響用餐所致。`;
+            }
+          } else {
+            patternDesc = `超標班級比例為 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，呈現中度分散。`;
+            aiDeduction = `${patternDesc}推論當日菜單之接受度存在班級個別差異，建議針對人均較高之班級（如：${spikeClasses.slice(0, 3).map(c=>c.className).join('、')}等）進一步了解個別剩菜最多的品項。`;
+          }
+        }
+      }
+
+      analysisDayResults[day.d] = {
+        hasRecordedData, hasMenu, isSpike, per, threshold,
+        alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
+        menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
+      };
+    }
+
+    // 3. 儲存快取至 Firestore (menu_diagnoses)
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    try {
+      await setDoc(doc(db, "menu_diagnoses", cacheDocId), {
+        academicYear: y,
+        semester: 1,
+        week: w,
+        days: analysisDayResults,
+        savedAtFormatted: formattedDate,
+        updatedAt: serverTimestamp(),
+        updatedBy: window.currentUser ? window.currentUser.email : 'system'
+      }, { merge: true });
+
+      if (hint) {
+        hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+          ✨ 已自動儲存最新診斷結果 (${formattedDate})
+        </span>`;
+      }
+    } catch (saveErr) {
+      console.warn("診斷結果存入快取資料庫失敗:", saveErr);
+      if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
+    }
+
+    // 4. 渲染畫面
+    window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
+
+  } catch (err) {
+    con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; }
+    if (btnText) {
+      btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
+    }
+  }
+};
 
     /* 渲染卡片：客觀事由討論串單一列排版，緊湊無上下留白 */
     window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
       const con = document.getElementById('analysis-results-container');
       if (!con) return;
 
-      // 🔴 處修改 D：加入這行防呆（若外部沒傳入 weekNum，自動抓取當前畫面的分析週次） 【lee edit】
-      const actualWeek = weekNum || parseInt(document.getElementById('analysis-week')?.value || 1, 10); //【lee edit】
+      const actualWeek = weekNum || parseInt(document.getElementById('analysis-week')?.value || 1, 10);
       
       const role = window.userRole;
       const isAdmin = (role === 'admin');
@@ -2315,10 +2476,7 @@
       const cardsHtml = WEEKDAYS.map(day => {
         const d = daysData[day.d] || {};
         const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu } = d;
-        // 🔴 處修改 E：將 weekNum 改為 actualWeek  //【lee edit】
-        /* const exactDateStr = window.getExactDateForWeekDay(weekNum, day.d); */
-        const exactDateStr = window.getExactDateForWeekDay(actualWeek, day.d); //【lee edit】
-        
+        const exactDateStr = window.getExactDateForWeekDay(actualWeek, day.d);
 
         let diagnosticHtml = '';
         if (!hasRecordedData) {
@@ -2363,7 +2521,6 @@
           ? `${menu.main || '-'}, ${menu.dish1 || '-'}, ${menu.dish2 || '-'}, ${menu.vege || '-'}, ${menu.soup || '-'}`
           : '<span class="text-slate-400">無紀錄</span>';
 
-        // 🔒 緊湊單列留言呈現，完全無上下預留空白
         let notesThreadHtml = '';
         if (hasRecordedData && isSpike) {
           const notes = Array.isArray(d.notes) ? d.notes : [];
@@ -2814,8 +2971,8 @@
                 const per = count > 0 ? Number((weight/count).toFixed(1)) : 0;
                 promises.push(
                   setDoc(doc(db, "daily_records", `${year}_${sem}_${week}_${weekday}_${classId}`), {
-                    academicYear: year, semester: sem, week, weekday, classId, className: classInfo.name, stage: classInfo.stage,
-                    weightKg: weight, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp(), imported: true
+                    academicYear: year, semester: sem, week, weekday, classId: classInfo.id, className: classInfo.name, stage: classInfo.stage,
+                    weightKg: weight, grossWeight: weight, tareDeducted: 0, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp(), imported: true
                   }, { merge: true }).then(() => successCount++)
                 );
               }
@@ -2873,6 +3030,7 @@
         await window.loadRoleSettings();
         await window.loadGeminiApiKey();
         await window.loadWeighingRules();
+        await window.loadTareWeightConfig();
 
         if (user) {
           const userEmail = (user.email || "").trim().toLowerCase();
@@ -2960,14 +3118,36 @@
         if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabAnalysisBadge.innerText = "🔓"; }
         if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabSettingsBadge.innerText = "🔓"; }
 
-        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn', 'rules-save-btn'].forEach(id => {
+        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn', 'rules-save-btn', 'tare-save-btn'].forEach(id => {
           let b = document.getElementById(id);
           if (b) {
             b.disabled = false;
             b.removeAttribute('disabled');
-            if (id === 'key-test-btn') b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
-            else if (id==='csv-import-btn' || id==='role-save-btn' || id==='key-save-btn' || id==='waste-pass-save-btn' || id==='rules-save-btn') b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
-            else b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+            if (id === 'key-test-btn') {
+              b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
+              b.innerText = "🧪 測試連線";
+            } else if (id==='csv-import-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "🚀 開始匯入";
+            } else if (id==='role-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存成員權限";
+            } else if (id==='key-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存金鑰";
+            } else if (id==='waste-pass-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存密碼";
+            } else if (id==='rules-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存規則";
+            } else if (id==='tare-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存扣重設定";
+            } else {
+              b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存設定";
+            }
           }
         });
         window.unlockSettingsFields();
@@ -3174,10 +3354,11 @@
         // 1. 同步優先渲染 12 班基礎骨架（0.01 秒內必定可見）
         window.renderInitialEmptyTable();
 
-        // 2. 初始化行事曆、班級人數與彈性秤重規則
+        // 2. 初始化行事曆、班級人數、彈性秤重與空桶扣重規則
         await window.loadSystemConfig();
         await window.loadClassSettings();
         await window.loadWeighingRules();
+        await window.loadTareWeightConfig();
 
         // 3. 解除開機防連動鎖
         isSystemInitializing = false;
