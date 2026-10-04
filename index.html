@@ -2111,12 +2111,14 @@
           const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
           if (cacheSnap.exists() && cacheSnap.data().days) {
             const cachedData = cacheSnap.data();
-            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '');
+            /*window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || ''); 【lee edit】 */
+            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
             
             if (hint) {
-              hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+              hint.innerHTML = ''; // 👈 將原先的 ✅ 已載入歷史存檔 改為清空 ''   【lee edit】
+              /*hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
                 ✅ 已載入歷史存檔 (${cachedData.savedAtFormatted || '已存檔'})
-              </span>`;
+              </span>`; 【lee edit】 */
             }
 
             if (btnText) {
@@ -2282,7 +2284,9 @@
         }
 
         // 4. 渲染畫面
-        window.renderAnalysisCards(analysisDayResults, false, formattedDate);
+        /* window.renderAnalysisCards(analysisDayResults, false, formattedDate); */
+        // 🔴 處修改 C：計算完成渲染時，同樣補上第四個參數 w  【lee edit】
+        window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
 
       } catch (err) {
         con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
@@ -2298,6 +2302,9 @@
     window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
       const con = document.getElementById('analysis-results-container');
       if (!con) return;
+
+      // 🔴 處修改 D：加入這行防呆（若外部沒傳入 weekNum，自動抓取當前畫面的分析週次） 【lee edit】
+      const actualWeek = weekNum || parseInt(document.getElementById('analysis-week')?.value || 1, 10); //【lee edit】
       
       const role = window.userRole;
       const isAdmin = (role === 'admin');
@@ -2308,7 +2315,10 @@
       const cardsHtml = WEEKDAYS.map(day => {
         const d = daysData[day.d] || {};
         const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu } = d;
-        const exactDateStr = window.getExactDateForWeekDay(weekNum, day.d);
+        // 🔴 處修改 E：將 weekNum 改為 actualWeek  //【lee edit】
+        /* const exactDateStr = window.getExactDateForWeekDay(weekNum, day.d); */
+        const exactDateStr = window.getExactDateForWeekDay(actualWeek, day.d); //【lee edit】
+        
 
         let diagnosticHtml = '';
         if (!hasRecordedData) {
