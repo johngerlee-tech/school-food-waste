@@ -2195,17 +2195,17 @@
       document.body.removeChild(textArea);
     };
 
-    /* --- 100% 還原 Stable05 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
-    window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
-      const detected = await window.getAvailableGeminiModel(apiKey);
-      const candidateModels = [
-        detected,
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.5-flash"
-      ].filter((v, i, a) => v && a.indexOf(v) === i);
+/* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
+window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
+  const detected = await window.getAvailableGeminiModel(apiKey);
+  const candidateModels = [
+    detected,
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash"
+  ].filter((v, i, a) => v && a.indexOf(v) === i);
 
-      const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
+  const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
 
 【基本數據】
 - 當日菜單：主食「${menuData.main || '無'}」、主菜「${menuData.dish1 || '無'}」、副菜「${menuData.dish2 || '無'}」、蔬菜「${menuData.vege || '無'}」、湯品「${menuData.soup || '無'}」
@@ -2221,250 +2221,244 @@
 
 請輸出精確的繁體中文，總字數在 160 字以內，語氣專業具建設性。`;
 
-      let lastError = null;
+  let lastError = null;
 
-      for (const model of candidateModels) {
-        try {
-          const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`;
-          const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }]
-            })
-          });
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
 
-          const rawText = await response.text();
-          let resJson;
-          try {
-            resJson = JSON.parse(rawText);
-          } catch (pe) {
-            throw new Error(`[${model}] 伺服器傳回非預期格式: ${rawText.slice(0, 80)}`);
-          }
+      const resJson = await response.json();
 
-          if (!response.ok || resJson.error) {
-            const errDetail = resJson.error?.message || `HTTP ${response.status}`;
-            throw new Error(`[${model}] ${errDetail}`);
-          }
-
-          if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
-            window._cachedGeminiModel = model;
-            return {
-              text: resJson.candidates[0].content.parts[0].text.trim(),
-              modelUsed: model
-            };
-          }
-        } catch (e) {
-          lastError = e;
-          console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
-        }
-      }
-      throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
-    };
-
-    /* --- 100% 還原 Stable05 菜單關聯異常分析 (快取優先 Cache-First 架構) --- */
-    window.loadOrRunAnalysis = async (forceReRun = false) => {
-      window.refreshAllWeekLabels();
-      const y = parseInt(document.getElementById('daily-year').value);
-      const w = parseInt(document.getElementById('analysis-week').value);
-      const con = document.getElementById('analysis-results-container');
-      const btn = document.getElementById('btn-run-analysis');
-      const btnText = document.getElementById('analysis-btn-text');
-      const hint = document.getElementById('analysis-cache-status-hint');
-      const threshold = window.systemThreshold || 120;
-      
-      const thLabel = document.getElementById('current-threshold-label');
-      if (thLabel) thLabel.innerText = threshold;
-
-      const cacheDocId = `${y}_1_${w}`;
-
-      // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
-      if (!forceReRun) {
-        con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
-        try {
-          const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
-          if (cacheSnap.exists() && cacheSnap.data().days) {
-            const cachedData = cacheSnap.data();
-            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
-            
-            if (hint) {
-              hint.innerHTML = '';
-            }
-
-            if (btnText) {
-              btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
-            }
-            return;
-          }
-        } catch (cacheErr) {
-          console.warn("檢查診斷快取失敗或無快取，將執行即時計算:", cacheErr);
-        }
+      if (!response.ok || resJson.error) {
+        const errDetail = resJson.error?.message || `HTTP ${response.status}`;
+        throw new Error(`[${model}] ${errDetail}`);
       }
 
-      // 2. 若無快取或管理者點擊「重新執行」，則啟動運算
-      if (btn) { btn.disabled = true; }
-      if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
-      if (hint) { hint.innerText = "正在執行即時運算..."; }
-      con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
-      
-      try {
-        const [dSnap, mSnap] = await Promise.all([
-          getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
-          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
-        ]);
-        const logs = dSnap.docs.map(d=>d.data());
-        const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+      if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
+        window._cachedGeminiModel = model;
+        return {
+          text: resJson.candidates[0].content.parts[0].text.trim(),
+          modelUsed: model
+        };
+      }
+    } catch (e) {
+      lastError = e;
+      console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
+    }
+  }
+  throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
+};
 
-        let analysisDayResults = {};
+ /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構) --- */
+window.loadOrRunAnalysis = async (forceReRun = false) => {
+  window.refreshAllWeekLabels();
+  const y = parseInt(document.getElementById('daily-year').value);
+  const w = parseInt(document.getElementById('analysis-week').value);
+  const con = document.getElementById('analysis-results-container');
+  const btn = document.getElementById('btn-run-analysis');
+  const btnText = document.getElementById('analysis-btn-text');
+  const hint = document.getElementById('analysis-cache-status-hint');
+  const threshold = window.systemThreshold || 120;
+  
+  const thLabel = document.getElementById('current-threshold-label');
+  if (thLabel) thLabel.innerText = threshold;
 
-        for (const day of WEEKDAYS) {
-          let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
-          
-          let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
-          let hasRecordedData = validClasses.length > 0;
+  const cacheDocId = `${y}_1_${w}`;
 
-          let tw = validClasses.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
-          let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
-          let per = (hasRecordedData && tc > 0) ? Number((tw/tc).toFixed(1)) : 0;
-          let menu = menus[day.d] || null;
-          let hasMenu = menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup);
-          
-          let isSpike = hasRecordedData && (per > threshold);
-          let alertMsg = '', advice = '', aiDeduction = '', isCloudAI = false, cloudModelName = '', cloudErrorReason = '';
-
-          if (hasRecordedData && hasMenu && isSpike) {
-            alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
-
-            let spikeClasses = validClasses.map(l => {
-              let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
-              return { className: l.className, stage: l.stage, per: p };
-            }).filter(c => c.per > threshold);
-
-            let totalCount = validClasses.length;
-            let spikeCount = spikeClasses.length;
-            let spikeRatio = totalCount > 0 ? Math.round((spikeCount / totalCount) * 100) : 0;
-
-            const calcStageAvg = (stg) => {
-              let sl = validClasses.filter(l => l.stage === stg);
-              let wSum = sl.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
-              let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
-              return cSum > 0 ? Number((wSum / cSum).toFixed(1)) : 0;
-            };
-
-            const lowAvg = calcStageAvg('低年級');
-            const midAvg = calcStageAvg('中年級');
-            const highAvg = calcStageAvg('高年級');
-
-            // 呼叫雲端 Gemini LLM 深度診斷
-            if (window.cloudGeminiKey) {
-              try {
-                const aiResult = await window.callGeminiMenuDiagnosis(
-                  window.cloudGeminiKey,
-                  menu,
-                  { per, threshold, spikeRatio, spikeCount, totalCount, spikeClasses, lowAvg, midAvg, highAvg }
-                );
-                aiDeduction = aiResult.text;
-                cloudModelName = aiResult.modelUsed;
-                isCloudAI = true;
-                advice = "依據營養師 AI 即時診斷建議執行。";
-              } catch (aiErr) {
-                console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
-                cloudErrorReason = aiErr.message || "連線或端點異常";
-              }
-            } else {
-              cloudErrorReason = "系統尚未設定集中 Gemini API Key";
-            }
-
-            // 在地專家啟發式推論引擎保底
-            if (!aiDeduction) {
-              let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
-              let specificAdvice = '';
-              if (/魚|排骨|骨|棒腿/.test(str)){
-                specificAdvice = '（含帶骨/刺食材，殘渣比例較高，建議可評估調整為去骨肉類如去骨雞腿丁、里肌柳以減少骨渣重量）';
-              } else if (/苦瓜|青椒|芥藍|茄子/.test(str)){
-                specificAdvice = '（含學童較易排斥之蔬菜品項，建議細切或搭配玉米、胡蘿蔔等甜味食材提升接受度）';
-              } else if (/糙米|五穀|雜糧/.test(str)){
-                specificAdvice = '（含粗糧品項，建議適度微調白米比例或拉長悶煮時間軟化口感）';
-              }
-
-              advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
-
-              let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
-              let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
-              let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
-
-              let patternDesc = '';
-              if (spikeRatio >= 70) {
-                patternDesc = `超標班級高達 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，屬於<b>普遍性現象</b>。`;
-                if (/魚|排骨|骨|棒腿/.test(str)) {
-                  aiDeduction = `${patternDesc}交叉比對當日菜單含帶骨/刺料理（如魚、排骨），推論全校多數廚餘重量主要來自骨頭殘渣與剔刺難度，而非學生大量剩食，屬物理殘渣加成所致。`;
-                } else if (/苦瓜|青椒|芥藍|茄子/.test(str)) {
-                  aiDeduction = `${patternDesc}交叉比對菜單含有明顯低偏好度蔬菜，且全校各年段均同步超標，推論當日蔬菜品項之整體調味或口感普遍未能迎合學生口味，造成全校性剩菜偏高。`;
-                } else {
-                  aiDeduction = `${patternDesc}全校各年段均呈現高人均廚餘，推論可能為整體供餐份量偏多、主食主菜整體調味偏重/偏淡，或是菜色整體組合之接受度偏低。`;
-                }
-              } else if (spikeRatio > 0 && spikeRatio < 35) {
-                let targetStage = (lowSpike > midSpike && lowSpike > highSpike) ? '低年級' :
-                                  (highSpike > lowSpike && highSpike > midSpike) ? '高年級' : '特定少數班級';
-                patternDesc = `超標班級僅佔 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，非全校普遍現象，而是<b>高度集中於${targetStage}</b>。`;
-                
-                if (targetStage === '低年級' && /魚|排骨|骨|棒腿|糙米|五穀/.test(str)) {
-                  aiDeduction = `${patternDesc}推論低年級學童咀嚼能力較弱、食用帶骨刺或高纖粗糧時較易放棄食用，建議導師於用餐時加強巡視與個別關懷盛菜量。`;
-                } else {
-                  aiDeduction = `${patternDesc}全校多數班級均在正常門檻內，推論並非菜色品質問題，可能為少數班級當日盛飯菜份量掌控、班級打菜習慣或班級活動時程延宕影響用餐所致。`;
-                }
-              } else {
-                patternDesc = `超標班級比例為 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，呈現中度分散。`;
-                aiDeduction = `${patternDesc}推論當日菜單之接受度存在班級個別差異，建議針對人均較高之班級（如：${spikeClasses.slice(0, 3).map(c=>c.className).join('、')}等）進一步了解個別剩菜最多的品項。`;
-              }
-            }
-          }
-
-          analysisDayResults[day.d] = {
-            hasRecordedData, hasMenu, isSpike, per, threshold,
-            alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
-            menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
-          };
+  // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
+  if (!forceReRun) {
+    con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
+    try {
+      const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
+      if (cacheSnap.exists() && cacheSnap.data().days) {
+        const cachedData = cacheSnap.data();
+        window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
+        
+        if (hint) {
+          hint.innerHTML = '';
         }
 
-        // 3. 儲存快取至 Firestore (menu_diagnoses)
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-        try {
-          await setDoc(doc(db, "menu_diagnoses", cacheDocId), {
-            academicYear: y,
-            semester: 1,
-            week: w,
-            days: analysisDayResults,
-            savedAtFormatted: formattedDate,
-            updatedAt: serverTimestamp(),
-            updatedBy: window.currentUser ? window.currentUser.email : 'system'
-          }, { merge: true });
-
-          if (hint) {
-            hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
-              ✨ 已自動儲存最新診斷結果 (${formattedDate})
-            </span>`;
-          }
-        } catch (saveErr) {
-          console.warn("診斷結果存入快取資料庫失敗:", saveErr);
-          if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
-        }
-
-        // 4. 渲染畫面
-        window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
-
-      } catch (err) {
-        con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
-      } finally {
-        if (btn) { btn.disabled = false; }
         if (btnText) {
           btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
         }
+        return;
       }
-    };
+    } catch (cacheErr) {
+      console.warn("檢查診斷快取失敗或無快取，將執行即時計算:", cacheErr);
+    }
+  }
+
+  // 2. 若無快取或管理者點擊「重新執行」，則啟動運算
+  if (btn) { btn.disabled = true; }
+  if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
+  if (hint) { hint.innerText = "正在執行即時運算..."; }
+  con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
+  
+  try {
+    const [dSnap, mSnap] = await Promise.all([
+      getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
+      getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
+    ]);
+    const logs = dSnap.docs.map(d=>d.data());
+    const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+
+    let analysisDayResults = {};
+
+    for (const day of WEEKDAYS) {
+      let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+      
+      let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
+      let hasRecordedData = validClasses.length > 0;
+
+      let tw = validClasses.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+      let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+      let per = (hasRecordedData && tc > 0) ? Number((tw/tc).toFixed(1)) : 0;
+      let menu = menus[day.d] || null;
+      let hasMenu = menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup);
+      
+      let isSpike = hasRecordedData && (per > threshold);
+      let alertMsg = '', advice = '', aiDeduction = '', isCloudAI = false, cloudModelName = '', cloudErrorReason = '';
+
+      if (hasRecordedData && hasMenu && isSpike) {
+        alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
+
+        let spikeClasses = validClasses.map(l => {
+          let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
+          return { className: l.className, stage: l.stage, per: p };
+        }).filter(c => c.per > threshold);
+
+        let totalCount = validClasses.length;
+        let spikeCount = spikeClasses.length;
+        let spikeRatio = totalCount > 0 ? Math.round((spikeCount / totalCount) * 100) : 0;
+
+        const calcStageAvg = (stg) => {
+          let sl = validClasses.filter(l => l.stage === stg);
+          let wSum = sl.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
+          let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+          return cSum > 0 ? Number((wSum / cSum).toFixed(1)) : 0;
+        };
+
+        const lowAvg = calcStageAvg('低年級');
+        const midAvg = calcStageAvg('中年級');
+        const highAvg = calcStageAvg('高年級');
+
+        // 呼叫雲端 Gemini LLM 深度診斷
+        if (window.cloudGeminiKey) {
+          try {
+            const aiResult = await window.callGeminiMenuDiagnosis(
+              window.cloudGeminiKey,
+              menu,
+              { per, threshold, spikeRatio, spikeCount, totalCount, spikeClasses, lowAvg, midAvg, highAvg }
+            );
+            aiDeduction = aiResult.text;
+            cloudModelName = aiResult.modelUsed;
+            isCloudAI = true;
+            advice = "依據營養師 AI 即時診斷建議執行。";
+          } catch (aiErr) {
+            console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
+            cloudErrorReason = aiErr.message || "連線或端點異常";
+          }
+        } else {
+          cloudErrorReason = "系統尚未設定集中 Gemini API Key";
+        }
+
+        // 在地專家啟發式推論引擎保底
+        if (!aiDeduction) {
+          let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
+          let specificAdvice = '';
+          if (/魚|排骨|骨|棒腿/.test(str)){
+            specificAdvice = '（含帶骨/刺食材，殘渣比例較高，建議可評估調整為去骨肉類如去骨雞腿丁、里肌柳以減少骨渣重量）';
+          } else if (/苦瓜|青椒|芥藍|茄子/.test(str)){
+            specificAdvice = '（含學童較易排斥之蔬菜品項，建議細切或搭配玉米、胡蘿蔔等甜味食材提升接受度）';
+          } else if (/糙米|五穀|雜糧/.test(str)){
+            specificAdvice = '（含粗糧品項，建議適度微調白米比例或拉長悶煮時間軟化口感）';
+          }
+
+          advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
+
+          let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
+          let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
+          let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
+
+          let patternDesc = '';
+          if (spikeRatio >= 70) {
+            patternDesc = `超標班級高達 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，屬於<b>普遍性現象</b>。`;
+            if (/魚|排骨|骨|棒腿/.test(str)) {
+              aiDeduction = `${patternDesc}交叉比對當日菜單含帶骨/刺料理（如魚、排骨），推論全校多數廚餘重量主要來自骨頭殘渣與剔刺難度，而非學生大量剩食，屬物理殘渣加成所致。`;
+            } else if (/苦瓜|青椒|芥藍|茄子/.test(str)) {
+              aiDeduction = `${patternDesc}交叉比對菜單含有明顯低偏好度蔬菜，且全校各年段均同步超標，推論當日蔬菜品項之整體調味或口感普遍未能迎合學生口味，造成全校性剩菜偏高。`;
+            } else {
+              aiDeduction = `${patternDesc}全校各年段均呈現高人均廚餘，推論可能為整體供餐份量偏多、主食主菜整體調味偏重/偏淡，或是菜色整體組合之接受度偏低。`;
+            }
+          } else if (spikeRatio > 0 && spikeRatio < 35) {
+            let targetStage = (lowSpike > midSpike && lowSpike > highSpike) ? '低年級' :
+                              (highSpike > lowSpike && highSpike > midSpike) ? '高年級' : '特定少數班級';
+            patternDesc = `超標班級僅佔 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，非全校普遍現象，而是<b>高度集中於${targetStage}</b>。`;
+            
+            if (targetStage === '低年級' && /魚|排骨|骨|棒腿|糙米|五穀/.test(str)) {
+              aiDeduction = `${patternDesc}推論低年級學童咀嚼能力較弱、食用帶骨刺或高纖粗糧時較易放棄食用，建議導師於用餐時加強巡視與個別關懷盛菜量。`;
+            } else {
+              aiDeduction = `${patternDesc}全校多數班級均在正常門檻內，推論並非菜色品質問題，可能為少數班級當日盛飯菜份量掌控、班級打菜習慣或班級活動時程延宕影響用餐所致。`;
+            }
+          } else {
+            patternDesc = `超標班級比例為 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，呈現中度分散。`;
+            aiDeduction = `${patternDesc}推論當日菜單之接受度存在班級個別差異，建議針對人均較高之班級（如：${spikeClasses.slice(0, 3).map(c=>c.className).join('、')}等）進一步了解個別剩菜最多的品項。`;
+          }
+        }
+      }
+
+      analysisDayResults[day.d] = {
+        hasRecordedData, hasMenu, isSpike, per, threshold,
+        alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
+        menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
+      };
+    }
+
+    // 3. 儲存快取至 Firestore (menu_diagnoses)
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    try {
+      await setDoc(doc(db, "menu_diagnoses", cacheDocId), {
+        academicYear: y,
+        semester: 1,
+        week: w,
+        days: analysisDayResults,
+        savedAtFormatted: formattedDate,
+        updatedAt: serverTimestamp(),
+        updatedBy: window.currentUser ? window.currentUser.email : 'system'
+      }, { merge: true });
+
+      if (hint) {
+        hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+          ✨ 已自動儲存最新診斷結果 (${formattedDate})
+        </span>`;
+      }
+    } catch (saveErr) {
+      console.warn("診斷結果存入快取資料庫失敗:", saveErr);
+      if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
+    }
+
+    // 4. 渲染畫面
+    window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
+
+  } catch (err) {
+    con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; }
+    if (btnText) {
+      btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
+    }
+  }
+};
 
     /* 渲染卡片：客觀事由討論串單一列排版，緊湊無上下留白 */
     window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
