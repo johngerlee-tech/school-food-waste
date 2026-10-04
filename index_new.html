@@ -276,11 +276,11 @@
           <span class="text-sm font-semibold">分析週次：第</span>
           <input type="number" id="analysis-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-indigo-800" value="1" min="1" onchange="window.loadOrRunAnalysis(false)">
           <span class="text-sm font-semibold">週</span>
-          <span id="analysis-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
+          <span id="analysis-week-range" class="text-xs text-indigo-700 bg-emerald-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
           
           <!-- 主要診斷 / 重新產生按鈕 -->
           <button onclick="window.loadOrRunAnalysis(true)" id="btn-run-analysis" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition flex items-center gap-1.5">
-          <span id="analysis-btn-text">🚀 啟動菜單與廚餘關聯診斷</span>
+            <span id="analysis-btn-text">🚀 啟動菜單與廚餘關聯診斷</span>
           </button>
           
           <span id="analysis-engine-badge" class="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">
@@ -707,7 +707,7 @@
     window.ACTIVE_WEEKDAYS = [1, 2, 4, 5];
     window.ACTIVE_CLASS_IDS = ['201', '202', '301', '302', '401', '402', '501', '502', '601', '602'];
 
-    // 🥣 餐桶空桶扣重配置全域變數 (預設扣重 1055g，由管理員決定是否啟用)
+    // 🥣 餐桶空桶扣重配置全域變數
     window.TARE_CONFIG = {
       enabled: false,
       tareWeight: 1055
@@ -730,7 +730,7 @@
     window.pendingPermissionRole = 'admin';
 
     /* ========================================================
-       🛡️ 全域函式優先提升宣告（Hoisting 安全防護）
+       🛡️️ 全域函式優先提升宣告（Hoisting 安全防護）
        ======================================================== */
 
     window.getExactDateForWeekDay = (weekNum, weekday) => {
@@ -1086,7 +1086,6 @@
         input.disabled = !isAdm;
       }
 
-      // 更新每日登記頁面上的提示橫幅與表頭
       const tareBanner = document.getElementById('daily-tare-hint-bar');
       const tareText = document.getElementById('daily-tare-hint-text');
       const thWeight = document.getElementById('th-weight-header');
@@ -1132,7 +1131,7 @@
 
       if (window.TARE_CONFIG && window.TARE_CONFIG.enabled) {
         let tare = window.TARE_CONFIG.tareWeight || 0;
-        let net = Math.max(0, gross - tare); // 淨重不小於 0
+        let net = Math.max(0, gross - tare); // 淨重不可小於 0
         return { gross, net, tare };
       }
       return { gross, net: gross, tare: 0 };
@@ -1190,7 +1189,7 @@
       window.renderTareWeightUI();
     };
 
-    /* --- 動態偵測最佳可用 Gemini 模型端點 (支援 3.8 / 3.7 / 3.5 系列，維持 Stable01 原架構) --- */
+    /* --- 100% 還原 Stable05 動態偵測最佳可用 Gemini 模型端點 --- */
     window.getAvailableGeminiModel = async (apiKey) => {
       if (window._cachedGeminiModel) return window._cachedGeminiModel;
       
@@ -1222,7 +1221,7 @@
       return "gemini-3.8-flash";
     };
 
-    /* --- 測試 Gemini API Key 連線 (維持 Stable01 原架構) --- */
+    /* --- 100% 還原 Stable05 測試 Gemini API Key 連線 --- */
     window.testGeminiKey = async () => {
       const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
       if (!keyVal) {
@@ -1727,11 +1726,9 @@
           const canEditThisRow = canEditRole;
           const rowBgClass = isAlreadySaved ? 'bg-slate-100/70 text-slate-500' : 'bg-white hover:bg-emerald-50/20';
 
-          // 若已儲存且當初有輸入 grossWeight，則輸入框優先顯示 grossWeight（含桶毛重）
           let displayGross = isClassSkipped ? '' : (rec.grossWeight !== undefined ? rec.grossWeight : w);
           let placeholderTip = (window.TARE_CONFIG && window.TARE_CONFIG.enabled) ? `含桶總重` : `0`;
 
-          // 人均提示：若有扣重且非停餐，下方以小字提示實體淨重
           let perHtml = isClassSkipped ? '停餐' : per;
           if (!isClassSkipped && per !== '-' && window.TARE_CONFIG.enabled && (rec.tareDeducted > 0 || (displayGross !== '' && w !== ''))) {
             perHtml = `${per} <span class="text-[10px] text-slate-400 block font-normal">(淨重${w}g)</span>`;
@@ -1814,7 +1811,7 @@
         if (isRowSkipped) {
           await setDoc(doc(db, "daily_records", docId), {
             academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
-            isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+            isSkipped: true, weightKg: 0, grossWeight: 0, tareDeducted: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
           }, { merge: true });
         } else {
           let wStr = document.getElementById(`w-${classId}`)?.value;
@@ -1826,7 +1823,7 @@
             return window.showNotice('提示', `請先輸入【${cInfo.name}】的廚餘重量！`, false);
           }
 
-          let w = calcResult.net; // 寫入資料庫的實際廚餘淨重 (g)
+          let w = calcResult.net; // 寫入資料庫的真實廚餘淨重 (g)
           let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
           await setDoc(doc(db, "daily_records", docId), {
             academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
@@ -1907,16 +1904,16 @@
           let promises = activeClasses.map(async c => {
             const isRowSkipped = document.getElementById(`skip-row-${c.id}`)?.checked || false;
             if (isRowSkipped) {
-               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
+              await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
                 academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
-                isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+                isSkipped: true, weightKg: 0, grossWeight: 0, tareDeducted: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
               }, { merge: true });
             } else {
               let wStr = document.getElementById(`w-${c.id}`)?.value;
               if (wStr === '' || wStr === undefined) return;
               const calcResult = window.getCalculatedNetWeight(wStr);
               if (calcResult === null) return;
-              let w = calcResult.net;
+              let w = calcResult.net; // 真實廚餘淨重寫入資料庫
               let count = parseInt(document.getElementById(`c-${c.id}`)?.value) || c.defaultCount;
               let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
@@ -2198,8 +2195,7 @@
       document.body.removeChild(textArea);
     };
 
-    /* 🔒 100% 嚴格唯一鎖定 gemini-3.8-flash 進行深度診斷，絕不降級 */
-    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 (完全維持 Stable01 純淨字串端點，杜絕 Markdown 雜質) --- */
+    /* --- 100% 還原 Stable05 呼叫雲端 Gemini 進行午餐深度交叉診斷 --- */
     window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
       const detected = await window.getAvailableGeminiModel(apiKey);
       const candidateModels = [
@@ -2238,7 +2234,13 @@
             })
           });
 
-          const resJson = await response.json();
+          const rawText = await response.text();
+          let resJson;
+          try {
+            resJson = JSON.parse(rawText);
+          } catch (pe) {
+            throw new Error(`[${model}] 伺服器傳回非預期格式: ${rawText.slice(0, 80)}`);
+          }
 
           if (!response.ok || resJson.error) {
             const errDetail = resJson.error?.message || `HTTP ${response.status}`;
@@ -2260,7 +2262,7 @@
       throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
     };
 
-    /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構，維持 Stable01 原架構) --- */
+    /* --- 100% 還原 Stable05 菜單關聯異常分析 (快取優先 Cache-First 架構) --- */
     window.loadOrRunAnalysis = async (forceReRun = false) => {
       window.refreshAllWeekLabels();
       const y = parseInt(document.getElementById('daily-year').value);
@@ -2975,8 +2977,8 @@
                 const per = count > 0 ? Number((weight/count).toFixed(1)) : 0;
                 promises.push(
                   setDoc(doc(db, "daily_records", `${year}_${sem}_${week}_${weekday}_${classId}`), {
-                    academicYear: year, semester: sem, week, weekday, classId, className: classInfo.name, stage: classInfo.stage,
-                    weightKg: weight, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp(), imported: true
+                    academicYear: year, semester: sem, week, weekday, classId: classInfo.id, className: classInfo.name, stage: classInfo.stage,
+                    weightKg: weight, grossWeight: weight, tareDeducted: 0, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp(), imported: true
                   }, { merge: true }).then(() => successCount++)
                 );
               }
@@ -3127,9 +3129,31 @@
           if (b) {
             b.disabled = false;
             b.removeAttribute('disabled');
-            if (id === 'key-test-btn') b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
-            else if (id==='csv-import-btn' || id==='role-save-btn' || id==='key-save-btn' || id==='waste-pass-save-btn' || id==='rules-save-btn' || id==='tare-save-btn') b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
-            else b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+            if (id === 'key-test-btn') {
+              b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
+              b.innerText = "🧪 測試連線";
+            } else if (id==='csv-import-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "🚀 開始匯入";
+            } else if (id==='role-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存成員權限";
+            } else if (id==='key-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存金鑰";
+            } else if (id==='waste-pass-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存密碼";
+            } else if (id==='rules-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存規則";
+            } else if (id==='tare-save-btn') {
+              b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存扣重設定";
+            } else {
+              b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+              b.innerText = "💾 儲存設定";
+            }
           }
         });
         window.unlockSettingsFields();
