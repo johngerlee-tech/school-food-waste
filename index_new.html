@@ -1,0 +1,3360 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>溪洲國小午餐智慧惜食與廚餘追蹤系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+    .tab-active { border-bottom-width: 2px; border-color: #059669; color: #047857; font-weight: 600; }
+    .tab-inactive { border-bottom-width: 2px; border-color: transparent; color: #64748b; font-weight: 600; }
+    .tab-inactive:hover { color: #334155; }
+    .tab-locked { opacity: 0.75; cursor: pointer; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
+  <div class="max-w-6xl mx-auto p-4 md:p-6">
+    
+    <!-- 頂部功能列與身分狀態 -->
+    <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-emerald-800 flex items-center gap-2">
+          🌱 溪洲國小午餐智慧惜食與廚餘追蹤系統 V4.3
+        </h1>
+        <p class="text-sm text-slate-500 mt-1">AI 菜單辨識・自動定位週次・彈性秤重配置・餐桶自動扣重・動態門檻設定・雲端權限控管・Gemini 智能診斷快取</p>
+      </div>
+      <div class="flex items-center gap-2.5 no-print flex-wrap">
+        <!-- 身分狀態標籤 -->
+        <div id="auth-badge" class="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600">
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span><span>訪客模式</span>
+        </div>
+
+        <!-- 工作小組專屬登入按鈕 -->
+        <button id="btn-staff-login" onclick="window.openLoginModal('staff')" class="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1">
+          👥 工作小組登入
+        </button>
+
+        <!-- 管理員後台登入按鈕 -->
+        <button id="btn-login-modal" onclick="window.openLoginModal('admin')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1">
+          🔐 後臺管理
+        </button>
+
+        <!-- 登出按鈕 -->
+        <button id="btn-logout" onclick="window.confirmLogout()" class="hidden px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold rounded-lg transition">
+          登出
+        </button>
+      </div>
+    </header>
+
+    <!-- 分頁導覽列 -->
+    <nav class="flex flex-wrap border-b border-slate-200 mb-6 gap-1 no-print">
+      <button onclick="window.switchTab('daily')" id="tab-daily" class="px-4 py-2 tab-active">1. 每日登記</button>
+      <button onclick="window.switchTab('weekly')" id="tab-weekly" class="px-4 py-2 tab-inactive">2. 週評比/進步獎</button>
+      <button onclick="window.switchTab('monthly')" id="tab-monthly" class="px-4 py-2 tab-inactive">3. 每月榮譽榜</button>
+      <button onclick="window.switchTab('menu')" id="tab-menu" class="px-4 py-2 tab-inactive flex items-center gap-1.5">
+        <span id="tab-menu-text">4. 菜單查詢</span>
+        <span id="tab-menu-badge" class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal hidden">🔒</span>
+      </button>
+      <button onclick="window.switchTab('analysis')" id="tab-analysis" class="px-4 py-2 tab-inactive flex items-center gap-1.5">
+        <span>5. 菜單關聯分析 🔍</span>
+        <span id="tab-analysis-badge" class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">🔒</span>
+      </button>
+      <button onclick="window.switchTab('settings')" id="tab-settings" class="px-4 py-2 tab-inactive flex items-center gap-1.5">
+        <span>⚙ 系統與匯入設定</span>
+        <span id="tab-settings-badge" class="admin-badge text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">🔒</span>
+      </button>
+    </nav>
+
+    <!-- 【頁面 1】每日登記 -->
+    <section id="page-daily" class="space-y-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-4">
+        <div>
+          <label class="text-xs font-semibold text-slate-500">學年/週次 (自動定位)</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input type="number" id="daily-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50" value="115">
+            <span class="text-xs">學年 第</span>
+            <input type="number" id="daily-week" class="w-14 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold text-emerald-800" value="1" min="1" max="25" onchange="window.onDailyWeekOrDayChange()">
+            <span class="text-xs">週</span>
+            <span id="daily-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium"></span>
+          </div>
+        </div>
+
+        <!-- 秤重星期選單與日期對照 -->
+        <div>
+          <label class="text-xs font-semibold text-slate-500">秤重星期與日期</label>
+          <div class="flex items-center gap-2 mt-1">
+            <span id="daily-exact-date" class="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-lg shadow-sm">
+              <span class="font-bold text-purple-800" id="daily-exact-date-text">-- / --</span>
+            </span>
+            <select id="daily-weekday" class="border border-purple-200 rounded-lg px-3 py-1 text-sm bg-purple-100 text-purple-700 font-semibold focus:outline-purple-400 shadow-sm" onchange="window.onDailyWeekOrDayChange()">
+              <option value="1">週一</option>
+              <option value="2">週二</option>
+              <option value="3">週三</option>
+              <option value="4">週四</option>
+              <option value="5">週五</option>
+              <option value="6">週六</option>
+              <option value="0">週日</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- 免秤重設定區塊 -->
+        <div class="flex items-center gap-2 ml-2 mt-4 md:mt-0 bg-rose-50 px-3 py-1.5 rounded border border-rose-100">
+          <input type="checkbox" id="daily-skip-cb" onchange="window.toggleSkipDay()" class="w-4 h-4 text-rose-600 rounded cursor-pointer">
+          <label for="daily-skip-cb" class="text-sm font-semibold text-rose-800 cursor-pointer">本日全校停餐 / 免秤重</label>
+        </div>
+
+        <div id="today-menu-hint" class="text-xs bg-emerald-50 text-emerald-800 px-3 py-2 rounded border border-emerald-100 hidden md:block">
+          🍱 今日菜單讀取中...
+        </div>
+        
+        <!-- 操作按鈕列 -->
+        <div class="ml-auto flex items-center gap-2">
+          <button onclick="window.openWasteMonitorModal()" id="btn-waste-monitor" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm text-sm transition flex items-center gap-1">
+            <span>🍱 廚餘長登錄資料</span>
+          </button>
+
+          <button onclick="window.saveAllDailyRecords()" id="save-btn" disabled class="px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition flex items-center gap-1">
+            🔒 需登入方可儲存
+          </button>
+        </div>
+      </div>
+
+      <!-- 空桶扣重啟用狀態提示列 -->
+      <div id="daily-tare-hint-bar" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 px-3.5 text-xs text-emerald-800 font-semibold flex items-center justify-between shadow-sm">
+        <div class="flex items-center gap-1.5">
+          <span>🥣</span>
+          <span id="daily-tare-hint-text">已啟用餐桶自動扣重功能（輸入含桶總重後，系統自動扣除空桶重 1055g 計算實際淨重）</span>
+        </div>
+        <span class="text-[11px] bg-white text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded font-mono">去皮模式</span>
+      </div>
+
+      <!-- 非秤重星期提示橫幅 -->
+      <div id="non-active-day-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 font-medium flex items-center gap-2 shadow-sm">
+        <span>ℹ️</span>
+        <span>本日未設定為常態秤重日，過磅登記與操作已進入唯讀防呆模式。如需登記，請由系統管理員至「⚙ 系統與匯入設定」調整常態秤重星期配置。</span>
+      </div>
+      
+      <!-- 每日清單 -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto" id="daily-table-container">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
+            <tr>
+              <th class="p-3">年段</th>
+              <th class="p-3">班級</th>
+              <th class="p-3" id="th-weight-header">廚餘重量 (g)</th>
+              <th class="p-3">用餐人數 (人)</th>
+              <th class="p-3 text-right">今日人均 (g/人)</th>
+              <th class="p-3 text-center text-rose-600">班級停餐</th>
+              <th class="p-3 text-center w-28">操作/狀態</th>
+            </tr>
+          </thead>
+          <tbody id="daily-rows" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+      
+      <!-- 全校免秤重遮罩 -->
+      <div id="skip-overlay" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-8 text-center text-rose-700 font-bold">
+        🚫 本日已設定為「全校停餐 / 免秤重」，無需登記數據。（不列入統計）
+      </div>
+    </section>
+
+    <!-- 【頁面 2】週結算與評比 -->
+    <section id="page-weekly" class="space-y-6 hidden">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-semibold">評比週次：第</span>
+          <input type="number" id="weekly-select-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-emerald-800" value="1" min="1" onchange="window.calcWeeklyReport()">
+          <span class="text-sm font-semibold">週</span>
+          <span id="weekly-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium"></span>
+          <button onclick="window.calcWeeklyReport()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded">🔄 重新讀取</button>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="window.print()" class="px-4 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded">🖨 列印報表</button>
+          <button onclick="window.copyWeeklySpeech()" class="px-4 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded shadow">📋 複製廣播詞</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="weekly-cards"></div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4" id="weekly-progress-box"></div>
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
+            <tr>
+              <th class="p-3">班級</th><th class="p-3 text-right">當週總重 (g)</th><th class="p-3 text-right">用餐人次</th>
+              <th class="p-3 text-right text-emerald-700 font-bold">本週人均(g)</th><th class="p-3 text-right text-slate-400">前週人均(g)</th>
+              <th class="p-3 text-right">減幅(%)</th><th class="p-3 text-center">狀態</th>
+            </tr>
+          </thead>
+          <tbody id="weekly-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 【頁面 3】每月榮譽榜 -->
+    <section id="page-monthly" class="space-y-6 hidden">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="text-sm font-semibold text-slate-600">學年度：</label>
+          <input type="number" id="monthly-year" class="w-16 border rounded px-2 py-1 text-sm bg-slate-50 font-semibold" value="115" onchange="window.calcMonthlyReport()">
+          
+          <label class="text-sm font-semibold text-slate-600 ml-2">統計月份：</label>
+          <select id="monthly-select-month" class="border rounded px-3 py-1 text-sm bg-white font-medium text-indigo-800" onchange="window.calcMonthlyReport()">
+            <option value="9">9 月 (第 1~4 週)</option>
+            <option value="10">10 月 (第 5~8 週)</option>
+            <option value="11">11 月 (第 9~12 週)</option>
+            <option value="12">12 月 (第 13~17 週)</option>
+          </select>
+          <button onclick="window.calcMonthlyReport()" class="px-3.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition">
+            🔄 重新彙整
+          </button>
+        </div>
+        <div id="monthly-status-hint" class="text-xs text-slate-500"></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="monthly-cards"></div>
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 border-b text-slate-600 font-semibold">
+            <tr>
+              <th class="p-3">班級</th>
+              <th class="p-3 text-right">全月總重 (g)</th>
+              <th class="p-3 text-right">全月總人次</th>
+              <th class="p-3 text-right text-indigo-700 font-bold">月加權人均 (g/人)</th>
+              <th class="p-3 text-center">榮譽</th>
+            </tr>
+          </thead>
+          <tbody id="monthly-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 【頁面 4】菜單查詢 / 當週菜單維護 -->
+    <section id="page-menu" class="space-y-4 hidden">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-4 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold" id="menu-week-title-label">本週週次：第</span>
+            <input type="number" id="menu-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-emerald-800" value="1" min="1" onchange="window.loadWeeklyMenu()">
+            <span class="text-sm font-semibold">週</span>
+            <span id="menu-week-range" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 font-medium"></span>
+          </div>
+          <button onclick="window.saveWeeklyMenu()" id="menu-save-btn" class="hidden px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow transition">
+            💾 儲存菜單
+          </button>
+        </div>
+        
+        <!-- AI 辨識區塊 -->
+        <div id="menu-ai-section" class="hidden bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start md:items-center">
+          <div class="flex-1 space-y-2">
+            <h3 class="font-bold text-indigo-900 flex items-center gap-1">🤖 AI 自動菜單圖片辨識</h3>
+            <p class="text-xs text-indigo-700">上傳營養午餐菜單圖檔（JPG/PNG），系統將調用集中金鑰自動填入菜色。</p>
+            <div class="flex items-center gap-2 mt-2 flex-wrap">
+              <input type="file" id="menu-image-upload" accept="image/*" class="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer text-indigo-800">
+              <button onclick="window.recognizeMenuImage()" id="btn-ai-recognize" class="px-3.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition">
+                ✨ 開始辨識
+              </button>
+              <span id="menu-key-status-indicator" class="text-[11px] text-slate-500"></span>
+            </div>
+            <div id="ai-status-hint" class="text-[11px] text-slate-600 font-medium"></div>
+          </div>
+          <div id="image-preview-container" class="hidden w-24 h-24 border border-indigo-200 rounded overflow-hidden bg-white flex items-center justify-center shrink-0">
+            <img id="menu-image-preview" class="max-w-full max-h-full object-contain">
+          </div>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="menu-days-container"></div>
+    </section>
+
+    <!-- 【頁面 5】菜單關聯異常分析 -->
+    <section id="page-analysis" class="space-y-6 hidden">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4 no-print">
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="text-sm font-semibold">分析週次：第</span>
+          <input type="number" id="analysis-week" class="w-16 border rounded px-2 py-1 text-sm font-semibold text-indigo-800" value="1" min="1" onchange="window.loadOrRunAnalysis(false)">
+          <span class="text-sm font-semibold">週</span>
+          <span id="analysis-week-range" class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-medium"></span>
+          
+          <!-- 主要診斷 / 重新產生按鈕 -->
+          <button onclick="window.loadOrRunAnalysis(true)" id="btn-run-analysis" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition flex items-center gap-1.5">
+          <span id="analysis-btn-text">🚀 啟動菜單與廚餘關聯診斷</span>
+          </button>
+          
+          <span id="analysis-engine-badge" class="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">
+            模式偵測中...
+          </span>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div id="analysis-cache-status-hint" class="text-xs text-slate-500 font-medium"></div>
+          <div class="text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded border">
+            目前警示門檻：<span id="current-threshold-label" class="font-bold text-rose-600">120</span> g/人
+            <span class="text-[11px] text-slate-400 ml-1">(可於系統設定自訂)</span>
+          </div>
+        </div>
+      </div>
+      <div class="space-y-4" id="analysis-results-container">
+        <div class="p-8 text-center text-slate-400 bg-white rounded-xl border">正在檢查本週歷史診斷紀錄...</div>
+      </div>
+    </section>
+
+    <!-- 【頁面 6】系統與匯入設定 -->
+    <section id="page-settings" class="space-y-6 hidden">
+      
+      <!-- 【區塊 0】🤖 集中 Gemini API 金鑰安全設定 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex flex-wrap justify-between items-center mb-3 border-b pb-2 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-indigo-900 flex items-center gap-1.5">
+              <span>🤖 雲端 Gemini AI 集中金鑰設定</span>
+            </h2>
+            <p class="text-xs text-slate-500">將您的 Google Gemini API Key 儲存於雲端資料庫後，所有工作小組同仁皆可直接進行深度營養師診斷，免於個別輸入。</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="window.testGeminiKey()" id="key-test-btn" disabled class="px-3 py-1.5 bg-slate-200 text-slate-600 font-medium rounded shadow text-xs hover:bg-slate-300 transition flex items-center gap-1">
+              🧪 測試連線
+            </button>
+            <button onclick="window.saveGeminiApiKey()" id="key-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+              🔒 需登入
+            </button>
+          </div>
+        </div>
+        <div class="max-w-xl space-y-2">
+          <label class="block text-xs font-semibold text-slate-600">Gemini API Key</label>
+          <div class="flex items-center gap-2">
+            <input type="password" id="sys-gemini-key" placeholder="AIzaSy..." class="border border-indigo-200 rounded px-3 py-1.5 text-xs flex-1 bg-slate-50 focus:bg-white focus:outline-indigo-500 font-mono">
+            <button onclick="window.toggleKeyVisibility()" type="button" class="px-2.5 py-1.5 border border-slate-200 rounded text-xs text-slate-600 hover:bg-slate-50">👁️ 顯示</button>
+          </div>
+          <p id="gemini-key-status-text" class="text-[11px] text-slate-400 font-medium">尚未設定金鑰（系統目前運作於在地專家引擎模式）</p>
+        </div>
+      </div>
+
+      <!-- 【區塊 1】👥 系統成員與權限控管 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex flex-wrap justify-between items-center mb-4 border-b pb-2 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">👥 系統成員與權限控管</h2>
+            <p class="text-xs text-slate-500">工作小組支援填寫姓名與任何 Email；可勾選「允許每日登記」協助填報，點擊「💾 儲存成員權限」立即同步雲端。</p>
+          </div>
+          <button onclick="window.saveRoleSettings()" id="role-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+            🔒 需登入
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-emerald-800">🛡 系統管理員 (全權操作與設定)</span>
+              <span id="admin-count-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">2 位</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+              <input type="email" id="input-new-admin" placeholder="輸入管理員 Email (Google/Yahoo/教育局)" class="border border-emerald-200 rounded px-2.5 py-1 text-xs flex-1 bg-white focus:outline-emerald-500">
+              <button onclick="window.addMemberRole('admin')" id="btn-add-admin" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded shadow transition shrink-0">＋新增</button>
+            </div>
+            <div id="admin-list-container" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+          </div>
+
+          <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-indigo-800">👥 工作小組 (可檢視菜單與關聯分析)</span>
+              <span id="staff-count-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">0 位</span>
+            </div>
+            <div class="flex gap-2 mb-3 flex-wrap sm:flex-nowrap">
+              <input type="text" id="input-new-staff-name" placeholder="姓名 (如：林老師)" class="border border-indigo-200 rounded px-2.5 py-1 text-xs w-28 bg-white focus:outline-indigo-500">
+              <input type="email" id="input-new-staff" placeholder="電子信箱 (Google/Yahoo/教育局)" class="border border-indigo-200 rounded px-2.5 py-1 text-xs flex-1 bg-white focus:outline-indigo-500">
+              <button onclick="window.addMemberRole('staff')" id="btn-add-staff" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition shrink-0">＋新增</button>
+            </div>
+            <div id="staff-list-container" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 【區塊 1.5】🍱 廚餘長快速登錄密碼安全設定 -->
+      <div class="bg-amber-50/40 p-5 rounded-xl shadow-sm border-2 border-amber-200">
+        <div class="flex flex-wrap justify-between items-center mb-3 border-b border-amber-200 pb-2 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-amber-900 flex items-center gap-1.5">
+              <span>🍱 廚餘長快速登錄通行密碼設定</span>
+            </h2>
+            <p class="text-xs text-amber-700">此密碼僅保存在雲端資料庫，供值日生或廚餘長在免登入個人帳號情況下快速解鎖填報過磅數據。</p>
+          </div>
+          <button onclick="window.saveWasteMonitorPass()" id="waste-pass-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+            🔒 需登入
+          </button>
+        </div>
+        <div class="max-w-md space-y-2">
+          <label class="block text-xs font-bold text-amber-900">廚餘長專用通行密碼</label>
+          <div class="flex items-center gap-2">
+            <input type="password" id="sys-waste-pass" placeholder="輸入欲設定的通行密碼" class="border border-amber-300 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-amber-500 font-mono font-bold text-amber-950">
+            <button onclick="window.toggleWastePassVisibility()" type="button" class="px-2.5 py-1.5 border border-amber-300 bg-white rounded text-xs text-amber-800 hover:bg-amber-100/50">
+              👁 顯示/隱藏
+            </button>
+          </div>
+          <p id="waste-pass-status-text" class="text-[11px] text-amber-800/80 font-medium">提示：點擊儲存後立即寫入 Firestore 雲端設定，每日登記畫面的按鈕將即時啟用此密碼。</p>
+        </div>
+      </div>
+
+      <!-- 【區塊 1.6】📅 彈性秤重星期與班級適用範圍設定 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex flex-wrap justify-between items-center mb-4 border-b pb-2 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-1.5">
+              <span>📅 秤重星期與班級適用範圍設定</span>
+            </h2>
+            <p class="text-xs text-slate-500">設定哪些星期與班級需進行每日過磅登記；未勾選項目在登記頁將自動反白鎖定且不計入評比。</p>
+          </div>
+          <button onclick="window.saveWeighingRules()" id="rules-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+            🔒 需登入
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+            <span class="text-xs font-bold text-purple-900 block mb-2">🗓 常態秤重星期配置</span>
+            <div class="grid grid-cols-4 sm:grid-cols-7 gap-2" id="rule-weekdays-container"></div>
+          </div>
+
+          <div class="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-emerald-900">🏫 適用秤重班級配置</span>
+              <button onclick="window.toggleAllClassesRule(true)" type="button" class="text-[11px] text-emerald-700 hover:underline">全選</button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="rule-classes-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 【區塊 1.7】🥣 餐桶空桶扣重設定 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex flex-wrap justify-between items-center mb-3 border-b pb-2 gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-1.5">
+              <span>🥣 餐桶空桶扣重設定</span>
+            </h2>
+            <p class="text-xs text-slate-500">啟用後，每日登記時輸入「含桶總重」，系統將自動扣除空桶重量計算實際廚餘淨重，現場磅秤無需手動歸零。</p>
+          </div>
+          <button onclick="window.saveTareWeightConfig()" id="tare-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm transition">
+            🔒 需登入
+          </button>
+        </div>
+        <div class="max-w-md space-y-3">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer bg-slate-50 p-2.5 rounded-lg border">
+            <input type="checkbox" id="sys-tare-enabled" class="w-4 h-4 text-emerald-600 rounded">
+            <span>啟用系統自動扣除空桶重量 (磅秤不需手動去皮)</span>
+          </label>
+          <div class="flex items-center gap-3">
+            <label class="text-xs font-semibold text-slate-600 shrink-0">餐桶空桶預設重量：</label>
+            <div class="flex items-center gap-1.5">
+              <input type="number" id="sys-tare-weight" value="1055" min="0" max="5000" class="border border-slate-300 rounded px-2.5 py-1 text-xs w-28 text-right bg-slate-50 font-bold text-slate-800 focus:bg-white focus:outline-emerald-500">
+              <span class="text-xs text-slate-500 font-medium">公克 (g)</span>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400">說明：啟用後，若輸入 3500g 且空桶為 1055g，系統將以 2445g 作為實際廚餘量記錄與評比。</p>
+        </div>
+      </div>
+
+      <!-- 【區塊 2】學期行事曆與門檻參數設定 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">📅 學期行事曆與異常門檻設定</h2>
+            <p class="text-xs text-slate-500">設定開學日後系統自動推算週次；您也可以在此自訂菜單異常警示的廚餘公克門檻。</p>
+          </div>
+          <button onclick="window.saveSystemConfig()" id="sys-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm">🔒 需登入</button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+          <div><label class="block text-slate-500 font-semibold mb-1">當前學年度</label><input type="number" id="sys-year" value="115" class="border rounded w-full p-1.5 bg-slate-50"></div>
+          <div><label class="block text-slate-500 font-semibold mb-1">學期</label><input type="number" id="sys-sem" value="1" class="border rounded w-full p-1.5 bg-slate-50"></div>
+          <div><label class="block text-slate-500 font-semibold mb-1">開學日</label><input type="date" id="sys-start" value="2026-08-31" class="border rounded w-full p-1.5 bg-slate-50" onchange="window.refreshAllWeekLabels()"></div>
+          <div><label class="block text-slate-500 font-semibold mb-1">結業日</label><input type="date" id="sys-end" value="2027-01-20" class="border rounded w-full p-1.5 bg-slate-50"></div>
+          <div>
+            <label class="block text-rose-700 font-bold mb-1">異常警示門檻 (g/人)</label>
+            <input type="number" id="sys-threshold" value="120" min="10" max="500" class="border border-rose-300 rounded w-full p-1.5 bg-rose-50 font-bold text-rose-800">
+          </div>
+        </div>
+      </div>
+
+      <!-- 【區塊 3】CSV 歷史資料批次匯入 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+          <div><h2 class="text-base font-bold text-slate-800">📂 歷史數據 CSV 批次匯入</h2><p class="text-xs text-slate-500">開學初或前幾週未登錄之歷史數據，可整理成 CSV 檔一鍵匯入（單位為公克 g）。</p></div>
+          <button onclick="window.downloadCsvTemplate()" class="px-4 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-medium rounded shadow-sm text-sm transition">📥 下載 CSV 範例檔</button>
+        </div>
+        <div class="flex items-center gap-4">
+          <input type="file" id="csv-upload" accept=".csv" class="text-sm file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer">
+          <button onclick="window.importCsvData()" id="csv-import-btn" disabled class="px-5 py-1.5 bg-slate-300 text-slate-500 font-medium rounded-lg shadow text-sm">🔒 需登入</button>
+        </div>
+      </div>
+
+      <!-- 【區塊 4】班級預設人數管理 -->
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+          <div><h2 class="text-base font-bold text-slate-800">🧑‍🤝‍🧑 班級預設用餐人數</h2><p class="text-xs text-slate-500">每日登記時將自動帶出此數值，節省登記時間。</p></div>
+          <button onclick="window.saveClassSettings()" id="settings-save-btn" disabled class="px-4 py-1.5 bg-slate-300 text-slate-500 font-medium rounded shadow text-sm">🔒 需登入</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b"><tr><th class="p-3">年段</th><th class="p-3">班級</th><th class="p-3">預設人數</th></tr></thead>
+            <tbody id="settings-rows" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 廚餘長專用認證 Modal -->
+  <div id="waste-monitor-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
+      <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+        🍱
+      </div>
+      <h3 class="text-base font-bold text-slate-800 mb-1">廚餘長登錄認證</h3>
+      <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+        請輸入廚餘長通行密碼，驗證成功後將開放今日廚餘重量登錄與上傳功能。
+      </p>
+      <div class="mb-4 text-left">
+        <label class="block text-[11px] font-semibold text-slate-600 mb-1">通行密碼</label>
+        <input type="password" id="waste-modal-pass-input" placeholder="請輸入通行密碼" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-amber-500">
+        <div id="waste-modal-err" class="text-xs text-rose-600 font-semibold mt-1.5 hidden"></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="window.closeWasteMonitorModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
+          取消
+        </button>
+        <button onclick="window.verifyWasteMonitorPass()" id="btn-waste-modal-submit" class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg shadow transition">
+          驗證進入
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 訪客/未授權權限拒絕提示 Modal -->
+  <div id="permission-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
+      <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+        🔒
+      </div>
+      <h3 class="text-base font-bold text-slate-800 mb-1" id="permission-modal-title">權限不足</h3>
+      <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line" id="permission-modal-msg">
+        您目前權限不足，無法使用此功能喔！
+      </p>
+      <div class="flex gap-2">
+        <button onclick="window.closePermissionModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
+          我知道了
+        </button>
+        <button id="permission-modal-action-btn" onclick="window.handlePermissionAction()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
+          管理員登入
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 系統通用通知 Modal -->
+  <div id="notice-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 text-xl" id="notice-modal-icon">
+        ℹ
+      </div>
+      <h3 class="text-base font-bold text-slate-800 mb-2" id="notice-modal-title">系統提示</h3>
+      <p class="text-xs text-slate-600 mb-5 leading-relaxed whitespace-pre-line text-left bg-slate-50 p-3 rounded-lg border font-mono" id="notice-modal-msg"></p>
+      <button onclick="window.closeNoticeModal()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
+        確定
+      </button>
+    </div>
+  </div>
+
+  <!-- 確認對話框 Modal -->
+  <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border text-center">
+      <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+        ⚠️
+      </div>
+      <h3 class="text-base font-bold text-slate-800 mb-1" id="confirm-modal-title">確認操作</h3>
+      <p class="text-xs text-slate-600 mb-5 leading-relaxed" id="confirm-modal-msg"></p>
+      <div class="flex gap-2">
+        <button onclick="window.closeConfirmModal(false)" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">
+          取消
+        </button>
+        <button onclick="window.closeConfirmModal(true)" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg shadow transition">
+          確認執行
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登入 Modal -->
+  <div id="login-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-1.5" id="login-modal-title">
+          🔐 後臺管理登入
+        </h3>
+        <button onclick="window.closeLoginModal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
+      </div>
+
+      <div id="login-modal-hint" class="text-xs p-2.5 rounded-lg mb-4 bg-slate-50 border border-slate-200 text-slate-600 leading-relaxed">
+        授權成員請使用登記於系統之 Email 登入。
+      </div>
+
+      <div id="line-browser-alert" class="hidden text-[11px] p-2.5 rounded-lg mb-3 bg-amber-50 border border-amber-200 text-amber-800 leading-relaxed">
+        ⚠ <strong>您目前正於通訊軟體內建瀏覽器開啟</strong><br>
+        Google 官方政策已限制在 App 內進行彈窗授權。<br>
+        建議點擊右下角使用 <strong>Safari / Chrome</strong> 開啟，或直接使用下方 <strong>Email / 自訂密碼</strong> 登入！
+      </div>
+
+      <button onclick="window.loginWithGoogle()" id="btn-google-login-action" class="w-full py-2.5 px-4 border rounded-lg flex items-center justify-center gap-2 hover:bg-slate-50 text-slate-700 font-medium text-sm transition mb-4">
+        <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.9c2.27-2.1 3.65-5.2 3.65-9.15z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.72-2.1-6.66-4.93H1.27v3.15C3.25 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.34 14.27c-.24-.72-.37-1.49-.37-2.27s.13-1.55.37-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.07-3.15z"/><path fill="#EA4335" d="M12 4.77c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.58l4.07 3.15c.94-2.83 3.56-4.96 6.66-4.96z"/></svg>
+        <span id="btn-google-login-text">使用 Google 帳號快速登入</span>
+      </button>
+
+      <div class="relative my-4">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t"></div></div>
+        <div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-slate-400">或使用任何 Email 密碼</span></div>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-500 mb-1">電子信箱</label>
+          <input type="email" id="login-email" placeholder="電子信箱 (Google/Yahoo/教育局等)" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-emerald-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-500 mb-1">登入密碼</label>
+          <input type="password" id="login-password" placeholder="請輸入 6 碼以上密碼" class="w-full border rounded-lg px-3 py-2 text-xs bg-slate-50 focus:bg-white focus:outline-emerald-500">
+        </div>
+        
+        <div class="flex gap-2 pt-2">
+          <button onclick="window.loginWithEmail()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm transition">
+            🔑 密碼登入
+          </button>
+          <button onclick="window.registerWithEmail()" id="btn-register-email" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition">
+            🌱 首次設定密碼
+          </button>
+        </div>
+
+        <div class="flex justify-between items-center pt-2 border-t text-[11px] text-slate-400">
+          <span>忘記密碼？</span>
+          <button onclick="window.sendPasswordReset()" class="text-indigo-600 hover:underline">寄送重設密碼信</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithPopup, 
+      GoogleAuthProvider, 
+      signInWithEmailAndPassword, 
+      createUserWithEmailAndPassword, 
+      sendPasswordResetEmail, 
+      signOut, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      getDoc, 
+      getDocs, 
+      query, 
+      where, 
+      serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6xjT4asS3xcpRrgLD33jrssSIzmh0ix4",
+      authDomain: "school-food-waste.firebaseapp.com",
+      projectId: "school-food-waste",
+      storageBucket: "school-food-waste.firebasestorage.app",
+      messagingSenderId: "1056761999500",
+      appId: "1:1056761999500:web:1014f9ec8d320391ce8ba9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.ADMIN_EMAILS = [
+      "johngerlee@gmail.com",
+      "rodyg103022@gmail.com"
+    ];
+
+    window.STAFF_MEMBERS = []; 
+    window.userRole = 'guest'; 
+    window.currentStaffCanDaily = false;
+    window.classSavedStatus = {}; 
+    let isGoogleLoginInProgress = false;
+
+    // 開機防連鎖死鎖旗標
+    let isSystemInitializing = true;
+
+    const isInAppBrowser = () => {
+      const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+      return (/Line|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua));
+    };
+
+    const ALL_DAYS_META = [
+      { d: 1, name: '週一' }, { d: 2, name: '週二' }, { d: 3, name: '週三' },
+      { d: 4, name: '週四' }, { d: 5, name: '週五' }, { d: 6, name: '週六' }, { d: 0, name: '週日' }
+    ];
+    const WEEKDAYS = [{d:1, name:'週一'}, {d:2, name:'週二'}, {d:4, name:'週四'}, {d:5, name:'週五'}];
+
+    // 彈性秤重配置全域變數 (預設週一、二、四、五；預設二至六年級)
+    window.ACTIVE_WEEKDAYS = [1, 2, 4, 5];
+    window.ACTIVE_CLASS_IDS = ['201', '202', '301', '302', '401', '402', '501', '502', '601', '602'];
+
+    // 🥣 餐桶空桶扣重配置全域變數 (預設扣重 1055g，由管理員決定是否啟用)
+    window.TARE_CONFIG = {
+      enabled: false,
+      tareWeight: 1055
+    };
+
+    window.CLASSES = [
+      { id: '101', name: '一年甲班', stage: '低年級', defaultCount: 22 }, { id: '102', name: '一年乙班', stage: '低年級', defaultCount: 21 },
+      { id: '201', name: '二年甲班', stage: '低年級', defaultCount: 24 }, { id: '202', name: '二年乙班', stage: '低年級', defaultCount: 23 },
+      { id: '301', name: '三年甲班', stage: '中年級', defaultCount: 25 }, { id: '302', name: '三年乙班', stage: '中年級', defaultCount: 24 },
+      { id: '401', name: '四年甲班', stage: '中年級', defaultCount: 26 }, { id: '402', name: '四年乙班', stage: '中年級', defaultCount: 25 },
+      { id: '501', name: '五年甲班', stage: '高年級', defaultCount: 27 }, { id: '502', name: '五年乙班', stage: '高年級', defaultCount: 26 },
+      { id: '601', name: '六年甲班', stage: '高年級', defaultCount: 28 }, { id: '602', name: '六年乙班', stage: '高年級', defaultCount: 27 },
+    ];
+    window.currentUser = null;
+    window.calculatedCurrentWeek = 1;
+    window.systemThreshold = 120;
+    window.cloudGeminiKey = '';
+    window.currentWeekAnalysisData = null; 
+    let confirmResolver = null;
+    window.pendingPermissionRole = 'admin';
+
+    /* ========================================================
+       🛡️ 全域函式優先提升宣告（Hoisting 安全防護）
+       ======================================================== */
+
+    window.getExactDateForWeekDay = (weekNum, weekday) => {
+      try {
+        const startEl = document.getElementById('sys-start');
+        const startStr = startEl ? startEl.value : '2026-08-31';
+        if (!startStr) return '-- / --';
+        const parts = startStr.split('-');
+        if (parts.length < 3) return '-- / --';
+        
+        const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        const day = start.getDay();
+        const diffToMon = day === 0 ? -6 : (1 - day);
+        
+        const baseMonday = new Date(start);
+        baseMonday.setDate(start.getDate() + diffToMon);
+        
+        const targetMon = new Date(baseMonday);
+        targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
+        
+        const targetDay = new Date(targetMon);
+        const wInt = parseInt(weekday);
+        const offset = (wInt === 0) ? 6 : (wInt - 1);
+        targetDay.setDate(targetMon.getDate() + offset);
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const m = pad(targetDay.getMonth() + 1);
+        const d = pad(targetDay.getDate());
+        return `${m} / ${d}`;
+      } catch (e) {
+        return '-- / --';
+      }
+    };
+
+    window.getWeekDateRange = (weekNum) => {
+      try {
+        const startEl = document.getElementById('sys-start');
+        const startStr = startEl ? startEl.value : '2026-08-31';
+        if (!startStr) return '';
+        const parts = startStr.split('-');
+        if (parts.length < 3) return '';
+        
+        const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        const day = start.getDay();
+        const diffToMon = day === 0 ? -6 : (1 - day);
+        
+        const baseMonday = new Date(start);
+        baseMonday.setDate(start.getDate() + diffToMon);
+        
+        const targetMon = new Date(baseMonday);
+        targetMon.setDate(baseMonday.getDate() + (weekNum - 1) * 7);
+        
+        const targetFri = new Date(targetMon);
+        targetFri.setDate(targetMon.getDate() + 4);
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const m1 = pad(targetMon.getMonth() + 1);
+        const d1 = pad(targetMon.getDate());
+        const m2 = pad(targetFri.getMonth() + 1);
+        const d2 = pad(targetFri.getDate());
+        
+        return `${m1}/${d1} ~ ${m2}/${d2}`;
+      } catch (e) {
+        return '';
+      }
+    };
+
+    window.refreshAllWeekLabels = () => {
+      try {
+        const dw = parseInt(document.getElementById('daily-week')?.value || 1);
+        const dWd = parseInt(document.getElementById('daily-weekday')?.value || 1);
+        const mw = parseInt(document.getElementById('menu-week')?.value || 1);
+        const ww = parseInt(document.getElementById('weekly-select-week')?.value || 1);
+        const aw = parseInt(document.getElementById('analysis-week')?.value || 1);
+
+        const dSpan = document.getElementById('daily-week-range');
+        if (dSpan) dSpan.innerText = window.getWeekDateRange(dw);
+
+        const dExact = document.getElementById('daily-exact-date');
+        const dExactText = document.getElementById('daily-exact-date-text');
+        const formattedDate = window.getExactDateForWeekDay(dw, dWd);
+        if (dExactText) {
+          dExactText.innerText = formattedDate;
+        } else if (dExact) {
+          dExact.innerHTML = `<span class="font-bold text-purple-800">${formattedDate}</span>`;
+        }
+
+        const mSpan = document.getElementById('menu-week-range');
+        if (mSpan) mSpan.innerText = window.getWeekDateRange(mw);
+
+        const wSpan = document.getElementById('weekly-week-range');
+        if (wSpan) wSpan.innerText = window.getWeekDateRange(ww);
+
+        const aSpan = document.getElementById('analysis-week-range');
+        if (aSpan) aSpan.innerText = window.getWeekDateRange(aw);
+        
+      } catch (e) {
+        console.warn("更新週次標籤例外:", e);
+      }
+    };
+
+    window.onDailyWeekOrDayChange = () => {
+      if (isSystemInitializing) return; 
+      window.refreshAllWeekLabels();
+      window.loadDailyRecords();
+    };
+
+    window.showNotice = (title, message, isSuccess = true) => {
+      const modal = document.getElementById('notice-modal');
+      const icon = document.getElementById('notice-modal-icon');
+      if (!modal) return;
+      document.getElementById('notice-modal-title').innerText = title;
+      document.getElementById('notice-modal-msg').innerText = message;
+      if (isSuccess) {
+        icon.className = "w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold";
+        icon.innerText = "✅";
+      } else {
+        icon.className = "w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold";
+        icon.innerText = "⚠";
+      }
+      modal.classList.remove('hidden');
+    };
+
+    window.closeNoticeModal = () => {
+      document.getElementById('notice-modal')?.classList.add('hidden');
+    };
+
+    window.showPermissionDenied = (tabName, requiredRole = '系統管理員') => {
+      window.pendingPermissionRole = (requiredRole === '系統管理員') ? 'admin' : 'staff';
+      const actionBtn = document.getElementById('permission-modal-action-btn');
+      const modal = document.getElementById('permission-modal');
+      if (!modal) return;
+
+      document.getElementById('permission-modal-title').innerText = `🔒「${tabName}」權限不足`;
+      const currentIdentity = (window.userRole === 'staff') ? '工作小組' : (window.userRole === 'waste_monitor' ? '廚餘長模式' : '訪客模式');
+      document.getElementById('permission-modal-msg').innerText = `您目前身分為「${currentIdentity}」。\n「${tabName}」需要【${requiredRole}】身分才能使用喔！\n\n若您是授權人員，請點擊下方按鈕進行切換登入。`;
+      
+      if (requiredRole === '系統管理員') {
+        actionBtn.innerText = '🔐 管理員登入';
+        actionBtn.className = 'flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition';
+      } else {
+        actionBtn.innerText = '👥 工作小組登入';
+        actionBtn.className = 'flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition';
+      }
+      modal.classList.remove('hidden');
+    };
+
+    window.handlePermissionAction = () => {
+      window.closePermissionModal();
+      window.openLoginModal(window.pendingPermissionRole || 'admin');
+    };
+
+    window.closePermissionModal = () => {
+      document.getElementById('permission-modal')?.classList.add('hidden');
+    };
+
+    window.confirmAction = (msg) => {
+      return new Promise((resolve) => {
+        confirmResolver = resolve;
+        document.getElementById('confirm-modal-msg').innerText = msg;
+        document.getElementById('confirm-modal')?.classList.remove('hidden');
+      });
+    };
+
+    window.closeConfirmModal = (result) => {
+      document.getElementById('confirm-modal')?.classList.add('hidden');
+      if (confirmResolver) {
+        confirmResolver(result);
+        confirmResolver = null;
+      }
+    };
+
+    window.confirmLogout = async () => {
+      const ok = await window.confirmAction('確定要登出並切換回訪客模式嗎？');
+      if (ok) {
+        if (window.userRole === 'waste_monitor') {
+          window.userRole = 'guest';
+          window.currentUser = null;
+          window.updateUIForRole();
+          window.loadDailyRecords();
+        } else {
+          await signOut(auth);
+        }
+      }
+    };
+
+    window.openWasteMonitorModal = () => {
+      const modal = document.getElementById('waste-monitor-modal');
+      const input = document.getElementById('waste-modal-pass-input');
+      const err = document.getElementById('waste-modal-err');
+      if (input) input.value = '';
+      if (err) { err.innerText = ''; err.classList.add('hidden'); }
+      modal?.classList.remove('hidden');
+      setTimeout(() => input?.focus(), 150);
+    };
+
+    window.closeWasteMonitorModal = () => {
+      document.getElementById('waste-monitor-modal')?.classList.add('hidden');
+    };
+
+    window.verifyWasteMonitorPass = async () => {
+      const input = document.getElementById('waste-modal-pass-input');
+      const err = document.getElementById('waste-modal-err');
+      const submitBtn = document.getElementById('btn-waste-modal-submit');
+      const val = (input?.value || '').trim();
+
+      if (!val) {
+        if (err) { err.innerText = '請輸入通行密碼！'; err.classList.remove('hidden'); }
+        input?.focus();
+        return;
+      }
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = '驗證中...'; }
+
+      try {
+        const snap = await getDoc(doc(db, "system_config", "waste_monitor"));
+        let correctPass = '';
+        if (snap.exists() && snap.data().password) {
+          correctPass = snap.data().password.trim();
+        }
+
+        if (correctPass && val === correctPass) {
+          window.userRole = 'waste_monitor';
+          window.closeWasteMonitorModal();
+          window.updateUIForRole();
+          window.loadDailyRecords();
+          window.showNotice('認證成功', '🍱 廚餘長模式已啟動！\n您現在可逐班填報廚餘重量並點選「💾 儲存」。');
+        } else {
+          if (err) {
+            err.innerText = '⚠️ 密碼錯誤，請重新確認！';
+            err.classList.remove('hidden');
+          }
+          input?.focus();
+        }
+      } catch (e) {
+        if (err) {
+          err.innerText = `連線驗證失敗：${e.message}`;
+          err.classList.remove('hidden');
+        }
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = '驗證進入'; }
+      }
+    };
+
+    /* --- 彈性秤重規則管理模組 --- */
+    window.loadWeighingRules = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_config", "weighing_rules"));
+        if (snap.exists()) {
+          const d = snap.data();
+          if (Array.isArray(d.activeWeekdays) && d.activeWeekdays.length > 0) {
+            window.ACTIVE_WEEKDAYS = d.activeWeekdays.map(Number);
+          }
+          if (Array.isArray(d.activeClassIds) && d.activeClassIds.length > 0) {
+            window.ACTIVE_CLASS_IDS = d.activeClassIds.map(String);
+          }
+        }
+      } catch (e) {
+        console.warn("載入秤重規則失敗，使用預設值:", e);
+      }
+      window.renderWeighingRulesUI();
+    };
+
+    window.renderWeighingRulesUI = () => {
+      const isAdm = (window.userRole === 'admin');
+      const wContainer = document.getElementById('rule-weekdays-container');
+      const cContainer = document.getElementById('rule-classes-container');
+
+      if (wContainer) {
+        wContainer.innerHTML = ALL_DAYS_META.map(item => `
+          <label class="flex items-center gap-1.5 text-xs text-purple-900 font-medium cursor-pointer bg-white p-2 rounded border border-purple-200">
+            <input type="checkbox" id="rule-day-${item.d}" value="${item.d}" ${window.ACTIVE_WEEKDAYS.includes(item.d) ? 'checked' : ''} ${isAdm ? '' : 'disabled'} class="w-3.5 h-3.5 text-purple-600 rounded">
+            <span>${item.name}</span>
+          </label>
+        `).join('');
+      }
+
+      if (cContainer) {
+        cContainer.innerHTML = window.CLASSES.map(c => `
+          <label class="flex items-center gap-1.5 text-xs text-emerald-900 font-medium cursor-pointer bg-white p-2 rounded border border-emerald-200">
+            <input type="checkbox" id="rule-cls-${c.id}" value="${c.id}" ${window.ACTIVE_CLASS_IDS.includes(c.id) ? 'checked' : ''} ${isAdm ? '' : 'disabled'} class="w-3.5 h-3.5 text-emerald-600 rounded">
+            <span>${c.name}</span>
+          </label>
+        `).join('');
+      }
+    };
+
+    window.toggleAllClassesRule = (selectAll) => {
+      if (window.userRole !== 'admin') return;
+      window.CLASSES.forEach(c => {
+        const cb = document.getElementById(`rule-cls-${c.id}`);
+        if (cb) cb.checked = selectAll;
+      });
+    };
+
+    window.saveWeighingRules = async () => {
+      if (window.userRole !== 'admin') return;
+      const allDays = [1, 2, 3, 4, 5, 6, 0];
+      const selectedDays = allDays.filter(d => document.getElementById(`rule-day-${d}`)?.checked);
+      const selectedClasses = window.CLASSES.map(c => c.id).filter(id => document.getElementById(`rule-cls-${id}`)?.checked);
+
+      if (selectedDays.length === 0) {
+        return window.showNotice('提示', '請至少勾選一個常態秤重星期！', false);
+      }
+      if (selectedClasses.length === 0) {
+        return window.showNotice('提示', '請至少勾選一個適用秤重班級！', false);
+      }
+
+      try {
+        await setDoc(doc(db, "system_config", "weighing_rules"), {
+          activeWeekdays: selectedDays,
+          activeClassIds: selectedClasses,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        window.ACTIVE_WEEKDAYS = selectedDays;
+        window.ACTIVE_CLASS_IDS = selectedClasses;
+        window.showNotice('儲存成功', '✅ 秤重星期與班級適用範圍設定已同步更新至雲端！');
+        window.loadDailyRecords();
+      } catch (e) {
+        window.showNotice('儲存失敗', e.message, false);
+      }
+    };
+
+    /* --- 🥣 餐桶空桶扣重設定模組 --- */
+    window.loadTareWeightConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_config", "tare_weight"));
+        if (snap.exists()) {
+          const d = snap.data();
+          window.TARE_CONFIG.enabled = Boolean(d.enabled);
+          if (d.tareWeight !== undefined && !isNaN(parseInt(d.tareWeight, 10))) {
+            window.TARE_CONFIG.tareWeight = Math.max(0, parseInt(d.tareWeight, 10));
+          }
+        }
+      } catch (e) {
+        console.warn("載入空桶扣重設定失敗，使用預設值:", e);
+      }
+      window.renderTareWeightUI();
+    };
+
+    window.renderTareWeightUI = () => {
+      const cb = document.getElementById('sys-tare-enabled');
+      const input = document.getElementById('sys-tare-weight');
+      const isAdm = (window.userRole === 'admin');
+
+      if (cb) {
+        cb.checked = window.TARE_CONFIG.enabled;
+        cb.disabled = !isAdm;
+      }
+      if (input) {
+        input.value = window.TARE_CONFIG.tareWeight;
+        input.disabled = !isAdm;
+      }
+
+      // 更新每日登記頁面上的提示橫幅與表頭
+      const tareBanner = document.getElementById('daily-tare-hint-bar');
+      const tareText = document.getElementById('daily-tare-hint-text');
+      const thWeight = document.getElementById('th-weight-header');
+
+      if (window.TARE_CONFIG.enabled) {
+        if (tareBanner) tareBanner.classList.remove('hidden');
+        if (tareText) tareText.innerText = `已啟用餐桶自動扣重功能（輸入含桶總重後，系統自動扣除空桶重 ${window.TARE_CONFIG.tareWeight}g 計算實際淨重）`;
+        if (thWeight) thWeight.innerHTML = `含桶總重 (g) <span class="text-[11px] text-emerald-600 font-normal">(-${window.TARE_CONFIG.tareWeight}g去皮)</span>`;
+      } else {
+        if (tareBanner) tareBanner.classList.add('hidden');
+        if (thWeight) thWeight.innerText = '廚餘重量 (g)';
+      }
+    };
+
+    window.saveTareWeightConfig = async () => {
+      if (window.userRole !== 'admin') return;
+      const cb = document.getElementById('sys-tare-enabled');
+      const input = document.getElementById('sys-tare-weight');
+      const enabled = cb ? cb.checked : false;
+      const tareWeight = Math.max(0, parseInt(input?.value || 0, 10));
+
+      try {
+        await setDoc(doc(db, "system_config", "tare_weight"), {
+          enabled,
+          tareWeight,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        window.TARE_CONFIG = { enabled, tareWeight };
+        window.renderTareWeightUI();
+        window.showNotice('儲存成功', `✅ 餐桶空桶扣重設定已同步更新至雲端！\n狀態：${enabled ? '已啟用 (扣除 ' + tareWeight + 'g)' : '已停用'}`);
+        window.loadDailyRecords();
+      } catch (e) {
+        window.showNotice('儲存失敗', e.message, false);
+      }
+    };
+
+    // 扣重計算輔助：傳入輸入框的數值，回傳 { gross, net, tare }
+    window.getCalculatedNetWeight = (inputVal) => {
+      if (inputVal === '' || inputVal === null || inputVal === undefined) return null;
+      let gross = parseFloat(inputVal);
+      if (isNaN(gross)) return null;
+
+      if (window.TARE_CONFIG && window.TARE_CONFIG.enabled) {
+        let tare = window.TARE_CONFIG.tareWeight || 0;
+        let net = Math.max(0, gross - tare); // 淨重不小於 0
+        return { gross, net, tare };
+      }
+      return { gross, net: gross, tare: 0 };
+    };
+
+    window.unlockSettingsFields = () => {
+      const isAdm = (window.userRole === 'admin');
+      const fieldIds = [
+        'sys-gemini-key', 'sys-year', 'sys-sem', 'sys-start', 'sys-end', 
+        'sys-threshold', 'sys-waste-pass', 'sys-tare-enabled', 'sys-tare-weight',
+        'csv-upload', 'input-new-admin', 'input-new-staff', 'input-new-staff-name'
+      ];
+      fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.disabled = !isAdm;
+          if (isAdm) {
+            el.removeAttribute('disabled');
+            el.classList.remove('bg-slate-100', 'cursor-not-allowed');
+            if (id === 'sys-threshold') {
+              el.className = "border border-rose-300 rounded w-full p-1.5 bg-rose-50 font-bold text-rose-800";
+            } else if (id === 'sys-gemini-key') {
+              el.className = "border border-indigo-200 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-indigo-500 font-mono";
+            } else if (id === 'sys-waste-pass') {
+              el.className = "border border-amber-300 rounded px-3 py-1.5 text-xs flex-1 bg-white focus:outline-amber-500 font-mono font-bold text-amber-950";
+            } else if (id === 'input-new-staff-name') {
+              el.className = "border border-indigo-200 rounded px-2.5 py-1 text-xs w-28 bg-white focus:outline-indigo-500";
+            } else if (id === 'sys-tare-weight') {
+              el.className = "border border-slate-300 rounded px-2.5 py-1 text-xs w-28 text-right bg-white font-bold text-slate-800 focus:outline-emerald-500";
+            } else if (id !== 'csv-upload' && id !== 'sys-tare-enabled' && !id.startsWith('input-new')) {
+              el.className = "border border-slate-300 rounded w-full p-1.5 bg-white text-slate-800 focus:outline-emerald-500";
+            }
+          } else {
+            el.setAttribute('disabled', 'true');
+            el.classList.add('bg-slate-100', 'cursor-not-allowed');
+          }
+        }
+      });
+
+      window.CLASSES.forEach(c => {
+        const inp = document.getElementById(`set-${c.id}`);
+        if (inp) {
+          inp.disabled = !isAdm;
+          if (isAdm) {
+            inp.removeAttribute('disabled');
+            inp.className = "border rounded px-2 py-1 w-24 text-right bg-white text-slate-800 focus:outline-emerald-500";
+          } else {
+            inp.setAttribute('disabled', 'true');
+            inp.className = "border rounded px-2 py-1 w-24 text-right bg-slate-100 cursor-not-allowed text-slate-500";
+          }
+        }
+      });
+
+      window.renderWeighingRulesUI();
+      window.renderTareWeightUI();
+    };
+
+    /* --- 動態偵測最佳可用 Gemini 模型端點 (支援 3.8 / 3.7 / 3.5 系列，維持 Stable01 原架構) --- */
+    window.getAvailableGeminiModel = async (apiKey) => {
+      if (window._cachedGeminiModel) return window._cachedGeminiModel;
+      
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.models && Array.isArray(data.models)) {
+            const valid = data.models
+              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+              .map(m => m.name.replace(/^models\//, ''));
+
+            const detected = valid.find(m => m.includes('3.8-flash')) ||
+                             valid.find(m => m.includes('3.7-flash')) ||
+                             valid.find(m => m.includes('3.5-flash')) ||
+                             valid.find(m => m.includes('flash') && !m.includes('image') && !m.includes('tts') && !m.includes('live')) ||
+                             valid.find(m => m.includes('gemini') && !m.includes('image') && !m.includes('tts') && !m.includes('live'));
+            
+            if (detected) {
+              window._cachedGeminiModel = detected;
+              return detected;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("自動抓取可用模型清單逾時或受限，啟用保底端點:", err);
+      }
+
+      return "gemini-3.8-flash";
+    };
+
+    /* --- 測試 Gemini API Key 連線 (維持 Stable01 原架構) --- */
+    window.testGeminiKey = async () => {
+      const keyVal = (document.getElementById('sys-gemini-key')?.value || window.cloudGeminiKey || '').trim();
+      if (!keyVal) {
+        return window.showNotice('提示', '請先輸入欲測試的 Gemini API Key！', false);
+      }
+
+      const btn = document.getElementById('key-test-btn');
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 測試中..."; }
+
+      try {
+        window._cachedGeminiModel = null;
+        const model = await window.getAvailableGeminiModel(keyVal);
+        
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyVal}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "測試連線，請回答 OK" }] }]
+          })
+        });
+
+        const resData = await res.json();
+        if (!res.ok || resData.error) {
+          throw new Error(resData.error?.message || `HTTP ${res.status}`);
+        }
+
+        window.showNotice('連線成功', `🎉 Google Gemini API 連線正常！\n✅ 已自動偵測並綁定最佳模型端點：[${model}]`);
+        window.updateKeyStatusUI();
+      } catch (e) {
+        window.showNotice('連線失敗', `連線測試未通過：\n${e.message}\n\n建議確認：\n1. Google AI Studio 金鑰是否有效且未受限\n2. 專案是否有啟用 Generative Language API`, false);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = "🧪 測試連線"; }
+      }
+    };
+
+    /* --- 集中 Gemini API Key 讀取與儲存 --- */
+    window.toggleKeyVisibility = () => {
+      const input = document.getElementById('sys-gemini-key');
+      if (input) {
+        input.type = (input.type === 'password') ? 'text' : 'password';
+      }
+    };
+
+    window.toggleWastePassVisibility = () => {
+      const input = document.getElementById('sys-waste-pass');
+      if (input) {
+        input.type = (input.type === 'password') ? 'text' : 'password';
+      }
+    };
+
+    window.saveGeminiApiKey = async () => {
+      if (window.userRole !== 'admin') return;
+      const keyVal = (document.getElementById('sys-gemini-key')?.value || '').trim();
+      try {
+        await setDoc(doc(db, "system_config", "gemini_api"), {
+          apiKey: keyVal,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        window.cloudGeminiKey = keyVal;
+        window._cachedGeminiModel = null;
+        window.updateKeyStatusUI();
+        window.showNotice('金鑰儲存成功', keyVal ? '✅ 雲端 Gemini API Key 已成功儲存！所有工作小組與管理員將共享此金鑰。' : 'ℹ️ 已清除雲端 Gemini API Key，系統將回退至在地專家推論模式。');
+      } catch (e) {
+        window.showNotice('儲存失敗', e.message, false);
+      }
+    };
+
+    window.loadGeminiApiKey = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_config", "gemini_api"));
+        if (snap.exists() && snap.data().apiKey) {
+          window.cloudGeminiKey = snap.data().apiKey.trim();
+        } else {
+          const localKey = localStorage.getItem('food_waste_gemini_key');
+          if (localKey) window.cloudGeminiKey = localKey.trim();
+        }
+      } catch (e) {
+        console.warn("載入雲端 Gemini Key 失敗，檢查本機快取:", e);
+        const localKey = localStorage.getItem('food_waste_gemini_key');
+        if (localKey) window.cloudGeminiKey = localKey.trim();
+      }
+      window.updateKeyStatusUI();
+    };
+
+    window.updateKeyStatusUI = () => {
+      const input = document.getElementById('sys-gemini-key');
+      const text = document.getElementById('gemini-key-status-text');
+      const engineBadge = document.getElementById('analysis-engine-badge');
+      const menuKeyInd = document.getElementById('menu-key-status-indicator');
+
+      const hasKey = Boolean(window.cloudGeminiKey);
+
+      if (input && window.cloudGeminiKey) {
+        input.value = window.cloudGeminiKey;
+      }
+
+      if (text) {
+        text.className = hasKey ? "text-[11px] text-emerald-600 font-semibold" : "text-[11px] text-slate-400 font-medium";
+        text.innerText = hasKey ? "✅ 雲端金鑰已就緒，所有工作小組與管理員可直接調用 Gemini 最新模型深度診斷" : "尚未設定集中金鑰（系統目前運作於在地專家引擎模式）";
+      }
+
+      if (engineBadge) {
+        if (hasKey) {
+          engineBadge.className = "text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 flex items-center gap-1";
+          engineBadge.innerHTML = "✨ Gemini 雲端深度診斷就緒 (免自備Key)";
+        } else {
+          engineBadge.className = "text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-medium border border-amber-200";
+          engineBadge.innerHTML = "⚙️ 在地專家規則模式 (管理員可於設定填入集中Key升級)";
+        }
+      }
+
+      if (menuKeyInd) {
+        menuKeyInd.innerText = hasKey ? "🔑 已自動調用集中金鑰" : "⚠ 未設定集中金鑰";
+        menuKeyInd.className = hasKey ? "text-[11px] text-emerald-700 font-semibold" : "text-[11px] text-amber-600";
+      }
+    };
+
+    window.loadWasteMonitorPass = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_config", "waste_monitor"));
+        const passInp = document.getElementById('sys-waste-pass');
+        if (snap.exists() && snap.data().password) {
+          if (passInp) passInp.value = snap.data().password.trim();
+        } else {
+          if (passInp && !passInp.value) passInp.value = '';
+        }
+      } catch (e) {
+        console.warn("載入廚餘長密碼設定失敗:", e);
+      }
+    };
+
+    window.saveWasteMonitorPass = async () => {
+      if (window.userRole !== 'admin') return;
+      const passVal = (document.getElementById('sys-waste-pass')?.value || '').trim();
+      if (!passVal) {
+        return window.showNotice('提示', '請輸入欲設定的廚餘長通行密碼！', false);
+      }
+
+      try {
+        await setDoc(doc(db, "system_config", "waste_monitor"), { password: passVal, updatedAt: serverTimestamp() }, { merge: true });
+        window.showNotice('儲存成功', `🍱 廚餘長快速登錄通行密碼已成功更新！`);
+      } catch (e) {
+        window.showNotice('儲存失敗', e.message, false);
+      }
+    };
+
+    window.loadRoleSettings = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_roles", "main"));
+        if (snap.exists()) {
+          const d = snap.data();
+          if (Array.isArray(d.admins) && d.admins.length > 0) {
+            window.ADMIN_EMAILS = d.admins.map(e => (typeof e === 'string' ? e.trim().toLowerCase() : e.email?.trim().toLowerCase())).filter(Boolean);
+          }
+          if (Array.isArray(d.staffs)) {
+            window.STAFF_MEMBERS = d.staffs.map(item => {
+              if (typeof item === 'string') {
+                return { email: item.trim().toLowerCase(), name: '', canDaily: false };
+              } else if (item && typeof item === 'object') {
+                return { email: (item.email || '').trim().toLowerCase(), name: (item.name || '').trim(), canDaily: Boolean(item.canDaily) };
+              }
+              return null;
+            }).filter(s => s && s.email);
+          }
+        }
+      } catch (e) {
+        console.warn("載入角色設定失敗，使用預設名單", e);
+      }
+      window.renderRoleLists();
+    };
+
+    window.saveRoleSettings = async () => {
+      if (window.userRole !== 'admin') return;
+      try {
+        await setDoc(doc(db, "system_roles", "main"), { admins: window.ADMIN_EMAILS, staffs: window.STAFF_MEMBERS, updatedAt: serverTimestamp() }, { merge: true });
+        window.showNotice('權限設定成功', '👥 管理員與工作小組成員名單已同步儲存至雲端資料庫！');
+      } catch (e) {
+        window.showNotice('儲存失敗', e.message, false);
+      }
+    };
+
+    window.renderRoleLists = () => {
+      const isAdm = window.userRole === 'admin';
+      const adminList = document.getElementById('admin-list-container');
+      const staffList = document.getElementById('staff-list-container');
+      const adminCount = document.getElementById('admin-count-badge');
+      const staffCount = document.getElementById('staff-count-badge');
+
+      if (adminCount) adminCount.innerText = `${window.ADMIN_EMAILS.length} 位`;
+      if (staffCount) staffCount.innerText = `${window.STAFF_MEMBERS.length} 位`;
+
+      if (adminList) {
+        adminList.innerHTML = window.ADMIN_EMAILS.map((email, idx) => `
+          <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-emerald-100 text-xs">
+            <span class="font-medium text-slate-700 truncate">${email}</span>
+            ${isAdm && window.ADMIN_EMAILS.length > 1 ? `
+              <button onclick="window.removeMemberRole('admin', ${idx})" class="text-rose-500 hover:text-rose-700 ml-2 font-bold text-sm leading-none shrink-0" title="移除管理員">&times;</button>
+            ` : ''}
+          </div>
+        `).join('') || '<div class="text-xs text-slate-400 p-2">暫無管理員</div>';
+      }
+
+      if (staffList) {
+        staffList.innerHTML = window.STAFF_MEMBERS.map((member, idx) => `
+          <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded border border-indigo-100 text-xs gap-2">
+            <div class="flex items-center gap-2 truncate flex-1 min-w-0">
+              <span class="font-bold text-indigo-900 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded text-[11px] shrink-0">
+                ${member.name || '未設姓名'}
+              </span>
+              <span class="text-slate-600 truncate text-[11px]">${member.email}</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <label class="flex items-center gap-1 text-[11px] text-emerald-800 font-medium cursor-pointer">
+                <input type="checkbox" onchange="window.toggleStaffDailyPermission(${idx})" ${member.canDaily ? 'checked' : ''} ${isAdm ? '' : 'disabled'} class="w-3.5 h-3.5 text-emerald-600 rounded">
+                <span>允許每日登記</span>
+              </label>
+              ${isAdm ? `
+                <button onclick="window.removeMemberRole('staff', ${idx})" class="text-rose-500 hover:text-rose-700 ml-1 font-bold text-sm leading-none shrink-0" title="移除成員">&times;</button>
+              ` : ''}
+            </div>
+          </div>
+        `).join('') || '<div class="text-xs text-slate-400 p-2">暫無工作小組成員</div>';
+      }
+    };
+
+    window.toggleStaffDailyPermission = (idx) => {
+      if (window.userRole !== 'admin') return;
+      if (window.STAFF_MEMBERS[idx]) {
+        window.STAFF_MEMBERS[idx].canDaily = !window.STAFF_MEMBERS[idx].canDaily;
+      }
+    };
+
+    window.addMemberRole = (role) => {
+      if (window.userRole !== 'admin') return window.showNotice('權限不足', '只有系統管理員可以新增成員權限喔！', false);
+
+      if (role === 'admin') {
+        const input = document.getElementById('input-new-admin');
+        const email = (input?.value || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的電子郵件地址！', false);
+        if (!window.ADMIN_EMAILS.includes(email)) {
+          window.ADMIN_EMAILS.push(email);
+          window.STAFF_MEMBERS = window.STAFF_MEMBERS.filter(s => s.email !== email);
+        }
+        input.value = '';
+        window.renderRoleLists();
+        window.showNotice('已暫存清單', `已將【${email}】加入管理員名單，請點擊「💾 儲存成員權限」儲存至資料庫！`);
+      } else {
+        const nameInput = document.getElementById('input-new-staff-name');
+        const emailInput = document.getElementById('input-new-staff');
+        const name = (nameInput?.value || '').trim();
+        const email = (emailInput?.value || '').trim().toLowerCase();
+
+        if (!email || !email.includes('@')) return window.showNotice('格式不符', '請輸入有效的工作小組電子郵件！', false);
+        if (window.ADMIN_EMAILS.includes(email)) return window.showNotice('提示', '該信箱已經是系統管理員，無需重複加入工作小組！', false);
+
+        const existingIdx = window.STAFF_MEMBERS.findIndex(s => s.email === email);
+        if (existingIdx >= 0) {
+          window.STAFF_MEMBERS[existingIdx].name = name || window.STAFF_MEMBERS[existingIdx].name;
+          window.showNotice('已更新', `已更新成員【${email}】的姓名！`);
+        } else {
+          window.STAFF_MEMBERS.push({ email, name: name || '工作小組成員', canDaily: false });
+          window.showNotice('已暫存清單', `已將【${name ? name + ' (' + email + ')' : email}】加入工作小組，請點擊「💾 儲存成員權限」！`);
+        }
+
+        if (nameInput) nameInput.value = '';
+        if (emailInput) emailInput.value = '';
+        window.renderRoleLists();
+      }
+    };
+
+    window.removeMemberRole = (role, idx) => {
+      if (window.userRole !== 'admin') return;
+      if (role === 'admin') {
+        if (window.ADMIN_EMAILS.length <= 1) return window.showNotice('無法移除', '系統必須至少保留一位管理員！', false);
+        window.ADMIN_EMAILS.splice(idx, 1);
+      } else {
+        window.STAFF_MEMBERS.splice(idx, 1);
+      }
+      window.renderRoleLists();
+      window.showNotice('已更新清單', '名單已更新，請點擊「💾 儲存成員權限」儲存至資料庫！');
+    };
+
+    // 0 毫秒極速同步預渲染
+    window.renderInitialEmptyTable = () => {
+      const tbody = document.getElementById('daily-rows');
+      if (!tbody) return;
+      const placeholderTip = (window.TARE_CONFIG && window.TARE_CONFIG.enabled) ? `含桶總重` : `0`;
+      tbody.innerHTML = window.CLASSES.map(c => `
+        <tr id="row-${c.id}" class="bg-white hover:bg-emerald-50/20 transition">
+          <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
+          <td class="p-3 font-semibold">${c.name}</td>
+          <td class="p-3">
+            <input type="number" id="w-${c.id}" placeholder="${placeholderTip}" disabled class="border rounded px-2 w-24 text-right bg-slate-100"> g
+          </td>
+          <td class="p-3">
+            <input type="number" id="c-${c.id}" value="${c.defaultCount}" disabled class="border rounded px-2 w-16 text-right bg-slate-100"> 人
+          </td>
+          <td class="p-3 text-right font-bold text-slate-400" id="per-${c.id}">-</td>
+          <td class="p-3 text-center">
+            <input type="checkbox" id="skip-row-${c.id}" disabled class="w-4 h-4 text-rose-600 rounded">
+          </td>
+          <td class="p-3 text-center">
+            <span class="text-xs text-slate-400">唯讀</span>
+          </td>
+        </tr>
+      `).join('');
+    };
+
+    /* --- 分頁切換 --- */
+    window.switchTab = (tabId) => {
+      try {
+        const role = window.userRole;
+
+        if (tabId === 'analysis' && (role === 'guest' || role === 'waste_monitor')) {
+          window.showPermissionDenied('菜單關聯分析', '工作小組或管理員');
+          return;
+        }
+
+        if (tabId === 'settings' && role !== 'admin') {
+          window.showPermissionDenied('系統與匯入設定', '系統管理員');
+          return;
+        }
+
+        ['daily', 'menu', 'weekly', 'analysis', 'monthly', 'settings'].forEach(t => {
+          const pageEl = document.getElementById(`page-${t}`);
+          const tabEl = document.getElementById(`tab-${t}`);
+          if (pageEl) pageEl.classList.add('hidden');
+          if (tabEl) tabEl.className = "px-4 py-2 tab-inactive flex items-center gap-1.5";
+        });
+        
+        const targetPage = document.getElementById(`page-${tabId}`);
+        const targetTab = document.getElementById(`tab-${tabId}`);
+        if (targetPage) targetPage.classList.remove('hidden');
+        if (targetTab) targetTab.className = "px-4 py-2 tab-active flex items-center gap-1.5";
+
+        if (tabId === 'daily') window.loadDailyRecords();
+        if (tabId === 'menu') { 
+          if (window.calculatedCurrentWeek) {
+            const mw = document.getElementById('menu-week');
+            if (mw) mw.value = window.calculatedCurrentWeek;
+          }
+          window.loadWeeklyMenu(); 
+          window.updateKeyStatusUI();
+        }
+        if (tabId === 'weekly') {
+          const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+          const weeklyInput = document.getElementById('weekly-select-week');
+          if (weeklyInput && (!weeklyInput.value || parseInt(weeklyInput.value) === window.calculatedCurrentWeek)) {
+            weeklyInput.value = pastWeek;
+          }
+          window.calcWeeklyReport();
+        }
+        if (tabId === 'analysis') {
+          const pastWeek = Math.max(1, (window.calculatedCurrentWeek || 1) - 1);
+          const analysisInput = document.getElementById('analysis-week');
+          if (analysisInput && (!analysisInput.value || parseInt(analysisInput.value) === window.calculatedCurrentWeek)) {
+            analysisInput.value = pastWeek;
+          }
+          window.updateKeyStatusUI();
+          window.loadOrRunAnalysis(false);
+        }
+        if (tabId === 'monthly') {
+          const curYear = document.getElementById('sys-year')?.value || 115;
+          const myInput = document.getElementById('monthly-year');
+          if (myInput) myInput.value = curYear;
+          window.calcMonthlyReport();
+        }
+        if (tabId === 'settings') {
+          window.renderSettings();
+          window.renderRoleLists();
+          window.unlockSettingsFields();
+          window.updateKeyStatusUI();
+          window.loadWasteMonitorPass();
+        }
+
+        window.refreshAllWeekLabels();
+      } catch (e) {
+        console.error("切換分頁異常:", e);
+      }
+    };
+
+    window.toggleSkipDay = () => {
+      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
+      const tableCon = document.getElementById('daily-table-container');
+      const overlay = document.getElementById('skip-overlay');
+      if (isSkipped) {
+        tableCon?.classList.add('hidden');
+        overlay?.classList.remove('hidden');
+      } else {
+        tableCon?.classList.remove('hidden');
+        overlay?.classList.add('hidden');
+      }
+    };
+    
+    window.toggleRowSkip = (classId) => {
+      const isSkipped = document.getElementById(`skip-row-${classId}`)?.checked || false;
+      const weightInput = document.getElementById(`w-${classId}`);
+      const countInput = document.getElementById(`c-${classId}`);
+      const perText = document.getElementById(`per-${classId}`);
+      
+      if (isSkipped) {
+        if (weightInput) { weightInput.value = ''; weightInput.disabled = true; weightInput.classList.add('bg-slate-100'); }
+        if (countInput) { countInput.disabled = true; countInput.classList.add('bg-slate-100'); }
+        if (perText) { perText.innerText = '停餐'; perText.classList.replace('text-emerald-700', 'text-slate-400'); }
+      } else {
+        if (weightInput) { weightInput.disabled = false; weightInput.classList.remove('bg-slate-100'); }
+        if (countInput) { countInput.disabled = false; countInput.classList.remove('bg-slate-100'); }
+        if (perText) { perText.classList.replace('text-slate-400', 'text-emerald-700'); }
+        window.calcRow(classId);
+      }
+    };
+
+    /* --- 每日登記載入與動態防呆反白 --- */
+    window.loadDailyRecords = async () => {
+      const year = parseInt(document.getElementById('daily-year')?.value || 115);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
+      
+      window.refreshAllWeekLabels();
+      window.renderTareWeightUI();
+      const tbody = document.getElementById('daily-rows');
+      if (!tbody) return;
+
+      const isActiveDay = window.ACTIVE_WEEKDAYS.includes(weekday);
+      const nonActiveBanner = document.getElementById('non-active-day-banner');
+      if (nonActiveBanner) {
+        if (isActiveDay) nonActiveBanner.classList.add('hidden');
+        else nonActiveBanner.classList.remove('hidden');
+      }
+
+      const hint = document.getElementById('today-menu-hint');
+      try {
+        const menuSnap = await getDoc(doc(db, "weekly_menus", `${year}_1_${week}`));
+        if (menuSnap.exists() && menuSnap.data().days && menuSnap.data().days[weekday]) {
+          const d = menuSnap.data().days[weekday];
+          const menuItems = [d.main, d.dish1, d.vege, d.soup].filter(Boolean).join(', ');
+          if (hint) hint.innerHTML = `🍱 <strong>今日菜單</strong>：${menuItems || '菜色未載入'}`;
+        } else { 
+          if (hint) hint.innerHTML = '🍱 今日無菜單紀錄'; 
+        }
+      } catch (e) {
+        if (hint) hint.innerHTML = '🍱 菜單載入完畢';
+      }
+
+      try {
+        const statusSnap = await getDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`));
+        if (statusSnap.exists() && statusSnap.data().isSkipped) {
+          const cb = document.getElementById('daily-skip-cb');
+          if (cb) cb.checked = true;
+          window.toggleSkipDay();
+        } else {
+          const cb = document.getElementById('daily-skip-cb');
+          if (cb) cb.checked = false;
+          window.toggleSkipDay();
+        }
+
+        const snap = await getDocs(query(collection(db, "daily_records"), where("academicYear", "==", year), where("week", "==", week), where("weekday", "==", weekday)));
+        let map = {}; 
+        snap.forEach(d => map[d.data().classId] = d.data());
+        
+        const canEditRole = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
+        window.classSavedStatus = {}; 
+
+        tbody.innerHTML = window.CLASSES.map(c => {
+          const isClassActive = window.ACTIVE_CLASS_IDS.includes(c.id);
+          let rec = map[c.id] || {};
+          let isClassSkipped = rec.isSkipped || false;
+          let w = rec.weightKg !== undefined ? rec.weightKg : '';
+          let count = rec.eaterCount || c.defaultCount;
+          let per = (w !== '' && count > 0) ? (w/count).toFixed(1) : '-';
+          
+          let isAlreadySaved = (w !== '' || isClassSkipped);
+          window.classSavedStatus[c.id] = isAlreadySaved;
+
+          if (!isActiveDay) {
+            return `
+              <tr id="row-${c.id}" class="bg-slate-100/70 text-slate-400">
+                <td class="p-3 text-xs">${c.stage}</td>
+                <td class="p-3 font-semibold">${c.name}</td>
+                <td class="p-3"><input type="number" disabled class="border rounded px-2 w-24 text-right bg-slate-200/60 text-slate-400 cursor-not-allowed" placeholder="-"> g</td>
+                <td class="p-3"><input type="number" disabled class="border rounded px-2 w-16 text-right bg-slate-200/60 text-slate-400 cursor-not-allowed" value="${count}"> 人</td>
+                <td class="p-3 text-right font-medium text-slate-400">非秤重日</td>
+                <td class="p-3 text-center"><input type="checkbox" disabled class="w-4 h-4 text-slate-300 rounded cursor-not-allowed"></td>
+                <td class="p-3 text-center"><span class="text-xs text-slate-400 font-semibold bg-slate-200 px-2 py-0.5 rounded">未開放</span></td>
+              </tr>`;
+          }
+
+          if (!isClassActive) {
+            return `
+              <tr id="row-${c.id}" class="bg-slate-100/70 text-slate-400">
+                <td class="p-3 text-xs">${c.stage}</td>
+                <td class="p-3 font-semibold">${c.name}</td>
+                <td class="p-3"><input type="number" disabled class="border rounded px-2 w-24 text-right bg-slate-200/60 text-slate-400 cursor-not-allowed" placeholder="-"> g</td>
+                <td class="p-3"><input type="number" disabled class="border rounded px-2 w-16 text-right bg-slate-200/60 text-slate-400 cursor-not-allowed" value="${count}"> 人</td>
+                <td class="p-3 text-right font-medium text-slate-400">不列評比</td>
+                <td class="p-3 text-center"><input type="checkbox" disabled class="w-4 h-4 text-slate-300 rounded cursor-not-allowed"></td>
+                <td class="p-3 text-center"><span class="text-xs text-slate-400 font-semibold bg-slate-200 px-2 py-0.5 rounded">免秤</span></td>
+              </tr>`;
+          }
+
+          const canEditThisRow = canEditRole;
+          const rowBgClass = isAlreadySaved ? 'bg-slate-100/70 text-slate-500' : 'bg-white hover:bg-emerald-50/20';
+
+          // 若已儲存且當初有輸入 grossWeight，則輸入框優先顯示 grossWeight（含桶毛重）
+          let displayGross = isClassSkipped ? '' : (rec.grossWeight !== undefined ? rec.grossWeight : w);
+          let placeholderTip = (window.TARE_CONFIG && window.TARE_CONFIG.enabled) ? `含桶總重` : `0`;
+
+          // 人均提示：若有扣重且非停餐，下方以小字提示實體淨重
+          let perHtml = isClassSkipped ? '停餐' : per;
+          if (!isClassSkipped && per !== '-' && window.TARE_CONFIG.enabled && (rec.tareDeducted > 0 || (displayGross !== '' && w !== ''))) {
+            perHtml = `${per} <span class="text-[10px] text-slate-400 block font-normal">(淨重${w}g)</span>`;
+          }
+
+          return `
+            <tr id="row-${c.id}" class="${rowBgClass} transition">
+              <td class="p-3 text-slate-500 text-xs">${c.stage}</td>
+              <td class="p-3 font-semibold">${c.name}</td>
+              <td class="p-3">
+                <input type="number" id="w-${c.id}" value="${displayGross}" placeholder="${placeholderTip}" oninput="window.calcRow('${c.id}')" ${!canEditThisRow || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-24 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> g
+              </td>
+              <td class="p-3">
+                <input type="number" id="c-${c.id}" value="${count}" oninput="window.calcRow('${c.id}')" ${!canEditThisRow || isClassSkipped || isAlreadySaved ? 'disabled' : ''} class="border rounded px-2 w-16 text-right ${isAlreadySaved || isClassSkipped ? 'bg-slate-200/60 text-slate-600' : 'bg-white'}"> 人
+              </td>
+              <td class="p-3 text-right font-bold ${isClassSkipped ? 'text-slate-400' : 'text-emerald-700'}" id="per-${c.id}">${perHtml}</td>
+              <td class="p-3 text-center">
+                <input type="checkbox" id="skip-row-${c.id}" onchange="window.toggleRowSkip('${c.id}')" ${isClassSkipped ? 'checked' : ''} ${!canEditThisRow || isAlreadySaved ? 'disabled' : ''} class="w-4 h-4 text-rose-600 rounded cursor-pointer">
+              </td>
+              <td class="p-3 text-center">
+                ${canEditThisRow ? (
+                  isAlreadySaved ? `
+                    <button onclick="window.toggleEditRow('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition">
+                      ✏️ 修改
+                    </button>
+                  ` : `
+                    <button onclick="window.saveSingleClassRecord('${c.id}')" id="btn-action-${c.id}" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
+                      💾 儲存
+                    </button>
+                  `
+                ) : `
+                  <span class="text-xs text-slate-400">唯讀</span>
+                `}
+              </td>
+            </tr>`;
+        }).join('');
+      } catch (e) { 
+        console.warn("載入每日過磅紀錄異常:", e);
+        window.renderInitialEmptyTable();
+      }
+    };
+
+    window.calcRow = (id) => {
+      let rawVal = document.getElementById(`w-${id}`)?.value;
+      let c = parseInt(document.getElementById(`c-${id}`)?.value);
+      const p = document.getElementById(`per-${id}`);
+      
+      const calcResult = window.getCalculatedNetWeight(rawVal);
+      if (calcResult !== null && !isNaN(c) && c > 0) {
+        let per = (calcResult.net / c).toFixed(1);
+        if (p) {
+          if (window.TARE_CONFIG.enabled && calcResult.tare > 0) {
+            p.innerHTML = `<span class="text-emerald-700 font-bold">${per}</span> <span class="text-[10px] text-slate-400 block font-normal">(淨重${calcResult.net}g)</span>`;
+          } else {
+            p.innerText = per;
+          }
+        }
+      } else {
+        if (p) p.innerText = '-';
+      }
+    };
+
+    window.saveSingleClassRecord = async (classId) => {
+      const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
+      if (!canEdit) return;
+
+      const year = parseInt(document.getElementById('daily-year')?.value || 115);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
+      const cInfo = window.CLASSES.find(c => c.id === classId);
+      if (!cInfo) return;
+
+      const btn = document.getElementById(`btn-action-${classId}`);
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
+
+      const isRowSkipped = document.getElementById(`skip-row-${classId}`)?.checked || false;
+      const docId = `${year}_1_${week}_${weekday}_${classId}`;
+
+      try {
+        if (isRowSkipped) {
+          await setDoc(doc(db, "daily_records", docId), {
+            academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
+            isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+          }, { merge: true });
+        } else {
+          let wStr = document.getElementById(`w-${classId}`)?.value;
+          const calcResult = window.getCalculatedNetWeight(wStr);
+          let count = parseInt(document.getElementById(`c-${classId}`)?.value) || cInfo.defaultCount;
+          
+          if (wStr === '' || calcResult === null) {
+            if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
+            return window.showNotice('提示', `請先輸入【${cInfo.name}】的廚餘重量！`, false);
+          }
+
+          let w = calcResult.net; // 寫入資料庫的實際廚餘淨重 (g)
+          let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
+          await setDoc(doc(db, "daily_records", docId), {
+            academicYear: year, semester: 1, week, weekday, classId: cInfo.id, className: cInfo.name, stage: cInfo.stage,
+            isSkipped: false, 
+            weightKg: w, 
+            grossWeight: calcResult.gross,
+            tareDeducted: calcResult.tare,
+            eaterCount: count, 
+            perCapitaGram: per, 
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+
+        window.classSavedStatus[classId] = true;
+        const row = document.getElementById(`row-${classId}`);
+        const wInp = document.getElementById(`w-${classId}`);
+        const cInp = document.getElementById(`c-${classId}`);
+        const sCb = document.getElementById(`skip-row-${classId}`);
+
+        if (row) row.className = "bg-slate-100/70 text-slate-500 transition";
+        if (wInp) { wInp.disabled = true; wInp.className = "border rounded px-2 w-24 text-right bg-slate-200/60 text-slate-600"; }
+        if (cInp) { cInp.disabled = true; cInp.className = "border rounded px-2 w-16 text-right bg-slate-200/60 text-slate-600"; }
+        if (sCb) sCb.disabled = true;
+
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = "✏️ 修改";
+          btn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-slate-200 hover:bg-slate-300 text-slate-700 transition";
+          btn.setAttribute('onclick', `window.toggleEditRow('${classId}')`);
+        }
+      } catch (err) {
+        window.showNotice('儲存失敗', `權限不足或連線異常：${err.message}`, false);
+        if (btn) { btn.disabled = false; btn.innerText = "💾 儲存"; }
+      }
+    };
+
+    window.toggleEditRow = (classId) => {
+      window.classSavedStatus[classId] = false;
+      const row = document.getElementById(`row-${classId}`);
+      const wInp = document.getElementById(`w-${classId}`);
+      const cInp = document.getElementById(`c-${classId}`);
+      const sCb = document.getElementById(`skip-row-${classId}`);
+      const btn = document.getElementById(`btn-action-${classId}`);
+
+      if (row) row.className = "bg-white hover:bg-emerald-50/20 transition";
+      if (wInp) { wInp.disabled = false; wInp.className = "border rounded px-2 w-24 text-right bg-white"; wInp.focus(); }
+      if (cInp) { cInp.disabled = false; cInp.className = "border rounded px-2 w-16 text-right bg-white"; }
+      if (sCb) sCb.disabled = false;
+
+      if (btn) {
+        btn.innerText = "💾 儲存";
+        btn.className = "px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition";
+        btn.setAttribute('onclick', `window.saveSingleClassRecord('${classId}')`);
+      }
+    };
+
+    window.saveAllDailyRecords = async () => {
+      const canEdit = (window.userRole === 'admin') || (window.userRole === 'waste_monitor') || (window.userRole === 'staff' && window.currentStaffCanDaily);
+      if (!canEdit) return;
+
+      const year = parseInt(document.getElementById('daily-year')?.value || 115);
+      const week = parseInt(document.getElementById('daily-week')?.value || 1);
+      const weekday = parseInt(document.getElementById('daily-weekday')?.value || 1);
+      const isSkipped = document.getElementById('daily-skip-cb')?.checked || false;
+
+      if (!window.ACTIVE_WEEKDAYS.includes(weekday)) {
+        return window.showNotice('提示', '本日非設定之常態秤重日，無法儲存過磅資料！', false);
+      }
+
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = "⏳ 儲存中..."; }
+
+      try {
+        await setDoc(doc(db, "daily_status", `${year}_1_${week}_${weekday}`), { isSkipped, updatedAt: serverTimestamp() }, { merge: true });
+        
+        if (!isSkipped) {
+          let activeClasses = window.CLASSES.filter(c => window.ACTIVE_CLASS_IDS.includes(c.id));
+          let promises = activeClasses.map(async c => {
+            const isRowSkipped = document.getElementById(`skip-row-${c.id}`)?.checked || false;
+            if (isRowSkipped) {
+               await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
+                academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
+                isSkipped: true, weightKg: 0, eaterCount: 0, perCapitaGram: 0, updatedAt: serverTimestamp()
+              }, { merge: true });
+            } else {
+              let wStr = document.getElementById(`w-${c.id}`)?.value;
+              if (wStr === '' || wStr === undefined) return;
+              const calcResult = window.getCalculatedNetWeight(wStr);
+              if (calcResult === null) return;
+              let w = calcResult.net;
+              let count = parseInt(document.getElementById(`c-${c.id}`)?.value) || c.defaultCount;
+              let per = count > 0 ? Number((w/count).toFixed(1)) : 0;
+              await setDoc(doc(db, "daily_records", `${year}_1_${week}_${weekday}_${c.id}`), {
+                academicYear: year, semester: 1, week, weekday, classId: c.id, className: c.name, stage: c.stage,
+                isSkipped: false, 
+                weightKg: w, 
+                grossWeight: calcResult.gross,
+                tareDeducted: calcResult.tare,
+                eaterCount: count, 
+                perCapitaGram: per, 
+                updatedAt: serverTimestamp()
+              }, { merge: true });
+            }
+          });
+          await Promise.all(promises); 
+        }
+
+        window.showNotice('儲存成功', isSkipped ? '🚫 已將本日設定為停餐/免秤重並儲存！' : '✅ 當日適用班級廚餘數據已全數儲存完成！');
+        window.loadDailyRecords();
+      } catch (e) { 
+        window.showNotice('儲存失敗', `儲存異常：${e.message}`, false); 
+      } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = "☁️ 儲存上傳當日全部班級"; }
+      }
+    };
+
+    window.loadWeeklyMenu = async () => {
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const w = parseInt(document.getElementById('menu-week')?.value || 1);
+      window.refreshAllWeekLabels();
+
+      let menu = {};
+      try { const snap = await getDoc(doc(db, "weekly_menus", `${y}_1_${w}`)); if(snap.exists()) menu = snap.data().days || {}; } catch(e){}
+      
+      const isAdmin = window.userRole === 'admin';
+      const container = document.getElementById('menu-days-container');
+      if (!container) return;
+
+      if (!isAdmin) {
+        container.innerHTML = WEEKDAYS.map(day => {
+          let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
+          let hasContent = d.main || d.dish1 || d.dish2 || d.vege || d.soup;
+          let exactD = window.getExactDateForWeekDay(w, day.d);
+          return `
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition">
+              <div class="flex items-center justify-between border-b pb-2 mb-3">
+                <h3 class="font-bold text-emerald-800 text-base">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
+                <span class="text-[11px] px-2 py-0.5 rounded-full ${hasContent ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}">
+                  ${hasContent ? '🍱 已公告' : '尚未登錄'}
+                </span>
+              </div>
+              <div class="space-y-2.5 text-sm">
+                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">主食</span><span class="font-medium text-slate-800">${d.main || '<span class="text-slate-300">-</span>'}</span></div>
+                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">主菜</span><span class="font-semibold text-emerald-700">${d.dish1 || '<span class="text-slate-300">-</span>'}</span></div>
+                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">副菜</span><span class="font-medium text-slate-800">${d.dish2 || '<span class="text-slate-300">-</span>'}</span></div>
+                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">青菜</span><span class="font-medium text-slate-800">${d.vege || '<span class="text-slate-300">-</span>'}</span></div>
+                <div class="flex items-center gap-2"><span class="w-12 text-xs font-semibold text-slate-400">湯</span><span class="font-medium text-slate-800">${d.soup || '<span class="text-slate-300">-</span>'}</span></div>
+              </div>
+            </div>`;
+        }).join('');
+      } else {
+        container.innerHTML = WEEKDAYS.map(day => {
+          let d = menu[day.d] || {main:'', dish1:'', dish2:'', vege:'', soup:''};
+          let exactD = window.getExactDateForWeekDay(w, day.d);
+          return `
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <h3 class="font-bold text-emerald-800 mb-2">${day.name} <span class="text-xs text-slate-500 font-normal">(${exactD})</span></h3>
+              <div class="space-y-1.5 text-sm">
+                <label class="block text-xs text-slate-500 font-semibold">主食</label>
+                <input id="m-${day.d}-main" value="${d.main}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
+                <label class="block text-xs text-slate-500 font-semibold">主菜</label>
+                <input id="m-${day.d}-d1" value="${d.dish1}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
+                <label class="block text-xs text-slate-500 font-semibold">副菜</label>
+                <input id="m-${day.d}-d2" value="${d.dish2}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
+                <label class="block text-xs text-slate-500 font-semibold">青菜</label>
+                <input id="m-${day.d}-vege" value="${d.vege}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
+                <label class="block text-xs text-slate-500 font-semibold">湯</label>
+                <input id="m-${day.d}-s" value="${d.soup}" class="border rounded w-full p-1.5 text-sm bg-slate-50 focus:bg-white focus:outline-emerald-500">
+              </div>
+            </div>`;
+        }).join('');
+      }
+    };
+
+    window.saveWeeklyMenu = async () => {
+      if (window.userRole !== 'admin') return;
+      const y = parseInt(document.getElementById('daily-year')?.value || 115), w = parseInt(document.getElementById('menu-week')?.value || 1);
+      let days = {};
+      WEEKDAYS.forEach(day => {
+        days[day.d] = {
+          main: document.getElementById(`m-${day.d}-main`)?.value || '', dish1: document.getElementById(`m-${day.d}-d1`)?.value || '',
+          dish2: document.getElementById(`m-${day.d}-d2`)?.value || '', vege: document.getElementById(`m-${day.d}-vege`)?.value || '',
+          soup: document.getElementById(`m-${day.d}-s`)?.value || ''
+        };
+      });
+      try { 
+        await setDoc(doc(db, "weekly_menus", `${y}_1_${w}`), { academicYear: y, semester: 1, week: w, days, updatedAt: serverTimestamp() }, { merge: true }); 
+        window.showNotice('菜單更新', '✅ 菜單更新成功！'); 
+      } catch (e) { 
+        window.showNotice('儲存失敗', e.message, false); 
+      }
+    };
+
+    const imgUploadEl = document.getElementById('menu-image-upload');
+    if (imgUploadEl) {
+      imgUploadEl.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+          let reader = new FileReader();
+          reader.onload = function(ev) {
+            const preview = document.getElementById('menu-image-preview');
+            if (preview) preview.src = ev.target.result;
+            document.getElementById('image-preview-container')?.classList.remove('hidden');
+          };
+          reader.readAsDataURL(e.target.files[0]);
+        }
+      });
+    }
+
+    /* 🔒 AI 圖片辨識強制鎖定 gemini-3.8-flash */
+    window.recognizeMenuImage = async () => {
+      const apiKey = window.cloudGeminiKey;
+      const fileInput = document.getElementById('menu-image-upload');
+      const btn = document.getElementById('btn-ai-recognize');
+      const hint = document.getElementById('ai-status-hint');
+      
+      if (!apiKey) return window.showNotice('尚未設定 API 金鑰', '請先至「⚙ 系統與匯入設定」儲存集中管理之 Gemini API Key！', false);
+      if (!fileInput.files || fileInput.files.length === 0) return window.showNotice('提示', '請先選擇菜單圖檔', false);
+
+      btn.innerText = "⏳ AI 圖片辨識中..."; btn.disabled = true;
+      if (hint) hint.innerText = "正在連線 Google Gemini (gemini-3.8-flash) 解析菜單文字...";
+
+      try {
+        const file = fileInput.files[0];
+        const base64String = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result.split(',')[1]);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+
+        const prompt = `請分析這張午餐菜單圖片，擷取週一、週二、週四、週五的菜色內容（週三若有請忽略）。
+菜單欄位對應說明：主食(main)、主菜(dish1)、副菜(dish2)、青菜/蔬菜(vege)、湯/湯品(soup)。
+請務必輸出嚴格 JSON 格式，不要包含任何 markdown 標記：
+{"1":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"2":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"4":{"main":"","dish1":"","dish2":"","vege":"","soup":""},"5":{"main":"","dish1":"","dish2":"","vege":"","soup":""}}`;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type || 'image/jpeg', data: base64String } }] }] })
+        });
+
+        const rawText = await res.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (pe) {
+          throw new Error(`伺服器傳回非預期格式: ${rawText.slice(0, 80)}`);
+        }
+
+        if (!res.ok || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+          throw new Error(data.error?.message || `模型解析異常`);
+        }
+
+        let textResult = data.candidates[0].content.parts[0].text.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+        const menuJson = JSON.parse(textResult);
+
+        WEEKDAYS.forEach(day => {
+          if (menuJson[day.d]) {
+            if (document.getElementById(`m-${day.d}-main`)) document.getElementById(`m-${day.d}-main`).value = menuJson[day.d].main || '';
+            if (document.getElementById(`m-${day.d}-d1`)) document.getElementById(`m-${day.d}-d1`).value = menuJson[day.d].dish1 || '';
+            if (document.getElementById(`m-${day.d}-d2`)) document.getElementById(`m-${day.d}-d2`).value = menuJson[day.d].dish2 || '';
+            if (document.getElementById(`m-${day.d}-vege`)) document.getElementById(`m-${day.d}-vege`).value = menuJson[day.d].vege || '';
+            if (document.getElementById(`m-${day.d}-s`)) document.getElementById(`m-${day.d}-s`).value = menuJson[day.d].soup || '';
+          }
+        });
+        if (hint) hint.innerText = `🎉 辨識成功！使用模型：gemini-3.8-flash`;
+        window.showNotice('辨識完成', `✨ 菜單辨識完成！（已使用雲端模型：gemini-3.8-flash）\n請確認內容無誤後點擊「💾 儲存菜單」。`);
+      } catch (err) {
+        window.showNotice('辨識失敗', err.message, false);
+        if (hint) hint.innerText = `辨識失敗：${err.message}`;
+      } finally {
+        btn.innerText = "✨ 開始辨識";
+        btn.disabled = false;
+      }
+    };
+
+    /* --- 週評比：自動過濾排除非秤重班級 --- */
+    window.calcWeeklyReport = async () => {
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const w = parseInt(document.getElementById('weekly-select-week')?.value || 1);
+      window.refreshAllWeekLabels();
+
+      const [cur, prv] = await Promise.all([
+        getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
+        getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w-1)))
+      ]);
+      const curL = cur.docs.map(d=>d.data()), prvL = prv.docs.map(d=>d.data());
+
+      let stats = window.CLASSES.map(c => {
+        const isClassActive = window.ACTIVE_CLASS_IDS.includes(c.id);
+        if (!isClassActive) {
+          return { ...c, tw: '-', tc: '-', per: null, pPer: null, dec: null, isProg: false, disabledRule: true };
+        }
+
+        let cc = curL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+        let pc = prvL.filter(l=>l.classId===c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+        
+        let tw = cc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+        let tc = cc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+        let pw = pc.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+        let pco = pc.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+        
+        let per = tc>0 ? Number((tw/tc).toFixed(1)) : null;
+        let pPer = pco>0 ? Number((pw/pco).toFixed(1)) : null;
+        let dec = (per!==null && pPer>0) ? Number(((pPer-per)/pPer*100).toFixed(1)) : null;
+        return { ...c, tw: tw.toFixed(0), tc, per, pPer, dec, isProg: dec>=5.0, disabledRule: false };
+      });
+
+      let champs = {};
+      ['低年級','中年級','高年級'].forEach(stg => {
+        let s = stats.filter(x=>x.stage===stg && !x.disabledRule && x.per!==null).sort((a,b)=>a.per-b.per);
+        if (s.length>0) champs[stg] = s[0];
+      });
+
+      const cardsContainer = document.getElementById('weekly-cards');
+      if (cardsContainer) {
+        cardsContainer.innerHTML = ['低年級','中年級','高年級'].map(stg => `
+          <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
+            <div class="text-xs font-bold text-emerald-800">🏆 ${stg}週冠軍</div>
+            <div class="text-xl font-bold mt-1">${champs[stg] ? champs[stg].name : '-'}</div>
+            <div class="text-sm text-emerald-600">${champs[stg] ? champs[stg].per+' g/人' : '無有效人均'}</div>
+          </div>`).join('');
+      }
+      
+      let progs = stats.filter(x=>!x.disabledRule && x.isProg).sort((a,b)=>b.dec-a.dec);
+      const progBox = document.getElementById('weekly-progress-box');
+      if (progBox) {
+        progBox.innerHTML = progs.length ? `<b>🌟 進步獎(減幅≥5%)：</b>` + progs.map(p=>`<span class="ml-2 bg-white px-2 py-1 rounded text-amber-800 text-xs shadow-sm">${p.name} (-${p.dec}%)</span>`).join('') : '本週尚無進步獎。';
+      }
+
+      const tableBody = document.getElementById('weekly-table-body');
+      if (tableBody) {
+        tableBody.innerHTML = stats.map(s => {
+          if (s.disabledRule) {
+            return `<tr class="bg-slate-50 text-slate-400">
+              <td class="p-3">${s.name}</td><td class="p-3 text-right">-</td><td class="p-3 text-right">-</td>
+              <td class="p-3 text-right">不列評比</td><td class="p-3 text-right text-slate-300">-</td>
+              <td class="p-3 text-right">-</td><td class="p-3 text-center text-xs">免秤</td>
+            </tr>`;
+          }
+          let isC = Object.values(champs).some(c=>c&&c.id===s.id);
+          return `<tr class="${isC?'bg-emerald-50':''}">
+            <td class="p-3">${s.name}</td><td class="p-3 text-right">${s.tw}</td><td class="p-3 text-right">${s.tc}</td>
+            <td class="p-3 text-right font-bold text-emerald-700">${s.per||'-'}</td><td class="p-3 text-right text-slate-400">${s.pPer||'-'}</td>
+            <td class="p-3 text-right ${s.dec>0?'text-blue-600':''}">${s.dec||'-'}%</td><td class="p-3 text-center">${isC?'🏆':''}${s.isProg?'🌟':''}</td>
+          </tr>`;
+        }).join('');
+      }
+      window.currWeekData = { w, champs, progs };
+    };
+
+    window.copyWeeklySpeech = () => {
+      if (!window.currWeekData) return;
+      let d = window.currWeekData;
+      let cStr = ['低年級','中年級','高年級'].map(s=>d.champs[s]?`${s}${d.champs[s].name}`:'').filter(Boolean).join('、');
+      let pStr = d.progs.map(p=>`${p.name}`).join('、');
+      const textToCopy = `【午餐惜食第 ${d.w} 週成果】\n🏆 年段週冠軍：${cStr}！\n🌟 週進步獎：${pStr||'無'}。\n感謝大家落實吃多少盛多少！`;
+      
+      const textArea = document.createElement("textarea");
+      textArea.value = textToCopy;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        window.showNotice('複製成功', '已複製週表揚廣播詞至剪貼簿！');
+      } catch (err) {
+        window.showNotice('提示', textToCopy);
+      }
+      document.body.removeChild(textArea);
+    };
+
+    /* 🔒 100% 嚴格唯一鎖定 gemini-3.8-flash 進行深度診斷，絕不降級 */
+    /* --- 呼叫雲端 Gemini 進行午餐深度交叉診斷 (完全維持 Stable01 純淨字串端點，杜絕 Markdown 雜質) --- */
+    window.callGeminiMenuDiagnosis = async (apiKey, menuData, wasteData) => {
+      const detected = await window.getAvailableGeminiModel(apiKey);
+      const candidateModels = [
+        detected,
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.5-flash"
+      ].filter((v, i, a) => v && a.indexOf(v) === i);
+
+      const promptText = `你是一位專業的學校午餐營養師與校園惜食決策顧問。請根據以下雲林縣溪洲國小的當日午餐菜單與各班實際廚餘秤重數據進行深度交叉診斷分析：
+
+【基本數據】
+- 當日菜單：主食「${menuData.main || '無'}」、主菜「${menuData.dish1 || '無'}」、副菜「${menuData.dish2 || '無'}」、蔬菜「${menuData.vege || '無'}」、湯品「${menuData.soup || '無'}」
+- 全校人均廚餘：${wasteData.per} g/人 (警示門檻：${wasteData.threshold} g/人)
+- 超標班級比例：${wasteData.spikeRatio}% (${wasteData.spikeCount}/${wasteData.totalCount} 班)
+- 超標班級清單：${wasteData.spikeClasses.length > 0 ? wasteData.spikeClasses.map(c => c.className + '(' + c.per + 'g)').join('、') : '無'}
+- 年段人均：低年級 ${wasteData.lowAvg}g、中年級 ${wasteData.midAvg}g、高年級 ${wasteData.highAvg}g
+
+請從以下三個面向進行具體分析：
+1. 菜色特性與適口性推論（調味搭配、骨渣佔比、學生普遍偏好）
+2. 班級分佈與年齡層差異推論（普遍性剩食 vs 特定年級接受度）
+3. 給予學校午餐廚房與導師的 2~3 點具體改善建議
+
+請輸出精確的繁體中文，總字數在 160 字以內，語氣專業具建設性。`;
+
+      let lastError = null;
+
+      for (const model of candidateModels) {
+        try {
+          const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: promptText }] }]
+            })
+          });
+
+          const resJson = await response.json();
+
+          if (!response.ok || resJson.error) {
+            const errDetail = resJson.error?.message || `HTTP ${response.status}`;
+            throw new Error(`[${model}] ${errDetail}`);
+          }
+
+          if (resJson.candidates && resJson.candidates[0]?.content?.parts?.[0]?.text) {
+            window._cachedGeminiModel = model;
+            return {
+              text: resJson.candidates[0].content.parts[0].text.trim(),
+              modelUsed: model
+            };
+          }
+        } catch (e) {
+          lastError = e;
+          console.warn(`Gemini 模型 [${model}] 呼叫未果，嘗試備援端點:`, e.message);
+        }
+      }
+      throw lastError || new Error("所有候選 AI 模型皆未能正確回傳分析結果");
+    };
+
+    /* --- 菜單關聯異常分析 (快取優先 Cache-First 架構，維持 Stable01 原架構) --- */
+    window.loadOrRunAnalysis = async (forceReRun = false) => {
+      window.refreshAllWeekLabels();
+      const y = parseInt(document.getElementById('daily-year').value);
+      const w = parseInt(document.getElementById('analysis-week').value);
+      const con = document.getElementById('analysis-results-container');
+      const btn = document.getElementById('btn-run-analysis');
+      const btnText = document.getElementById('analysis-btn-text');
+      const hint = document.getElementById('analysis-cache-status-hint');
+      const threshold = window.systemThreshold || 120;
+      
+      const thLabel = document.getElementById('current-threshold-label');
+      if (thLabel) thLabel.innerText = threshold;
+
+      const cacheDocId = `${y}_1_${w}`;
+
+      // 1. 若非強制重新診斷，先嘗試自 Firestore 快取載入
+      if (!forceReRun) {
+        con.innerHTML = '<div class="text-center p-8 text-slate-400">⏳ 正在搜尋雲端儲存之診斷紀錄...</div>';
+        try {
+          const cacheSnap = await getDoc(doc(db, "menu_diagnoses", cacheDocId));
+          if (cacheSnap.exists() && cacheSnap.data().days) {
+            const cachedData = cacheSnap.data();
+            window.renderAnalysisCards(cachedData.days, true, cachedData.savedAtFormatted || '', w);
+            
+            if (hint) {
+              hint.innerHTML = '';
+            }
+
+            if (btnText) {
+              btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
+            }
+            return;
+          }
+        } catch (cacheErr) {
+          console.warn("檢查診斷快取失敗或無快取，將執行即時計算:", cacheErr);
+        }
+      }
+
+      // 2. 若無快取或管理者點擊「重新執行」，則啟動運算
+      if (btn) { btn.disabled = true; }
+      if (btnText) { btnText.innerText = "⏳ 交叉診斷中..."; }
+      if (hint) { hint.innerText = "正在執行即時運算..."; }
+      con.innerHTML = '<div class="text-center p-8 text-slate-400">正在調用集中 AI 模組比對菜單與秤重數據...</div>';
+      
+      try {
+        const [dSnap, mSnap] = await Promise.all([
+          getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y), where("week", "==", w))),
+          getDoc(doc(db, "weekly_menus", `${y}_1_${w}`))
+        ]);
+        const logs = dSnap.docs.map(d=>d.data());
+        const menus = mSnap.exists() ? (mSnap.data().days || {}) : {};
+
+        let analysisDayResults = {};
+
+        for (const day of WEEKDAYS) {
+          let dl = logs.filter(l=>l.weekday===day.d && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+          
+          let validClasses = dl.filter(l => l.weightKg !== undefined && l.weightKg !== null && l.weightKg !== '' && !isNaN(parseFloat(l.weightKg)));
+          let hasRecordedData = validClasses.length > 0;
+
+          let tw = validClasses.reduce((s,l)=>s+(parseFloat(l.weightKg)||0), 0);
+          let tc = validClasses.reduce((s,l)=>s+(parseInt(l.eaterCount)||0), 0);
+          let per = (hasRecordedData && tc > 0) ? Number((tw/tc).toFixed(1)) : 0;
+          let menu = menus[day.d] || null;
+          let hasMenu = menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup);
+          
+          let isSpike = hasRecordedData && (per > threshold);
+          let alertMsg = '', advice = '', aiDeduction = '', isCloudAI = false, cloudModelName = '', cloudErrorReason = '';
+
+          if (hasRecordedData && hasMenu && isSpike) {
+            alertMsg = `全校當日人均廚餘量 (${per} g) 超過設定門檻 (${threshold} g)。`;
+
+            let spikeClasses = validClasses.map(l => {
+              let p = (parseInt(l.eaterCount) || 0) > 0 ? Number((parseFloat(l.weightKg) / parseInt(l.eaterCount)).toFixed(1)) : 0;
+              return { className: l.className, stage: l.stage, per: p };
+            }).filter(c => c.per > threshold);
+
+            let totalCount = validClasses.length;
+            let spikeCount = spikeClasses.length;
+            let spikeRatio = totalCount > 0 ? Math.round((spikeCount / totalCount) * 100) : 0;
+
+            const calcStageAvg = (stg) => {
+              let sl = validClasses.filter(l => l.stage === stg);
+              let wSum = sl.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
+              let cSum = sl.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+              return cSum > 0 ? Number((wSum / cSum).toFixed(1)) : 0;
+            };
+
+            const lowAvg = calcStageAvg('低年級');
+            const midAvg = calcStageAvg('中年級');
+            const highAvg = calcStageAvg('高年級');
+
+            // 呼叫雲端 Gemini LLM 深度診斷
+            if (window.cloudGeminiKey) {
+              try {
+                const aiResult = await window.callGeminiMenuDiagnosis(
+                  window.cloudGeminiKey,
+                  menu,
+                  { per, threshold, spikeRatio, spikeCount, totalCount, spikeClasses, lowAvg, midAvg, highAvg }
+                );
+                aiDeduction = aiResult.text;
+                cloudModelName = aiResult.modelUsed;
+                isCloudAI = true;
+                advice = "依據營養師 AI 即時診斷建議執行。";
+              } catch (aiErr) {
+                console.warn(`[${day.name}] 雲端 AI 呼叫異常:`, aiErr);
+                cloudErrorReason = aiErr.message || "連線或端點異常";
+              }
+            } else {
+              cloudErrorReason = "系統尚未設定集中 Gemini API Key";
+            }
+
+            // 在地專家啟發式推論引擎保底
+            if (!aiDeduction) {
+              let str = `${menu.main} ${menu.dish1} ${menu.dish2} ${menu.vege} ${menu.soup}`;
+              let specificAdvice = '';
+              if (/魚|排骨|骨|棒腿/.test(str)){
+                specificAdvice = '（含帶骨/刺食材，殘渣比例較高，建議可評估調整為去骨肉類如去骨雞腿丁、里肌柳以減少骨渣重量）';
+              } else if (/苦瓜|青椒|芥藍|茄子/.test(str)){
+                specificAdvice = '（含學童較易排斥之蔬菜品項，建議細切或搭配玉米、胡蘿蔔等甜味食材提升接受度）';
+              } else if (/糙米|五穀|雜糧/.test(str)){
+                specificAdvice = '（含粗糧品項，建議適度微調白米比例或拉長悶煮時間軟化口感）';
+              }
+
+              advice = `建議查核當日菜色份量配置或調味是否偏重/淡，或當日菜色搭配學生接受度比較不高。${specificAdvice}`;
+
+              let lowSpike = spikeClasses.filter(c => c.stage === '低年級').length;
+              let midSpike = spikeClasses.filter(c => c.stage === '中年級').length;
+              let highSpike = spikeClasses.filter(c => c.stage === '高年級').length;
+
+              let patternDesc = '';
+              if (spikeRatio >= 70) {
+                patternDesc = `超標班級高達 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，屬於<b>普遍性現象</b>。`;
+                if (/魚|排骨|骨|棒腿/.test(str)) {
+                  aiDeduction = `${patternDesc}交叉比對當日菜單含帶骨/刺料理（如魚、排骨），推論全校多數廚餘重量主要來自骨頭殘渣與剔刺難度，而非學生大量剩食，屬物理殘渣加成所致。`;
+                } else if (/苦瓜|青椒|芥藍|茄子/.test(str)) {
+                  aiDeduction = `${patternDesc}交叉比對菜單含有明顯低偏好度蔬菜，且全校各年段均同步超標，推論當日蔬菜品項之整體調味或口感普遍未能迎合學生口味，造成全校性剩菜偏高。`;
+                } else {
+                  aiDeduction = `${patternDesc}全校各年段均呈現高人均廚餘，推論可能為整體供餐份量偏多、主食主菜整體調味偏重/偏淡，或是菜色整體組合之接受度偏低。`;
+                }
+              } else if (spikeRatio > 0 && spikeRatio < 35) {
+                let targetStage = (lowSpike > midSpike && lowSpike > highSpike) ? '低年級' :
+                                  (highSpike > lowSpike && highSpike > midSpike) ? '高年級' : '特定少數班級';
+                patternDesc = `超標班級僅佔 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，非全校普遍現象，而是<b>高度集中於${targetStage}</b>。`;
+                
+                if (targetStage === '低年級' && /魚|排骨|骨|棒腿|糙米|五穀/.test(str)) {
+                  aiDeduction = `${patternDesc}推論低年級學童咀嚼能力較弱、食用帶骨刺或高纖粗糧時較易放棄食用，建議導師於用餐時加強巡視與個別關懷盛菜量。`;
+                } else {
+                  aiDeduction = `${patternDesc}全校多數班級均在正常門檻內，推論並非菜色品質問題，可能為少數班級當日盛飯菜份量掌控、班級打菜習慣或班級活動時程延宕影響用餐所致。`;
+                }
+              } else {
+                patternDesc = `超標班級比例為 <b>${spikeRatio}%</b> (${spikeCount}/${totalCount} 班)，呈現中度分散。`;
+                aiDeduction = `${patternDesc}推論當日菜單之接受度存在班級個別差異，建議針對人均較高之班級（如：${spikeClasses.slice(0, 3).map(c=>c.className).join('、')}等）進一步了解個別剩菜最多的品項。`;
+              }
+            }
+          }
+
+          analysisDayResults[day.d] = {
+            hasRecordedData, hasMenu, isSpike, per, threshold,
+            alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason,
+            menu: menu ? { main: menu.main||'', dish1: menu.dish1||'', dish2: menu.dish2||'', vege: menu.vege||'', soup: menu.soup||'' } : null
+          };
+        }
+
+        // 3. 儲存快取至 Firestore (menu_diagnoses)
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const formattedDate = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+        try {
+          await setDoc(doc(db, "menu_diagnoses", cacheDocId), {
+            academicYear: y,
+            semester: 1,
+            week: w,
+            days: analysisDayResults,
+            savedAtFormatted: formattedDate,
+            updatedAt: serverTimestamp(),
+            updatedBy: window.currentUser ? window.currentUser.email : 'system'
+          }, { merge: true });
+
+          if (hint) {
+            hint.innerHTML = `<span class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+              ✨ 已自動儲存最新診斷結果 (${formattedDate})
+            </span>`;
+          }
+        } catch (saveErr) {
+          console.warn("診斷結果存入快取資料庫失敗:", saveErr);
+          if (hint) { hint.innerText = "⚠️ 診斷完成（快取儲存受限）"; }
+        }
+
+        // 4. 渲染畫面
+        window.renderAnalysisCards(analysisDayResults, false, formattedDate, w);
+
+      } catch (err) {
+        con.innerHTML = `<div class="text-center p-8 text-rose-500">❌ 診斷發生錯誤：${err.message}</div>`;
+      } finally {
+        if (btn) { btn.disabled = false; }
+        if (btnText) {
+          btnText.innerText = (window.userRole === 'admin') ? "🔄 重新執行 AI 診斷並覆蓋存檔" : "🔄 重新執行診斷";
+        }
+      }
+    };
+
+    /* 渲染卡片：客觀事由討論串單一列排版，緊湊無上下留白 */
+    window.renderAnalysisCards = (daysData, isFromCache, cacheDateStr, weekNum) => {
+      const con = document.getElementById('analysis-results-container');
+      if (!con) return;
+
+      const actualWeek = weekNum || parseInt(document.getElementById('analysis-week')?.value || 1, 10);
+      
+      const role = window.userRole;
+      const isAdmin = (role === 'admin');
+      const isStaff = (role === 'staff');
+      const canComment = isAdmin || isStaff;
+      const currentEmail = (window.currentUser?.email || '').toLowerCase().trim();
+
+      const cardsHtml = WEEKDAYS.map(day => {
+        const d = daysData[day.d] || {};
+        const { hasRecordedData, hasMenu, isSpike, per, threshold, alertMsg, advice, aiDeduction, isCloudAI, cloudModelName, cloudErrorReason, menu } = d;
+        const exactDateStr = window.getExactDateForWeekDay(actualWeek, day.d);
+
+        let diagnosticHtml = '';
+        if (!hasRecordedData) {
+          diagnosticHtml = `
+            <div class="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200/60 mt-2 font-medium flex items-center gap-1.5">
+              <span>ℹ</span> 尚未輸入本日之人均廚餘量，無法進行統計分析。
+            </div>`;
+        } else if (!hasMenu) {
+          diagnosticHtml = `<div class="text-xs text-slate-400 mt-2">請先於「4. 🤖 AI 菜單維護」登錄本日菜單，以利進行食材與廚餘交叉診斷。</div>`;
+        } else {
+          if (isSpike && alertMsg) {
+            diagnosticHtml = `
+              <div class="bg-rose-50 p-3.5 rounded-lg text-xs text-rose-800 mt-2 border border-rose-100 space-y-2 leading-relaxed">
+                <div><b>🚨 警示:</b> ${alertMsg}</div>
+                ${!isCloudAI && advice ? `<div><b>💡 建議:</b> ${advice}</div>` : ''}
+                <div class="pt-2 border-t border-rose-200/60 text-slate-800">
+                  <div class="flex items-center justify-between flex-wrap gap-1">
+                    <span class="inline-flex items-center gap-1 font-bold ${isCloudAI ? 'text-indigo-800' : 'text-slate-800'}">
+                      ${isCloudAI ? `✨ 營養師 AI 雲端深度診斷 (gemini-3.8-flash):` : '🤖 診斷(在地啟發式推論):'}
+                    </span>
+                    ${isFromCache && cacheDateStr ? `
+                      <span class="text-[10px] text-slate-500 bg-white/80 border border-slate-200 px-1.5 py-0.5 rounded font-mono">
+                        📌 歷史存檔 (${cacheDateStr})
+                      </span>
+                    ` : ''}
+                  </div>
+                  <p class="mt-1 whitespace-pre-line leading-relaxed text-slate-700">${aiDeduction || ''}</p>
+                  ${!isCloudAI && cloudErrorReason ? `
+                    <div class="mt-2 text-[10px] text-amber-700 bg-amber-100/70 p-1.5 rounded border border-amber-200/60 flex items-center justify-between">
+                      <span>ℹ️ 雲端 AI 備援觸發原因：${cloudErrorReason}</span>
+                      <span class="font-bold text-slate-500">已自動切換在地引擎</span>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>`;
+          } else {
+            diagnosticHtml = `<div class="text-xs text-emerald-600 mt-2 font-medium">✅ 人均於標準範圍內 (${per} g ≤ ${threshold} g)，菜色接受度良好。</div>`;
+          }
+        }
+
+        const menuStr = (menu && (menu.main || menu.dish1 || menu.dish2 || menu.vege || menu.soup))
+          ? `${menu.main || '-'}, ${menu.dish1 || '-'}, ${menu.dish2 || '-'}, ${menu.vege || '-'}, ${menu.soup || '-'}`
+          : '<span class="text-slate-400">無紀錄</span>';
+
+        let notesThreadHtml = '';
+        if (hasRecordedData && isSpike) {
+          const notes = Array.isArray(d.notes) ? d.notes : [];
+          
+          const notesItemsHtml = notes.map((item, idx) => {
+            const isMine = item.authorEmail && (item.authorEmail.toLowerCase() === currentEmail);
+            const canManage = isAdmin || (isStaff && isMine);
+
+            return `
+              <div id="note-item-${day.d}-${idx}" class="px-2.5 py-1 rounded bg-rose-50/70 border border-rose-200 text-rose-900 text-xs transition">
+                <div class="flex items-center justify-between gap-2" id="note-view-row-${day.d}-${idx}">
+                  <div class="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+                    <span class="font-bold text-rose-950">${item.text || ''}</span>
+                    <span class="text-rose-700 text-[11px] shrink-0">👤 ${item.author || '工作同仁'}(${item.time || ''})</span>
+                    ${item.isEdited ? '<span class="text-[10px] text-rose-500 shrink-0">(已編輯)</span>' : ''}
+                  </div>
+                  ${canManage ? `
+                    <div class="flex items-center gap-1 shrink-0" id="note-btns-${day.d}-${idx}">
+                      <button onclick="window.enterEditNoteMode('${day.d}', ${idx})" class="px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 hover:text-rose-900 bg-white border border-rose-200 rounded shadow-xs transition">
+                        修改
+                      </button>
+                      <button onclick="window.deleteDayNote('${day.d}', ${idx}, ${weekNum})" class="px-1.5 py-0.5 text-[11px] font-semibold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 rounded shadow-xs transition">
+                        刪除
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+                <div id="note-edit-box-${day.d}-${idx}" class="hidden flex items-center gap-2 py-0.5">
+                  <input type="text" id="note-edit-input-${day.d}-${idx}" value="${item.text || ''}" class="flex-1 text-xs border border-rose-300 rounded px-2 h-7 bg-white text-slate-800 focus:outline-rose-500 font-normal">
+                  <button onclick="window.submitEditDayNote('${day.d}', ${idx}, ${weekNum})" class="px-2 py-0.5 text-xs bg-rose-600 hover:bg-rose-700 text-white rounded font-medium shadow-xs transition shrink-0">💾 儲存</button>
+                  <button onclick="window.cancelEditNoteMode('${day.d}', ${idx})" class="px-2 py-0.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition font-medium shrink-0">✕ 取消</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          notesThreadHtml = `
+            <div class="mt-2.5 pt-2 border-t border-rose-100">
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-bold text-rose-900 flex items-center gap-1">
+                  <span>📝</span> <span>客觀事由與補充說明 (如運動會、特定活動、校外參訪)</span>
+                </label>
+                <span class="text-[11px] text-rose-600 font-semibold">${notes.length} 則補充</span>
+              </div>
+              
+              <div class="space-y-1 mb-1.5">
+                ${notesItemsHtml || '<div class="text-xs text-rose-700/80 bg-rose-50/50 px-2 py-1 rounded border border-rose-100 font-medium">目前尚無同仁填寫補充事由。</div>'}
+              </div>
+
+              ${canComment ? `
+                <div class="flex gap-1.5 items-center">
+                  <input type="text" id="new-note-input-${day.d}" placeholder="補充當日現場客觀狀況（例如：本日辦理運動競賽活動，盛菜配置受活動行程影響）" class="flex-1 text-xs border border-slate-300 rounded px-2.5 h-8 bg-white text-slate-800 focus:outline-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                  <button onclick="window.addDayNote('${day.d}', ${weekNum})" id="new-note-btn-${day.d}" class="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded shadow-xs transition shrink-0 flex items-center gap-1">
+                    💬 儲存說明
+                  </button>
+                </div>
+              ` : `
+                <div class="text-[11px] text-slate-400 italic">訪客身分僅供檢視討論內容。</div>
+              `}
+            </div>
+          `;
+        }
+
+        return `
+          <div class="p-3.5 bg-white border rounded-xl shadow-sm ${(hasRecordedData && isSpike && hasMenu) ? 'border-rose-300 bg-rose-50/20' : 'border-slate-100'}">
+            <div class="flex justify-between items-center font-bold border-b pb-1.5 mb-1.5">
+              <span class="text-slate-800 flex items-center gap-2">
+                <span>${day.name}</span>
+                <span class="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                  ${exactDateStr}
+                </span>
+              </span>
+              <span class="${!hasRecordedData ? 'text-slate-400 text-xs font-normal' : (isSpike ? 'text-rose-600 font-bold' : 'text-emerald-600 font-semibold')}">
+                ${hasRecordedData ? `${per} g/人` : '尚無秤重數據'}
+              </span>
+            </div>
+            <div class="text-xs text-slate-600 mb-1.5">
+              🍱 <strong>菜單內容</strong>：${menuStr}
+            </div>
+            ${diagnosticHtml}
+            ${notesThreadHtml}
+          </div>`;
+      }).join('');
+
+      con.innerHTML = cardsHtml;
+    };
+
+    /* --- 多人討論串互動控制函式 --- */
+    window.addDayNote = async (dayNum, weekNum) => {
+      const role = window.userRole;
+      if (role !== 'admin' && role !== 'staff') {
+        return window.showNotice('權限不足', '只有系統管理員或工作小組成員可發表補充說明！', false);
+      }
+
+      const input = document.getElementById(`new-note-input-${dayNum}`);
+      const btn = document.getElementById(`new-note-btn-${dayNum}`);
+      const textVal = (input?.value || '').trim();
+      if (!textVal) return window.showNotice('提示', '請先輸入欲補充的說明內容！', false);
+
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ 儲存中..."; }
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      let authorName = '工作同仁';
+      const authorEmail = (window.currentUser?.email || '').toLowerCase().trim();
+      if (role === 'staff') {
+        const staffObj = window.STAFF_MEMBERS.find(s => s.email === authorEmail);
+        authorName = staffObj?.name || window.currentUser?.displayName || '工作小組';
+      } else {
+        authorName = window.currentUser?.displayName || (authorEmail.split('@')[0]) || '管理員';
+      }
+
+      const newNoteItem = {
+        id: 'n_' + Date.now(),
+        text: textVal,
+        author: authorName,
+        authorEmail: authorEmail,
+        time: timeStr,
+        isEdited: false
+      };
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const snap = await getDoc(docRef);
+        let daysData = snap.exists() ? (snap.data().days || {}) : {};
+        if (!daysData[dayNum]) daysData[dayNum] = {};
+        if (!Array.isArray(daysData[dayNum].notes)) {
+          daysData[dayNum].notes = [];
+        }
+        daysData[dayNum].notes.push(newNoteItem);
+
+        await setDoc(docRef, { days: daysData, updatedAt: serverTimestamp() }, { merge: true });
+
+        window.currentWeekAnalysisData = daysData;
+        window.renderAnalysisCards(daysData, true, snap.data()?.savedAtFormatted || '', weekNum);
+        window.showNotice('新增成功', '✅ 已成功追加客觀事由補充說明！');
+      } catch (err) {
+        window.showNotice('新增失敗', err.message, false);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = "💬 儲存說明"; }
+      }
+    };
+
+    window.enterEditNoteMode = (dayNum, noteIdx) => {
+      document.getElementById(`note-view-row-${dayNum}-${noteIdx}`)?.classList.add('hidden');
+      const editBox = document.getElementById(`note-edit-box-${dayNum}-${noteIdx}`);
+      editBox?.classList.remove('hidden');
+      const input = document.getElementById(`note-edit-input-${dayNum}-${noteIdx}`);
+      input?.focus();
+    };
+
+    window.cancelEditNoteMode = (dayNum, noteIdx) => {
+      document.getElementById(`note-view-row-${dayNum}-${noteIdx}`)?.classList.remove('hidden');
+      document.getElementById(`note-edit-box-${dayNum}-${noteIdx}`)?.classList.add('hidden');
+    };
+
+    window.submitEditDayNote = async (dayNum, noteIdx, weekNum) => {
+      const input = document.getElementById(`note-edit-input-${dayNum}-${noteIdx}`);
+      const newText = (input?.value || '').trim();
+      if (!newText) return window.showNotice('提示', '補充說明不可為空！', false);
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+
+        let daysData = snap.data().days || {};
+        if (!daysData[dayNum] || !Array.isArray(daysData[dayNum].notes) || !daysData[dayNum].notes[noteIdx]) {
+          return window.showNotice('錯誤', '找不到該筆留言紀錄！', false);
+        }
+
+        const targetNote = daysData[dayNum].notes[noteIdx];
+        const isMine = targetNote.authorEmail && (targetNote.authorEmail.toLowerCase() === (window.currentUser?.email || '').toLowerCase().trim());
+        if (window.userRole !== 'admin' && !isMine) {
+          return window.showNotice('權限不足', '您僅能修改自己發布的補充說明！', false);
+        }
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const timeStr = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+        targetNote.text = newText;
+        targetNote.time = timeStr;
+        targetNote.isEdited = true;
+
+        await setDoc(docRef, { days: daysData, updatedAt: serverTimestamp() }, { merge: true });
+
+        window.currentWeekAnalysisData = daysData;
+        window.renderAnalysisCards(daysData, true, snap.data()?.savedAtFormatted || '', weekNum);
+        window.showNotice('更新成功', '✅ 補充說明已成功更新！');
+      } catch (err) {
+        window.showNotice('更新失敗', err.message, false);
+      }
+    };
+
+    window.deleteDayNote = async (dayNum, noteIdx, weekNum) => {
+      const ok = await window.confirmAction('確定要刪除此筆補充說明嗎？');
+      if (!ok) return;
+
+      const y = parseInt(document.getElementById('daily-year')?.value || 115);
+      const cacheDocId = `${y}_1_${weekNum}`;
+
+      try {
+        const docRef = doc(db, "menu_diagnoses", cacheDocId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+
+        let daysData = snap.data().days || {};
+        if (!daysData[dayNum] || !Array.isArray(daysData[dayNum].notes) || !daysData[dayNum].notes[noteIdx]) {
+          return;
+        }
+
+        const targetNote = daysData[dayNum].notes[noteIdx];
+        const isMine = targetNote.authorEmail && (targetNote.authorEmail.toLowerCase() === (window.currentUser?.email || '').toLowerCase().trim());
+        if (window.userRole !== 'admin' && !isMine) {
+          return window.showNotice('權限不足', '您僅能刪除自己發布的補充說明！', false);
+        }
+
+        daysData[dayNum].notes.splice(noteIdx, 1);
+
+        await setDoc(docRef, { days: daysData, updatedAt: serverTimestamp() }, { merge: true });
+
+        window.currentWeekAnalysisData = daysData;
+        window.renderAnalysisCards(daysData, true, snap.data()?.savedAtFormatted || '', weekNum);
+        window.showNotice('刪除成功', '已成功移除該筆補充說明。');
+      } catch (err) {
+        window.showNotice('刪除失敗', err.message, false);
+      }
+    };
+
+    /* --- 每月榮譽榜：自動排除未勾選班級 --- */
+    window.calcMonthlyReport = async () => {
+      const yearInput = document.getElementById('monthly-year') || document.getElementById('daily-year') || document.getElementById('sys-year');
+      const y = parseInt(yearInput?.value || 115);
+      const m = parseInt(document.getElementById('monthly-select-month')?.value || 9);
+      
+      const tbody = document.getElementById('monthly-table-body');
+      const cards = document.getElementById('monthly-cards');
+      const hint = document.getElementById('monthly-status-hint');
+
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-400">⏳ 正在彙整全月數據，請稍候...</td></tr>';
+      if (cards) cards.innerHTML = '';
+      if (hint) hint.innerText = `正在讀取 ${y} 學年度資料...`;
+
+      let weekRanges = { 9: [1, 4], 10: [5, 8], 11: [9, 12], 12: [13, 17] };
+      let [wStart, wEnd] = weekRanges[m] || [1, 4];
+
+      try {
+        const snap = await getDocs(query(collection(db, "daily_records"), where("academicYear", "==", y)));
+        const allLogs = snap.docs.map(d => d.data());
+        const logs = allLogs.filter(d => {
+          const wk = parseInt(d.week);
+          return !isNaN(wk) && wk >= wStart && wk <= wEnd && window.ACTIVE_CLASS_IDS.includes(d.classId);
+        });
+
+        if (hint) hint.innerText = `統計範圍：第 ${wStart} ~ ${wEnd} 週 (共納入 ${logs.length} 筆適用班級秤重紀錄)`;
+
+        if (logs.length === 0) {
+          if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">ℹ 目前在 <b>${y} 學年度 第 ${wStart} ~ ${wEnd} 週</b> 尚未查詢到有效的秤重登記資料。</td></tr>`;
+          if (cards) cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
+              <div class="text-xs font-bold text-slate-500">👑 ${m}月 ${stg}惜食總冠軍</div>
+              <div class="text-xl font-bold mt-1 text-slate-400">-</div>
+              <div class="text-sm font-semibold text-slate-400">尚無資料</div>
+            </div>`).join('');
+          return;
+        }
+
+        let stats = window.CLASSES.map(c => {
+          const isClassActive = window.ACTIVE_CLASS_IDS.includes(c.id);
+          if (!isClassActive) {
+            return { ...c, tw: '-', tc: '-', per: null, disabledRule: true };
+          }
+          let classLogs = logs.filter(l => l.classId === c.id && !l.isSkipped && (parseInt(l.eaterCount) || 0) > 0);
+          let tw = classLogs.reduce((s, l) => s + (parseFloat(l.weightKg) || 0), 0);
+          let tc = classLogs.reduce((s, l) => s + (parseInt(l.eaterCount) || 0), 0);
+          let per = tc > 0 ? Number((tw / tc).toFixed(1)) : null;
+          return { ...c, tw: tw.toFixed(0), tc, per, disabledRule: false };
+        });
+
+        let champs = {};
+        ['低年級', '中年級', '高年級'].forEach(stg => {
+          let s = stats.filter(x => x.stage === stg && !x.disabledRule && x.per !== null).sort((a, b) => a.per - b.per);
+          if (s.length > 0) champs[stg] = s[0];
+        });
+
+        if (cards) {
+          cards.innerHTML = ['低年級', '中年級', '高年級'].map(stg => `
+            <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-xl text-center shadow-sm">
+              <div class="text-xs font-bold text-indigo-800">👑 ${m}月 ${stg}惜食總冠軍</div>
+              <div class="text-xl font-bold mt-1 text-slate-800">${champs[stg] ? champs[stg].name : '-'}</div>
+              <div class="text-sm font-semibold text-indigo-600">${champs[stg] ? champs[stg].per + ' g/人' : '無有效人均'}</div>
+            </div>`).join('');
+        }
+
+        if (tbody) {
+          tbody.innerHTML = stats.map(s => {
+            if (s.disabledRule) {
+              return `
+                <tr class="bg-slate-50 text-slate-400">
+                  <td class="p-3">${s.name}</td>
+                  <td class="p-3 text-right">-</td>
+                  <td class="p-3 text-right">-</td>
+                  <td class="p-3 text-right">不列評比</td>
+                  <td class="p-3 text-center text-xs">免秤</td>
+                </tr>`;
+            }
+            let isC = Object.values(champs).some(c => c && c.id === s.id);
+            return `
+              <tr class="${isC ? 'bg-indigo-50/50 font-semibold' : 'hover:bg-slate-50'}">
+                <td class="p-3">${s.name}</td>
+                <td class="p-3 text-right">${s.tw}</td>
+                <td class="p-3 text-right">${s.tc}</td>
+                <td class="p-3 text-right font-bold text-indigo-700">${s.per !== null ? s.per : '-'}</td>
+                <td class="p-3 text-center">${isC ? '👑 月冠軍' : '-'}</td>
+              </tr>`;
+          }).join('');
+        }
+      } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">❌ 彙整數據失敗：${err.message}</td></tr>`;
+      }
+    };
+
+    window.loadSystemConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, "system_config", "main"));
+        if (snap.exists()) {
+          const d = snap.data();
+          if (d.year && document.getElementById('sys-year')) document.getElementById('sys-year').value = d.year;
+          if (d.semester && document.getElementById('sys-sem')) document.getElementById('sys-sem').value = d.semester;
+          if (d.startDate && document.getElementById('sys-start')) document.getElementById('sys-start').value = d.startDate;
+          if (d.endDate && document.getElementById('sys-end')) document.getElementById('sys-end').value = d.endDate;
+          if (d.threshold !== undefined) {
+            window.systemThreshold = parseFloat(d.threshold);
+            if (document.getElementById('sys-threshold')) document.getElementById('sys-threshold').value = window.systemThreshold;
+          }
+        }
+
+        const thLabel = document.getElementById('current-threshold-label');
+        if (thLabel) thLabel.innerText = window.systemThreshold;
+
+        const startEl = document.getElementById('sys-start');
+        const startStr = startEl ? startEl.value : '2026-08-31';
+        if (startStr) {
+          const parts = startStr.split('-');
+          if (parts.length >= 3) {
+            const startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const today = new Date();
+            
+            let currentWeek = 1;
+            if (today >= startDate) {
+              const diffTime = Math.abs(today - startDate);
+              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+              currentWeek = Math.floor(diffDays / 7) + 1;
+              
+              let dayOfWeek = today.getDay();
+              const selectWd = document.getElementById('daily-weekday');
+              if (selectWd) {
+                selectWd.value = String(dayOfWeek);
+              }
+            }
+            window.calculatedCurrentWeek = currentWeek;
+            const pastWeek = Math.max(1, currentWeek - 1);
+            const sysYearVal = document.getElementById('sys-year')?.value || 115;
+
+            if (document.getElementById('daily-year')) document.getElementById('daily-year').value = sysYearVal;
+            if (document.getElementById('daily-week')) document.getElementById('daily-week').value = currentWeek;
+            if (document.getElementById('menu-week')) document.getElementById('menu-week').value = currentWeek;
+            if (document.getElementById('weekly-select-week')) document.getElementById('weekly-select-week').value = pastWeek;
+            if (document.getElementById('analysis-week')) document.getElementById('analysis-week').value = pastWeek;
+            if (document.getElementById('monthly-year')) document.getElementById('monthly-year').value = sysYearVal;
+
+            window.refreshAllWeekLabels();
+          }
+        }
+      } catch (e) {
+        console.warn("載入行事曆設定略過:", e);
+      }
+    };
+
+    window.saveSystemConfig = async () => {
+      if (window.userRole !== 'admin') return;
+      try {
+        const thresholdVal = parseFloat(document.getElementById('sys-threshold').value) || 120;
+        window.systemThreshold = thresholdVal;
+
+        await setDoc(doc(db, "system_config", "main"), {
+          year: parseInt(document.getElementById('sys-year').value),
+          semester: parseInt(document.getElementById('sys-sem').value),
+          startDate: document.getElementById('sys-start').value,
+          endDate: document.getElementById('sys-end').value,
+          threshold: thresholdVal,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        const thLabel = document.getElementById('current-threshold-label');
+        if (thLabel) thLabel.innerText = window.systemThreshold;
+
+        window.refreshAllWeekLabels();
+        window.showNotice('設定成功', '📅 行事曆與異常警示門檻設定已儲存！');
+      } catch (e) { window.showNotice('儲存失敗', e.message, false); }
+    };
+
+    window.downloadCsvTemplate = () => {
+      const csvContent = "\uFEFF" + "學年度,學期,週次,星期(1/2/4/5),班級代碼,廚餘重量(g),用餐人數\n115,1,1,1,101,1200,22\n115,1,1,1,102,900,21\n115,1,1,201,1500,24\n";
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "惜食歷史數據匯入範例(公克).csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    window.importCsvData = async () => {
+      if (window.userRole !== 'admin') return;
+      const fileInput = document.getElementById('csv-upload');
+      if (!fileInput.files.length) return window.showNotice('請選擇檔案', '請先選擇欲匯入的 CSV 檔案', false);
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
+        if (lines.length < 2) return window.showNotice('檔案格式錯誤', '檔案內容格式不符或為空', false);
+        
+        document.getElementById('csv-import-btn').innerText = '⏳ 匯入中...';
+        document.getElementById('csv-import-btn').disabled = true;
+
+        let successCount = 0;
+        try {
+          const promises = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',');
+            if (cols.length >= 7) {
+              const year = parseInt(cols[0].trim()), sem = parseInt(cols[1].trim()), week = parseInt(cols[2].trim()), weekday = parseInt(cols[3].trim());
+              const classId = cols[4].trim(), weight = parseFloat(cols[5].trim()), count = parseInt(cols[6].trim());
+              const classInfo = window.CLASSES.find(c => c.id === classId);
+              if (!isNaN(year) && !isNaN(week) && classInfo && !isNaN(weight)) {
+                const per = count > 0 ? Number((weight/count).toFixed(1)) : 0;
+                promises.push(
+                  setDoc(doc(db, "daily_records", `${year}_${sem}_${week}_${weekday}_${classId}`), {
+                    academicYear: year, semester: sem, week, weekday, classId, className: classInfo.name, stage: classInfo.stage,
+                    weightKg: weight, eaterCount: count, perCapitaGram: per, updatedAt: serverTimestamp(), imported: true
+                  }, { merge: true }).then(() => successCount++)
+                );
+              }
+            }
+          }
+          await Promise.all(promises);
+          window.showNotice('匯入成功', `✅ 成功匯入 ${successCount} 筆數據！`);
+        } catch (err) {
+          window.showNotice('匯入錯誤', err.message, false);
+        } finally {
+          document.getElementById('csv-import-btn').innerText = '🚀 開始匯入';
+          document.getElementById('csv-import-btn').disabled = false;
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    window.loadClassSettings = async () => {
+      try {
+        const snap = await getDocs(collection(db, "class_settings"));
+        snap.forEach(d => {
+          const t = window.CLASSES.find(c => c.id === d.id);
+          if (t) t.defaultCount = d.data().defaultCount;
+        });
+      } catch (e) {}
+    };
+    
+    window.renderSettings = () => {
+      const isAdm = window.userRole === 'admin';
+      const container = document.getElementById('settings-rows');
+      if (!container) return;
+      container.innerHTML = window.CLASSES.map(c => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-3 text-slate-500">${c.stage}</td><td class="p-3 font-semibold">${c.name}</td>
+          <td class="p-3"><input type="number" id="set-${c.id}" value="${c.defaultCount}" ${isAdm ? '' : 'disabled'} class="border rounded px-2 py-1 w-24 text-right ${isAdm ? 'bg-white text-slate-800' : 'bg-slate-100 cursor-not-allowed text-slate-500'}"> 人</td>
+        </tr>
+      `).join('');
+    };
+
+    window.saveClassSettings = async () => {
+      if (window.userRole !== 'admin') return;
+      try {
+        for (let c of window.CLASSES){
+          let v = parseInt(document.getElementById(`set-${c.id}`)?.value, 10);
+          c.defaultCount = v;
+          await setDoc(doc(db, "class_settings", c.id), { classId: c.id, defaultCount: v, updatedAt: serverTimestamp() }, { merge: true });
+        }
+        window.showNotice('更新成功', '🧑‍🤝‍🧑 班級人數設定更新成功！');
+      } catch (e){ window.showNotice('更新失敗', e.message, false); }
+    };
+
+    /* --- Auth 狀態監聽 --- */
+    onAuthStateChanged(auth, async (user) => {
+      try {
+        await window.loadRoleSettings();
+        await window.loadGeminiApiKey();
+        await window.loadWeighingRules();
+        await window.loadTareWeightConfig();
+
+        if (user) {
+          const userEmail = (user.email || "").trim().toLowerCase();
+          const isAdmin = window.ADMIN_EMAILS.includes(userEmail);
+          const staffObj = window.STAFF_MEMBERS.find(s => s.email === userEmail);
+
+          if (isAdmin) {
+            window.userRole = 'admin';
+            window.currentStaffCanDaily = true;
+            await window.loadWasteMonitorPass();
+          } else if (staffObj) {
+            window.userRole = 'staff';
+            window.currentStaffCanDaily = Boolean(staffObj.canDaily);
+          } else {
+            await signOut(auth);
+            window.currentUser = null;
+            window.userRole = 'guest';
+            window.currentStaffCanDaily = false;
+            window.showNotice('🚫 登入拒絕', `【${user.email}】\n您尚未被加入管理員或工作小組授權名單中。\n若需檢視或維護，請洽系統管理員新增！`, false);
+            return;
+          }
+        } else {
+          if (window.userRole !== 'waste_monitor') {
+            window.userRole = 'guest';
+            window.currentStaffCanDaily = false;
+          }
+        }
+
+        window.currentUser = user;
+        window.updateUIForRole();
+        window.loadDailyRecords();
+      } catch (err) {
+        console.error("Auth 回呼錯誤:", err);
+      }
+    });
+
+    window.updateUIForRole = () => {
+      const badge = document.getElementById('auth-badge');
+      const tabMenuText = document.getElementById('tab-menu-text');
+      const tabMenuBadge = document.getElementById('tab-menu-badge');
+      const tabAnalysisBadge = document.getElementById('tab-analysis-badge');
+      const tabSettingsBadge = document.getElementById('tab-settings-badge');
+
+      const menuWeekTitle = document.getElementById('menu-week-title-label');
+      const menuSaveBtn = document.getElementById('menu-save-btn');
+      const menuAiSection = document.getElementById('menu-ai-section');
+
+      const btnStaffLogin = document.getElementById('btn-staff-login');
+      const btnLoginModal = document.getElementById('btn-login-modal');
+      const btnLogout = document.getElementById('btn-logout');
+
+      const role = window.userRole;
+      const canEditDaily = (role === 'admin') || (role === 'waste_monitor') || (role === 'staff' && window.currentStaffCanDaily);
+
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) {
+        if (canEditDaily) {
+          saveBtn.disabled = false;
+          saveBtn.removeAttribute('disabled');
+          saveBtn.className = "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition flex items-center gap-1";
+          saveBtn.innerText = '☁️ 儲存上傳當日全部班級';
+        } else {
+          saveBtn.disabled = true;
+          saveBtn.setAttribute('disabled', 'true');
+          saveBtn.className = "px-5 py-2 bg-slate-300 text-slate-500 font-medium rounded-lg shadow cursor-not-allowed transition flex items-center gap-1";
+          saveBtn.innerText = '🔒 需登入方可儲存';
+        }
+      }
+
+      if (role === 'admin') {
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span>管理員：${window.currentUser?.displayName || window.currentUser?.email || '管理員'}`;
+        }
+        btnStaffLogin?.classList.add('hidden');
+        btnLoginModal?.classList.add('hidden');
+        btnLogout?.classList.remove('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 🤖 AI 菜單維護";
+        if (tabMenuBadge) { tabMenuBadge.classList.remove('hidden'); tabMenuBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabMenuBadge.innerText = "🔓"; }
+        if (menuWeekTitle) menuWeekTitle.innerText = "維護週次：第";
+        menuSaveBtn?.classList.remove('hidden');
+        menuAiSection?.classList.remove('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabAnalysisBadge.innerText = "🔓"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium"; tabSettingsBadge.innerText = "🔓"; }
+
+        ['settings-save-btn', 'sys-save-btn', 'csv-import-btn', 'role-save-btn', 'key-save-btn', 'key-test-btn', 'waste-pass-save-btn', 'rules-save-btn', 'tare-save-btn'].forEach(id => {
+          let b = document.getElementById(id);
+          if (b) {
+            b.disabled = false;
+            b.removeAttribute('disabled');
+            if (id === 'key-test-btn') b.className = "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold rounded shadow-sm text-xs cursor-pointer transition flex items-center gap-1";
+            else if (id==='csv-import-btn' || id==='role-save-btn' || id==='key-save-btn' || id==='waste-pass-save-btn' || id==='rules-save-btn' || id==='tare-save-btn') b.className = "px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg shadow cursor-pointer transition text-sm";
+            else b.className = "px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded shadow cursor-pointer transition text-sm";
+          }
+        });
+        window.unlockSettingsFields();
+
+      } else if (role === 'waste_monitor') {
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-amber-100 text-amber-800 border border-amber-200";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span>廚餘長模式`;
+        }
+        btnStaffLogin?.classList.remove('hidden');
+        btnLoginModal?.classList.remove('hidden');
+        btnLogout?.classList.remove('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
+        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabAnalysisBadge.innerText = "🔒"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabSettingsBadge.innerText = "🔒"; }
+        window.unlockSettingsFields();
+
+      } else if (role === 'staff') {
+        const curEmail = (window.currentUser?.email || '').trim().toLowerCase();
+        const staffObj = window.STAFF_MEMBERS.find(s => s.email === curEmail);
+        const staffDisplayName = staffObj?.name || window.currentUser?.displayName || window.currentUser?.email;
+
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-indigo-100 text-indigo-800";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span>工作小組：${staffDisplayName}${window.currentStaffCanDaily ? ' (可登記)' : ''}`;
+        }
+        btnStaffLogin?.classList.add('hidden');
+        btnLoginModal?.classList.add('hidden');
+        btnLogout?.classList.remove('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
+        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium"; tabAnalysisBadge.innerText = "👀 檢視"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabSettingsBadge.innerText = "🔒"; }
+        window.unlockSettingsFields();
+
+      } else {
+        if (badge) {
+          badge.className = "text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-slate-200 text-slate-600";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span>訪客模式`;
+        }
+        btnStaffLogin?.classList.remove('hidden');
+        btnLoginModal?.classList.remove('hidden');
+        btnLogout?.classList.add('hidden');
+
+        if (tabMenuText) tabMenuText.innerText = "4. 菜單查詢";
+        tabMenuBadge?.classList.add('hidden');
+        if (menuWeekTitle) menuWeekTitle.innerText = "本週週次：第";
+        menuSaveBtn?.classList.add('hidden');
+        menuAiSection?.classList.add('hidden');
+
+        if (tabAnalysisBadge) { tabAnalysisBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabAnalysisBadge.innerText = "🔒"; }
+        if (tabSettingsBadge) { tabSettingsBadge.className = "text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal"; tabSettingsBadge.innerText = "🔒"; }
+        window.unlockSettingsFields();
+      }
+
+      window.renderRoleLists();
+      window.updateKeyStatusUI();
+    };
+
+    window.openLoginModal = (targetRole = 'staff') => {
+      const modal = document.getElementById('login-modal');
+      const title = document.getElementById('login-modal-title');
+      const hint = document.getElementById('login-modal-hint');
+      const emailInput = document.getElementById('login-email');
+      const lineAlert = document.getElementById('line-browser-alert');
+
+      if (lineAlert) {
+        if (isInAppBrowser()) lineAlert.classList.remove('hidden');
+        else lineAlert.classList.add('hidden');
+      }
+
+      if (targetRole === 'staff') {
+        if (title) title.innerHTML = `👥 工作小組登入`;
+        if (hint) hint.innerHTML = `💡 <strong>工作小組入口</strong>：請輸入被管理員加入工作小組之信箱。<br>若首次使用，請自訂一組 6 位數密碼後點擊「🌱 首次設定密碼」。`;
+      } else {
+        if (title) title.innerHTML = `🔐 後臺管理登入`;
+        if (hint) hint.innerHTML = `🛡 <strong>系統管理員入口</strong>：可進行每日登記儲存、AI 菜單維護與系統權限設定。`;
+      }
+
+      modal?.classList.remove('hidden');
+      if (emailInput && !emailInput.value) setTimeout(() => emailInput.focus(), 150);
+    };
+
+    window.closeLoginModal = () => document.getElementById('login-modal')?.classList.add('hidden');
+    
+    window.loginWithGoogle = async () => { 
+      if (isGoogleLoginInProgress) return;
+      isGoogleLoginInProgress = true;
+
+      const gBtn = document.getElementById('btn-google-login-action');
+      const gText = document.getElementById('btn-google-login-text');
+      if (gBtn) { gBtn.disabled = true; gBtn.classList.add('opacity-70', 'cursor-wait'); }
+      if (gText) gText.innerText = "驗證中，請稍候...";
+
+      try { 
+        if (isInAppBrowser()) throw new Error('APP_BROWSER_BLOCKED');
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider); 
+        window.closeLoginModal(); 
+      } catch (e) { 
+        console.warn("Google 登入狀態回傳:", e.code || e.message);
+        if (e.message === 'APP_BROWSER_BLOCKED') {
+          window.showNotice('瀏覽器限制提醒', 'Google 不允許在 LINE 等通訊軟體內建瀏覽器登入。\n\n請點擊右下角「⋮」選擇以 Safari 或 Chrome 開啟，或直接在下方使用 Email 與密碼登入！', false);
+        } else if (e.code === 'auth/popup-blocked') {
+          window.showNotice('手機彈跳視窗被阻擋', '請允許手機瀏覽器彈出式視窗，或直接使用下方「電子信箱與密碼」登入！', false);
+        } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+          window.showNotice('登入提示', `行動裝置安全性限制 (${e.code || '驗證中斷'})\n\n建議您直接在下方使用「電子信箱與密碼」登入，無需經過 Google 彈窗！`, false); 
+        }
+      } finally {
+        isGoogleLoginInProgress = false;
+        if (gBtn) { gBtn.disabled = false; gBtn.classList.remove('opacity-70', 'cursor-wait'); }
+        if (gText) gText.innerText = "使用 Google 帳號快速登入";
+      }
+    };
+
+    window.loginWithEmail = async () => { 
+      const email = document.getElementById('login-email')?.value.trim();
+      const pwd = document.getElementById('login-password')?.value;
+      if (!email || !pwd) {
+        if (!email) document.getElementById('login-email')?.focus();
+        else document.getElementById('login-password')?.focus();
+        return window.showNotice('請填寫完整', '請先輸入電子信箱與密碼！', false);
+      }
+      try { 
+        await signInWithEmailAndPassword(auth, email, pwd); 
+        window.closeLoginModal(); 
+      } catch (e) { 
+        let tip = e.message;
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+          tip = '帳號尚未建立密碼或密碼不正確。\n若您是首次使用，請在密碼欄位輸入自訂密碼後，點擊綠色「🌱 首次設定密碼」按鈕！';
+        } else if (e.code === 'auth/wrong-password') {
+          tip = '密碼錯誤，請重新確認或點擊下方「寄送重設密碼信」。';
+        }
+        window.showNotice('登入失敗', tip, false); 
+      } 
+    };
+
+    window.registerWithEmail = async () => {
+      const emailEl = document.getElementById('login-email');
+      const pwdEl = document.getElementById('login-password');
+      const email = emailEl?.value.trim().toLowerCase();
+      const pwd = pwdEl?.value;
+
+      if (!email || !email.includes('@')) {
+        emailEl?.focus();
+        return window.showNotice('請先輸入信箱', '請先於上方欄位填寫您的電子信箱！', false);
+      }
+      if (!pwd || pwd.length < 6) {
+        pwdEl?.focus();
+        return window.showNotice('密碼過短', '請在密碼欄位輸入至少 6 位數以上的密碼！', false);
+      }
+
+      await window.loadRoleSettings();
+      const isAuthAdmin = window.ADMIN_EMAILS.includes(email);
+      const isAuthStaff = window.STAFF_MEMBERS.some(s => s.email === email);
+
+      if (!isAuthAdmin && !isAuthStaff) {
+        return window.showNotice('尚未獲得授權', `【${email}】\n目前尚未在系統授權名單中。\n請先聯絡系統管理員將您的信箱加入「工作小組」後，再來設定密碼登入！`, false);
+      }
+
+      try {
+        await createUserWithEmailAndPassword(auth, email, pwd);
+        window.closeLoginModal();
+        window.showNotice('密碼設定成功', `🎉 歡迎！【${email}】密碼設定完成，系統已自動為您登入！`);
+      } catch (e) {
+        if (e.code === 'auth/email-already-in-use') {
+          window.showNotice('信箱已註冊過', '此信箱先前已經設定過密碼囉！\n請直接點擊黑色「🔑 密碼登入」按鈕，或點擊下方「寄送重設密碼信」。', false);
+        } else {
+          window.showNotice('設定失敗', e.message, false);
+        }
+      }
+    };
+
+    window.sendPasswordReset = async () => {
+      const email = document.getElementById('login-email')?.value.trim();
+      if (!email || !email.includes('@')) {
+        document.getElementById('login-email')?.focus();
+        return window.showNotice('請輸入信箱', '請在上方電子信箱欄位輸入您要重設密碼的 Email！', false);
+      }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        window.showNotice('重設密碼信已寄出', `系統已將重設密碼連結寄送至【${email}】。\n請前往收信並點擊連結重新設定密碼後再登入！`);
+      } catch (e) {
+        window.showNotice('寄送失敗', e.message, false);
+      }
+    };
+
+    /* ========================================================
+       🛡️ 安全沙盒化開機管線（嚴格依序初始化，徹底防死鎖）
+       ======================================================== */
+    (async function initSystemSafely() {
+      try {
+        // 1. 同步優先渲染 12 班基礎骨架（0.01 秒內必定可見）
+        window.renderInitialEmptyTable();
+
+        // 2. 初始化行事曆、班級人數、彈性秤重與空桶扣重規則
+        await window.loadSystemConfig();
+        await window.loadClassSettings();
+        await window.loadWeighingRules();
+        await window.loadTareWeightConfig();
+
+        // 3. 解除開機防連動鎖
+        isSystemInitializing = false;
+
+        // 4. 刷新全域週次日期標籤並載入過磅數據
+        window.refreshAllWeekLabels();
+        await window.loadDailyRecords();
+      } catch (fatalErr) {
+        console.error("系統初始化遭遇例外（已啟動安全保護）:", fatalErr);
+        isSystemInitializing = false;
+        window.renderInitialEmptyTable();
+      }
+    })();
+
+  </script>
+</body>
+</html>
