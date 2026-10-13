@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>惜食榮譽榜 A1 印刷海報產製系統 - 溪洲國小</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 預覽視窗比例 */
+    .poster-canvas-wrapper {
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+  
+  <!-- 頂部導航列 -->
+  <header class="bg-emerald-800 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🌱</span>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide">校園惜食榮譽榜 A1 高畫質海報生成器</h1>
+          <p class="text-xs text-emerald-200">依據 Firestore 數據自動運算週冠軍、進步獎與繪製折線走勢圖</p>
+        </div>
+      </div>
+      <div>
+        <a href="index.html" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-xs font-semibold tracking-wide transition flex items-center gap-1">
+          ⬅ 回到主系統
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+    
+    <!-- 控制台面板 -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+        <h2 class="font-bold text-slate-700 flex items-center gap-2 text-base">
+          <span>⚙️</span> 海報統計範圍與繪製設定
+        </h2>
+        <span id="db-status" class="text-xs px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full font-medium">
+          雲端資料庫連線中...
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+        <!-- 模式選擇 -->
+        <div>
+          <label class="block font-semibold text-slate-600 mb-1">統計模式</label>
+          <select id="mode-select" class="w-full border rounded-lg p-2 bg-slate-50 focus:bg-white" onchange="toggleMode()">
+            <option value="month">依月份指定（預設對應週次）</option>
+            <option value="custom" selected>自選起訖週次（自由彈性）</option>
+          </select>
+        </div>
+
+        <!-- 月份模式 -->
+        <div id="month-group" class="hidden">
+          <label class="block font-semibold text-slate-600 mb-1">選擇月份</label>
+          <select id="select-month" class="w-full border rounded-lg p-2 bg-slate-50" onchange="syncMonthToWeeks()">
+            <option value="9">9 月份 (第 1 ~ 4 週)</option>
+            <option value="10" selected>10 月份 (第 5 ~ 8 週)</option>
+            <option value="11">11 月份 (第 9 ~ 12 週)</option>
+            <option value="12">12 月份 (第 13 ~ 17 週)</option>
+          </select>
+        </div>
+
+        <!-- 自選週次模式 -->
+        <div id="custom-group" class="flex items-center gap-2 md:col-span-2">
+          <div class="flex-1">
+            <label class="block font-semibold text-slate-600 mb-1">起始週次</label>
+            <input type="number" id="start-week" value="4" min="1" max="25" class="w-full border rounded-lg p-2 bg-slate-50">
+          </div>
+          <span class="pt-6 font-bold text-slate-400">至</span>
+          <div class="flex-1">
+            <label class="block font-semibold text-slate-600 mb-1">結束週次</label>
+            <input type="number" id="end-week" value="6" min="1" max="25" class="w-full border rounded-lg p-2 bg-slate-50">
+          </div>
+        </div>
+
+        <!-- 學年度 -->
+        <div>
+          <label class="block font-semibold text-slate-600 mb-1">學年度</label>
+          <input type="number" id="academic-year" value="115" class="w-full border rounded-lg p-2 bg-slate-50">
+        </div>
+      </div>
+
+      <!-- 操作按鈕 -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div class="text-xs text-slate-500">
+          💡 建議選擇 2~4 個週次進行連續比對，海報視覺排版效果最佳。
+        </div>
+        <div class="flex gap-2">
+          <button onclick="fetchAndRenderPoster()" id="render-btn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition flex items-center gap-2">
+            <span>🚀</span> 撈取雲端數據並渲染海報
+          </button>
+          <button onclick="downloadPosterImage()" id="download-btn" disabled class="px-5 py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl shadow-sm transition flex items-center gap-2 cursor-not-allowed">
+            <span>📥</span> 下載 A1 印刷高畫質 PNG (300 DPI)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 狀態提示 -->
+    <div id="msg-banner" class="hidden p-3 rounded-lg text-sm font-medium"></div>
+
+    <!-- Canvas 預覽畫布容器 -->
+    <section class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
+      <div class="w-full flex items-center justify-between mb-4 border-b pb-2">
+        <span class="font-bold text-slate-700">🖼️ 海報即時預覽 (可點擊下載獲取 7016×9933 像素原圖)</span>
+        <span id="canvas-info" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+          A1 規格 (7016 × 9933 px)
+        </span>
+      </div>
+
+      <!-- 預覽容器 (限制最大寬度以維持瀏覽器流暢度) -->
+      <div class="poster-canvas-wrapper bg-white rounded-lg overflow-hidden border border-slate-300 max-w-full md:max-w-3xl">
+        <canvas id="posterCanvas" class="w-full h-auto block"></canvas>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Firebase 模組與海報繪製引擎 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+      getFirestore, collection, getDocs, query, where 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // 專屬 Firebase 專案配置 (與主系統完全一致)
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6xjT4asS3xcpRrgLD33jrssSIzmh0ix4",
+      authDomain: "school-food-waste.firebaseapp.com",
+      projectId: "school-food-waste",
+      storageBucket: "school-food-waste.firebasestorage.app",
+      messagingSenderId: "1056761999500",
+      appId: "1:1056761999500:web:1014f9ec8d320391ce8ba9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 10 個參與評比班級清單 (一年級免秤重自動排除)
+    const EVAL_CLASSES = [
+      { id: '201', name: '二年甲班', short: '二甲', stage: '低年級', color: '#E65100' },
+      { id: '202', name: '二年乙班', short: '二乙', stage: '低年級', color: '#D32F2F' },
+      { id: '301', name: '三年甲班', short: '三甲', stage: '中年級', color: '#7B1FA2' },
+      { id: '302', name: '三年乙班', short: '三乙', stage: '中年級', color: '#2E7D32' },
+      { id: '401', name: '四年甲班', short: '四甲', stage: '中年級', color: '#C2185B' },
+      { id: '402', name: '四年乙班', short: '四乙', stage: '中年級', color: '#F57C00' },
+      { id: '501', name: '五年甲班', short: '五甲', stage: '高年級', color: '#303F9F' },
+      { id: '502', name: '五年乙班', short: '五乙', stage: '高年級', color: '#0097A7' },
+      { id: '601', name: '六年甲班', short: '六甲', stage: '高年級', color: '#5D4037' },
+      { id: '602', name: '六年乙班', short: '六乙', stage: '高年級', color: '#455A64' },
+    ];
+
+    // 全域變數
+    window.db = db;
+    window.EVAL_CLASSES = EVAL_CLASSES;
+
+    // A1 @ 300 DPI 實體畫素
+    const CANVAS_WIDTH = 7016;
+    const CANVAS_HEIGHT = 9933;
+
+    // 初始化狀態
+    document.addEventListener("DOMContentLoaded", () => {
+      // 解析 URL 參數
+      const params = new URLSearchParams(window.location.search);
+      const urlYear = params.get('year');
+      const urlMonth = params.get('month');
+
+      if (urlYear) document.getElementById('academic-year').value = urlYear;
+      if (urlMonth) {
+        document.getElementById('select-month').value = urlMonth;
+        document.getElementById('mode-select').value = 'month';
+        window.toggleMode();
+        window.syncMonthToWeeks();
+      }
+
+      document.getElementById('db-status').textContent = "🟢 雲端資料庫已就緒";
+      document.getElementById('db-status').className = "text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-medium";
+
+      // 預設先執行一次繪製
+      window.fetchAndRenderPoster();
+    });
+
+    // 切換模式
+    window.toggleMode = function() {
+      const mode = document.getElementById('mode-select').value;
+      if (mode === 'month') {
+        document.getElementById('month-group').classList.remove('hidden');
+        document.getElementById('custom-group').classList.add('hidden');
+        window.syncMonthToWeeks();
+      } else {
+        document.getElementById('month-group').classList.add('hidden');
+        document.getElementById('custom-group').classList.remove('hidden');
+      }
+    };
+
+    window.syncMonthToWeeks = function() {
+      const m = parseInt(document.getElementById('select-month').value, 10);
+      const map = { 9: [1, 4], 10: [5, 8], 11: [9, 12], 12: [13, 17] };
+      const [sw, ew] = map[m] || [1, 4];
+      document.getElementById('start-week').value = sw;
+      document.getElementById('end-week').value = ew;
+    };
+
+    // 核心數據撈取與分析
+    window.fetchAndRenderPoster = async function() {
+      const btn = document.getElementById('render-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<span>⏳</span> 運算與繪圖中...`;
+
+      const year = parseInt(document.getElementById('academic-year').value, 10) || 115;
+      const startW = parseInt(document.getElementById('start-week').value, 10);
+      const endW = parseInt(document.getElementById('end-week').value, 10);
+
+      if (startW > endW) {
+        alert("起始週次不能大於結束週次！");
+        btn.disabled = false;
+        btn.innerHTML = `<span>🚀</span> 撈取雲端數據並渲染海報`;
+        return;
+      }
+
+      try {
+        // 抓取所需週次 (包含前一週 startW - 1 用以計算第一週進步獎)
+        const snap = await getDocs(query(
+          collection(db, "daily_records"),
+          where("academicYear", "==", year)
+        ));
+
+        const allLogs = snap.docs.map(d => d.data());
+
+        // 依週次整理各班每週人均
+        const weeksArray = [];
+        for (let w = startW; w <= endW; w++) {
+          weeksArray.push(w);
+        }
+
+        // 計算各班每週人均 (包含前一週做為 base)
+        const weeklyStats = {}; // week -> { classId -> perCapita }
+        for (let w = (startW - 1); w <= endW; w++) {
+          weeklyStats[w] = {};
+          const wLogs = allLogs.filter(l => parseInt(l.week) === w && !l.isSkipped);
+          
+          EVAL_CLASSES.forEach(c => {
+            const cLogs = wLogs.filter(l => l.classId === c.id);
+            const totalW = cLogs.reduce((acc, cur) => acc + (parseFloat(cur.weightKg) || 0), 0);
+            const totalE = cLogs.reduce((acc, cur) => acc + (parseInt(cur.eaterCount) || 0), 0);
+            weeklyStats[w][c.id] = totalE > 0 ? Number((totalW * 1000 / totalE).toFixed(1)) : null;
+          });
+        }
+
+        // 判定各週冠軍
+        const champions = {}; // week -> { '低年級': { name, val }, '中年級': ..., '高年級': ... }
+        const stages = ['低年級', '中年級', '高年級'];
+        weeksArray.forEach(w => {
+          champions[w] = {};
+          stages.forEach(stg => {
+            const list = EVAL_CLASSES.filter(c => c.stage === stg && weeklyStats[w][c.id] !== null)
+              .map(c => ({ ...c, val: weeklyStats[w][c.id] }))
+              .sort((a, b) => a.val - b.val);
+            if (list.length > 0) champions[w][stg] = list[0];
+          });
+        });
+
+        // 判定各週進步獎 (減幅 >= 5.0%)
+        const progressAwards = {}; // week -> [ { name, rate, prev, curr } ]
+        weeksArray.forEach(w => {
+          progressAwards[w] = [];
+          const prevW = w - 1;
+          EVAL_CLASSES.forEach(c => {
+            const currVal = weeklyStats[w][c.id];
+            const prevVal = weeklyStats[prevW] ? weeklyStats[prevW][c.id] : null;
+            if (currVal !== null && prevVal !== null && prevVal > 0) {
+              const rate = Number((((prevVal - currVal) / prevVal) * 100).toFixed(1));
+              if (rate >= 5.0) {
+                progressAwards[w].push({
+                  id: c.id,
+                  name: c.name,
+                  short: c.short,
+                  rate,
+                  prevVal,
+                  currVal
+                });
+              }
+            }
+          });
+          progressAwards[w].sort((a, b) => b.rate - a.rate);
+        });
+
+        // 執行 Canvas 向量繪製
+        await renderPosterCanvas({
+          year,
+          startW,
+          endW,
+          weeksArray,
+          weeklyStats,
+          champions,
+          progressAwards
+        });
+
+        // 解鎖下載按鈕
+        const dlBtn = document.getElementById('download-btn');
+        dlBtn.disabled = false;
+        dlBtn.className = "px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer";
+
+      } catch (err) {
+        console.error(err);
+        alert("資料載入或繪圖發生錯誤：" + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>🚀</span> 撈取雲端數據並渲染海報`;
+      }
+    };
+
+    // Canvas 向量繪圖核心 (精確渲染至 7016 x 9933)
+    async function renderPosterCanvas(data) {
+      const canvas = document.getElementById('posterCanvas');
+      canvas.width = CANVAS_WIDTH;
+      canvas.height = CANVAS_HEIGHT;
+      const ctx = canvas.getContext('2d');
+
+      // 背景色 (暖米白)
+      ctx.fillStyle = '#FCFBF7';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // 外外框邊線
+      ctx.strokeStyle = '#235338';
+      ctx.lineWidth = 14;
+      ctx.strokeRect(100, 100, CANVAS_WIDTH - 200, CANVAS_HEIGHT - 200);
+
+      // 輔助繪製圓角矩形
+      function drawRoundedRect(x, y, w, h, radius, fill, stroke, strokeWidth=4) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = strokeWidth; ctx.stroke(); }
+      }
+
+      // -------------------------------------------------------------
+      // 1. 頁頭區 (HEADER)
+      // -------------------------------------------------------------
+      // 主標題文字
+      ctx.fillStyle = '#1C432C';
+      ctx.font = 'bold 240px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
+      ctx.textAlign = 'center';
+      const monthTitle = data.startW >= 5 && data.endW <= 8 ? '10月份' : (data.startW <= 4 ? '9月份' : '學期');
+      ctx.fillText(`${data.year}學年度第一學期 ${monthTitle}（第${data.startW}週～第${data.endW}週）`, CANVAS_WIDTH / 2, 450);
+
+      // 深綠橫幅 Banner
+      drawRoundedRect(1200, 600, CANVAS_WIDTH - 2400, 420, 210, '#1C5D39', '#113E25', 10);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 230px "Noto Sans TC", sans-serif';
+      ctx.fillText('各年段人均廚餘量變化與惜食榮譽榜', CANVAS_WIDTH / 2, 890);
+
+      // 評比說明黃金小徽章
+      drawRoundedRect(1800, 1100, CANVAS_WIDTH - 3600, 220, 110, '#F5D77F', '#D9B244', 8);
+      ctx.fillStyle = '#66480B';
+      ctx.font = 'bold 120px "Noto Sans TC", sans-serif';
+      ctx.fillText('各年段分別評比，數值越低表現越好', CANVAS_WIDTH / 2, 1250);
+
+      // 左上角環保標籤
+      drawRoundedRect(280, 580, 750, 480, 80, '#E8F5E9', '#2E7D32', 8);
+      ctx.fillStyle = '#1B5E20';
+      ctx.font = 'bold 110px "Noto Sans TC", sans-serif';
+      ctx.fillText('惜食減廢', 280 + 375, 780);
+      ctx.fillText('從我做起', 280 + 375, 950);
+
+      // 右上角教育標語
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#15803D';
+      ctx.font = 'bold 110px "Noto Sans TC", sans-serif';
+      ctx.fillText('珍惜食物・守護地球', CANVAS_WIDTH - 300, 750);
+      ctx.font = 'bold 100px "Noto Sans TC", sans-serif';
+      ctx.fillText('打造永續健康校園', CANVAS_WIDTH - 300, 900);
+      ctx.font = '500 80px "Noto Sans TC", sans-serif';
+      ctx.fillText('吃多少盛多少零浪費', CANVAS_WIDTH - 300, 1030);
+
+      // -------------------------------------------------------------
+      // 2. 各週週冠軍區塊 (TOP AWARDS)
+      // -------------------------------------------------------------
+      const nWeeks = data.weeksArray.length;
+      const colWidth = (CANVAS_WIDTH - 500 - (nWeeks - 1) * 120) / nWeeks;
+      const topY = 1450;
+      const colHeight = 1750;
+
+      data.weeksArray.forEach((w, idx) => {
+        const cx = 250 + idx * (colWidth + 120);
+
+        // 外卡片
+        drawRoundedRect(cx, topY, colWidth, colHeight, 70, '#FFFDF5', '#D8D1B8', 10);
+
+        // 週冠軍標頭 (深綠色)
+        drawRoundedRect(cx, topY, colWidth, 280, 50, '#1B5E39', '#134428', 8);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#F9DF74';
+        ctx.font = '900 140px "Noto Sans TC", sans-serif';
+        ctx.fillText(`第 ${w} 週`, cx + colWidth * 0.35, topY + 190);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 120px "Noto Sans TC", sans-serif';
+        ctx.fillText(`各年段週冠軍`, cx + colWidth * 0.75, topY + 190);
+
+        // 三個年段卡片
+        const stagesList = [
+          { name: '低年級', key: '低年級', bg: '#FFF5E0', tc: '#B25E00', nc: '#B83227' },
+          { name: '中年級', key: '中年級', bg: '#E8F5E9', tc: '#1E7E34', nc: '#1B5E20' },
+          { name: '高年級', key: '高年級', bg: '#FFF0F0', tc: '#B83227', nc: '#B83227' }
+        ];
+
+        stagesList.forEach((stg, sIdx) => {
+          const sy = topY + 330 + sIdx * 450;
+          drawRoundedRect(cx + 40, sy, colWidth - 80, 410, 40, stg.bg, '#E8DFCE', 6);
+
+          // 年段徽章
+          drawRoundedRect(cx + 80, sy + 70, 320, 270, 40, '#FFFFFF', stg.tc, 6);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = stg.tc;
+          ctx.font = 'bold 95px "Noto Sans TC", sans-serif';
+          ctx.fillText(stg.name, cx + 80 + 160, sy + 240);
+
+          // 冠軍班級
+          const champ = data.champions[w] ? data.champions[w][stg.key] : null;
+          ctx.fillStyle = stg.nc;
+          ctx.font = '900 240px "Noto Sans TC", sans-serif';
+          ctx.fillText(champ ? champ.short : '—', cx + colWidth * 0.55, sy + 290);
+
+          // 數值與單位
+          ctx.fillStyle = '#212529';
+          ctx.font = '900 160px "Noto Sans TC", sans-serif';
+          ctx.fillText(champ ? `${champ.val}` : '0', cx + colWidth * 0.85, sy + 230);
+          ctx.fillStyle = '#64748B';
+          ctx.font = 'bold 85px "Noto Sans TC", sans-serif';
+          ctx.fillText('公克／人', cx + colWidth * 0.85, sy + 330);
+        });
+      });
+
+      // -------------------------------------------------------------
+      // 3. 中層：折線圖 (左) 與 數據表格 (右)
+      // -------------------------------------------------------------
+      const midY = 3350;
+      const midH = 2950;
+      drawRoundedRect(250, midY, CANVAS_WIDTH - 500, midH, 70, '#FFFFFF', '#CBD5E1', 10);
+
+      // 中層標頭標籤
+      drawRoundedRect(350, midY + 80, 2600, 230, 115, '#1B5E39', '#134428', 8);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 110px "Noto Sans TC", sans-serif';
+      ctx.fillText('🌿 每週人均廚餘量變化（公克／人）📈', 450, midY + 235);
+
+      // 3A. 折線圖 (LINE CHART ON LEFT)
+      const chartX = 550;
+      const chartY = midY + 500;
+      const chartW = 3400;
+      const chartH = 2200;
+
+      // 繪製座標軸與格線
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 4;
+      const yTicks = [0, 40, 80, 120, 160, 200];
+      yTicks.forEach(tick => {
+        const ty = chartY + chartH - (tick / 220) * chartH;
+        ctx.beginPath();
+        ctx.moveTo(chartX, ty);
+        ctx.lineTo(chartX + chartW, ty);
+        ctx.stroke();
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#64748B';
+        ctx.font = 'bold 80px "Noto Sans TC", sans-serif';
+        ctx.fillText(tick.toString(), chartX - 40, ty + 25);
+      });
+
+      // X 軸刻度
+      const xStep = chartW / (data.weeksArray.length - 1);
+      data.weeksArray.forEach((w, i) => {
+        const tx = chartX + i * xStep;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#1E293B';
+        ctx.font = 'bold 95px "Noto Sans TC", sans-serif';
+        ctx.fillText(`第 ${w} 週`, tx, chartY + chartH + 130);
+      });
+
+      // 繪製各班折線
+      EVAL_CLASSES.forEach(cls => {
+        ctx.beginPath();
+        ctx.strokeStyle = cls.color;
+        ctx.lineWidth = 14;
+        let started = false;
+
+        data.weeksArray.forEach((w, i) => {
+          const val = data.weeklyStats[w][cls.id];
+          if (val !== null) {
+            const px = chartX + i * xStep;
+            const py = chartY + chartH - (Math.min(val, 220) / 220) * chartH;
+            if (!started) { ctx.moveTo(px, py); started = true; }
+            else { ctx.lineTo(px, py); }
+          }
+        });
+        ctx.stroke();
+
+        // 節點圓點
+        data.weeksArray.forEach((w, i) => {
+          const val = data.weeklyStats[w][cls.id];
+          if (val !== null) {
+            const px = chartX + i * xStep;
+            const py = chartY + chartH - (Math.min(val, 220) / 220) * chartH;
+            ctx.beginPath();
+            ctx.arc(px, py, 26, 0, Math.PI * 2);
+            ctx.fillStyle = cls.color;
+            ctx.fill();
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.stroke();
+          }
+        });
+      });
+
+      // 圖例 (Legend)
+      const legX = chartX;
+      const legY = chartY - 100;
+      EVAL_CLASSES.forEach((cls, i) => {
+        const lx = legX + (i % 5) * 680;
+        const ly = legY + Math.floor(i / 5) * 110;
+        ctx.fillStyle = cls.color;
+        ctx.fillRect(lx, ly, 60, 30);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#334155';
+        ctx.font = 'bold 65px "Noto Sans TC", sans-serif';
+        ctx.fillText(cls.short, lx + 80, ly + 25);
+      });
+
+      // 3B. 數據對照表 (TABLE ON RIGHT)
+      const tblX = 4250;
+      const tblY = midY + 450;
+      const tblW = 2250;
+      const rowH = 190;
+
+      // 表頭
+      drawRoundedRect(tblX, tblY, tblW, rowH, 20, '#1C5D39', '#113E25', 6);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 85px "Noto Sans TC", sans-serif';
+      ctx.fillText('班級', tblX + 220, tblY + 125);
+
+      const colW = (tblW - 650) / data.weeksArray.length;
+      data.weeksArray.forEach((w, i) => {
+        ctx.fillText(`第${w}週`, tblX + 500 + i * colW + colW/2, tblY + 125);
+      });
+      ctx.fillText('趨勢', tblX + tblW - 160, tblY + 125);
+
+      // 各班列
+      EVAL_CLASSES.forEach((cls, rIdx) => {
+        const ry = tblY + (rIdx + 1) * rowH + 20;
+        ctx.fillStyle = rIdx % 2 === 1 ? '#F8FAFC' : '#FFFFFF';
+        ctx.fillRect(tblX, ry, tblW, rowH);
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(tblX, ry, tblW, rowH);
+
+        // 班級名稱
+        ctx.fillStyle = '#1E293B';
+        ctx.font = 'bold 80px "Noto Sans TC", sans-serif';
+        ctx.fillText(cls.short, tblX + 220, ry + 120);
+
+        // 週次數值
+        data.weeksArray.forEach((w, i) => {
+          const val = data.weeklyStats[w][cls.id];
+          ctx.fillStyle = (val !== null && val < 40) ? '#B91C1C' : ((val !== null && val < 80) ? '#047857' : '#334155');
+          ctx.font = 'bold 80px "Noto Sans TC", sans-serif';
+          ctx.fillText(val !== null ? val.toFixed(1) : '-', tblX + 500 + i * colW + colW/2, ry + 120);
+        });
+
+        // 趨勢箭頭
+        const firstVal = data.weeklyStats[data.weeksArray[0]][cls.id];
+        const lastVal = data.weeklyStats[data.weeksArray[data.weeksArray.length - 1]][cls.id];
+        let trend = '持平 ─';
+        let trendColor = '#64748B';
+        if (firstVal && lastVal) {
+          if (lastVal < firstVal - 10) { trend = '大幅下降 ▼'; trendColor = '#047857'; }
+          else if (lastVal < firstVal) { trend = '改善下降 ▼'; trendColor = '#10B981'; }
+          else if (lastVal > firstVal) { trend = '回升 ▲'; trendColor = '#E11D48'; }
+        }
+        ctx.fillStyle = trendColor;
+        ctx.font = 'bold 68px "Noto Sans TC", sans-serif';
+        ctx.fillText(trend, tblX + tblW - 160, ry + 120);
+      });
+
+      // 備註說明
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#64748B';
+      ctx.font = 'bold 65px "Noto Sans TC", sans-serif';
+      ctx.fillText('※ 一年甲班、一年乙班依規定免秤重，不列入評比', tblX + tblW/2, tblY + 11.8 * rowH + 40);
+
+      // -------------------------------------------------------------
+      // 4. 下層：週進步獎專區 (PROGRESS AWARDS)
+      // -------------------------------------------------------------
+      const btmY = 6450;
+      const btmH = 3100;
+      const halfW = (CANVAS_WIDTH - 600) / 2;
+
+      // 4A. 左側欄：前段週次進步獎 (例如第4週 & 第5週)
+      drawRoundedRect(250, btmY, halfW, btmH, 70, '#FFFDF7', '#CBD5E1', 10);
+
+      // 第一個週次進步獎
+      const wA = data.weeksArray[0];
+      drawRoundedRect(350, btmY + 80, halfW - 200, 240, 120, '#1C5D39', '#134428', 8);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 110px "Noto Sans TC", sans-serif';
+      ctx.fillText(`🏆 第 ${wA} 週進步獎`, 350 + (halfW - 200)/2, btmY + 235);
+
+      const pListA = data.progressAwards[wA] || [];
+      if (pListA.length > 0) {
+        pListA.slice(0, 3).forEach((item, idx) => {
+          const iy = btmY + 380 + idx * 360;
+          drawRoundedRect(380, iy, halfW - 260, 310, 40, '#FFF7ED', '#FDBA74', 6);
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#C2410C';
+          ctx.font = '900 130px "Noto Sans TC", sans-serif';
+          ctx.fillText(item.name, 450, iy + 210);
+
+          ctx.textAlign = 'right';
+          ctx.font = '900 120px "Noto Sans TC", sans-serif';
+          ctx.fillText(`改善 ${item.rate}%`, 380 + halfW - 320, iy + 160);
+          ctx.fillStyle = '#9A3412';
+          ctx.font = 'bold 75px "Noto Sans TC", sans-serif';
+          ctx.fillText(`(${item.prevVal}g → ${item.currVal}g)`, 380 + halfW - 320, iy + 260);
+        });
+      } else {
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = 'bold 85px "Noto Sans TC", sans-serif';
+        ctx.fillText('本週無班級達減幅 5% 門檻', 350 + (halfW - 200)/2, btmY + 550);
+      }
+
+      // 第二個週次進步獎 (若有)
+      if (data.weeksArray.length > 1) {
+        const wB = data.weeksArray[1];
+        const secY = btmY + 1550;
+        drawRoundedRect(350, secY, halfW - 200, 240, 120, '#1C5D39', '#134428', 8);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 110px "Noto Sans TC", sans-serif';
+        ctx.fillText(`🏆 第 ${wB} 週進步獎`, 350 + (halfW - 200)/2, secY + 155);
+
+        const pListB = data.progressAwards[wB] || [];
+        pListB.slice(0, 3).forEach((item, idx) => {
+          const iy = secY + 300 + idx * 360;
+          drawRoundedRect(380, iy, halfW - 260, 310, 40, '#FFFFFF', '#FED7AA', 6);
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#1E293B';
+          ctx.font = '900 120px "Noto Sans TC", sans-serif';
+          ctx.fillText(item.name, 450, iy + 200);
+
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#EA580C';
+          ctx.font = '900 110px "Noto Sans TC", sans-serif';
+          ctx.fillText(`改善 ${item.rate}%`, 380 + halfW - 320, iy + 150);
+          ctx.fillStyle = '#64748B';
+          ctx.font = 'bold 70px "Noto Sans TC", sans-serif';
+          ctx.fillText(`(${item.prevVal}g → ${item.currVal}g)`, 380 + halfW - 320, iy + 250);
+        });
+      }
+
+      // 4B. 右側欄：最新大進步週次 (如第6週全校大躍進)
+      const rightX = 350 + halfW;
+      drawRoundedRect(rightX, btmY, halfW, btmH, 70, '#F0FDF4', '#86EFAC', 10);
+
+      const lastW = data.weeksArray[data.weeksArray.length - 1];
+      drawRoundedRect(rightX + 100, btmY + 80, halfW - 200, 240, 120, '#15803D', '#14532D', 8);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 110px "Noto Sans TC", sans-serif';
+      ctx.fillText(`🎉 第 ${lastW} 週進步獎（全校大躍進）🏆`, rightX + 100 + (halfW - 200)/2, btmY + 235);
+
+      const pListLast = data.progressAwards[lastW] || [];
+      ctx.fillStyle = '#166534';
+      ctx.font = 'bold 90px "Noto Sans TC", sans-serif';
+      ctx.fillText(`★ 共 ${pListLast.length} 個班級突破減幅門檻，榮獲週進步獎！`, rightX + halfW/2, btmY + 420);
+
+      // 前三名大獎卡片
+      const topMedals = [
+        { rank: '1', title: '【進步王】', bg: '#FEF08A', tc: '#854D0E', clr: '#B91C1C' },
+        { rank: '2', title: '', bg: '#E2E8F0', tc: '#334155', clr: '#C2410C' },
+        { rank: '3', title: '', bg: '#FFEDD5', tc: '#9A3412', clr: '#D97706' }
+      ];
+
+      pListLast.slice(0, 3).forEach((item, idx) => {
+        const iy = btmY + 500 + idx * 360;
+        drawRoundedRect(rightX + 100, iy, halfW - 200, 310, 40, '#FFFFFF', '#BBF7D0', 6);
+
+        // 圓圈名次
+        ctx.beginPath();
+        ctx.arc(rightX + 240, iy + 155, 95, 0, Math.PI * 2);
+        ctx.fillStyle = topMedals[idx].bg;
+        ctx.fill();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = topMedals[idx].tc;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = topMedals[idx].tc;
+        ctx.font = '900 100px "Noto Sans TC", sans-serif';
+        ctx.fillText(topMedals[idx].rank, rightX + 240, iy + 195);
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#15803D';
+        ctx.font = '900 130px "Noto Sans TC", sans-serif';
+        ctx.fillText(item.name, rightX + 400, iy + 200);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = topMedals[idx].clr;
+        ctx.font = '900 130px "Noto Sans TC", sans-serif';
+        ctx.fillText(`大幅改善 ${item.rate}%`, rightX + halfW - 400, iy + 200);
+
+        if (topMedals[idx].title) {
+          ctx.fillStyle = '#B45309';
+          ctx.font = 'bold 80px "Noto Sans TC", sans-serif';
+          ctx.fillText(topMedals[idx].title, rightX + halfW - 140, iy + 190);
+        }
+      });
+
+      // 其餘獲獎班級網格
+      const remainList = pListLast.slice(3);
+      remainList.forEach((item, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const gx = rightX + 100 + col * ((halfW - 240) / 2 + 40);
+        const gy = btmY + 1650 + row * 260;
+        const gw = (halfW - 240) / 2;
+
+        drawRoundedRect(gx, gy, gw, 220, 30, '#FFFFFF', '#DCFCE7', 5);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#1E293B';
+        ctx.font = 'bold 95px "Noto Sans TC", sans-serif';
+        ctx.fillText(item.name, gx + 60, gy + 145);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#059669';
+        ctx.font = '900 95px "Noto Sans TC", sans-serif';
+        ctx.fillText(`改善 ${item.rate}%`, gx + gw - 60, gy + 145);
+      });
+
+      // -------------------------------------------------------------
+      // 5. 頁尾：評比標準與宣導布條 (FOOTER)
+      // -------------------------------------------------------------
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 75px "Noto Sans TC", sans-serif';
+      ctx.fillText('※ 進步獎標準：較前一週人均廚餘量降低超過 5.0% 即頒發獎勵。無用餐人數之日期不計入，以有效天數加權計算。', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 260);
+
+      // 底部兩側綠能宣導彩帶
+      drawRoundedRect(400, CANVAS_HEIGHT - 200, 2400, 130, 65, '#D97706', null);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 75px "Noto Sans TC", sans-serif';
+      ctx.fillText('🌱 減少廚餘，更美好的明天', 400 + 1200, CANVAS_HEIGHT - 110);
+
+      drawRoundedRect(CANVAS_WIDTH - 2800, CANVAS_HEIGHT - 200, 2400, 130, 65, '#15803D', null);
+      ctx.fillText('🍽️ 不剩食、愛地球，從每天開始', CANVAS_WIDTH - 2800 + 1200, CANVAS_HEIGHT - 110);
+    }
+
+    // 下載 A1 印刷 PNG 圖檔
+    window.downloadPosterImage = function() {
+      const canvas = document.getElementById('posterCanvas');
+      const startW = document.getElementById('start-week').value;
+      const endW = document.getElementById('end-week').value;
+
+      // 轉為 Blob 下載以支援超大解析度檔案
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `惜食榮譽榜海報_第${startW}週至第${endW}週_A1印刷300DPI.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 'image/png', 1.0);
+    };
+  </script>
+</body>
+</html>
