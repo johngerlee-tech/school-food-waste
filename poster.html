@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>惜食榮譽榜海報產製系統 - 溪洲國小 v2.4</title>
+  <title>惜食榮譽榜海報產製系統 - 溪洲國小 v2.5</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Noto Sans TC -->
@@ -25,8 +25,8 @@
       <div class="flex items-center gap-3">
         <span class="text-2xl">🌱</span>
         <div>
-          <h1 class="text-lg font-bold tracking-wide">惜食榮譽榜海報產製系統 - 溪洲國小 <span class="text-xs bg-emerald-700 px-2 py-0.5 rounded-full font-mono text-emerald-200">v2.4</span></h1>
-          <p class="text-xs text-emerald-200">表格文字放大・進步獎標題微調・底部雙邊標語對稱・A1 印刷渲染</p>
+          <h1 class="text-lg font-bold tracking-wide">惜食榮譽榜海報產製系統 - 溪洲國小 <span class="text-xs bg-emerald-700 px-2 py-0.5 rounded-full font-mono text-emerald-200">v2.5 完整整合版</span></h1>
+          <p class="text-xs text-emerald-200">整合 v2.4 大字表格/雙標語・5週橫式進步獎自動換行防重疊</p>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -329,7 +329,7 @@
       }
     };
 
-    // 全動態 Canvas 渲染引擎 (v2.4)
+    // 全動態 Canvas 渲染引擎 (v2.5: 完整整合版)
     async function drawDynamicA1Poster(data) {
       const canvas = document.getElementById('posterCanvas');
       const isLand = data.isLandscape;
@@ -490,7 +490,7 @@
       });
 
       // -------------------------------------------------------------
-      // 3. 中層：折線圖與數據總表 (★ 需求 3：表格文字放大 1 級)
+      // 3. 中層：折線圖與數據總表 (保留 v2.4 放大字級)
       // -------------------------------------------------------------
       const midY = topY + colH + 100;
       const midH = isLand ? 2000 : 2820;
@@ -584,7 +584,7 @@
         ctx.fillText(cls.short, lx + 75, ly + 25);
       });
 
-      // ★ 數據總表：表頭由 80px 放大至 90px，數據由 78px 放大至 88px
+      // 數據總表 (v2.4 字級)
       const tblX = isLand ? (chartX + chartW + 250) : 4260;
       const tblY = midY + 410;
       const tblW = isLand ? (W - tblX - 450) : 2280;
@@ -593,7 +593,7 @@
       fillRoundRect(tblX, tblY, tblW, rowH, 18, '#1C5D39', '#113E25', 6);
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 90px "Noto Sans TC"'; // 表頭放大1級: 90px
+      ctx.font = 'bold 90px "Noto Sans TC"'; // 表頭放大 1 級
       ctx.fillText('班級', tblX + tblW * 0.12, tblY + rowH * 0.65);
 
       const tWeeksColW = (tblW * 0.64) / data.weeksArray.length;
@@ -610,12 +610,12 @@
         ctx.lineWidth = 3;
         ctx.strokeRect(tblX, ry, tblW, rowH);
 
-        // 班級文字放大1級: 88px
+        // 班級字級 88px
         ctx.fillStyle = '#1E293B';
         ctx.font = 'bold 88px "Noto Sans TC"';
         ctx.fillText(cls.short, tblX + tblW * 0.12, ry + rowH * 0.65);
 
-        // 數值放大1級: 88px
+        // 數值字級 88px
         data.weeksArray.forEach((w, i) => {
           const val = data.weeklyStats[w][cls.id];
           ctx.fillStyle = (val !== null && val < 40) ? '#B91C1C' : ((val !== null && val < 70) ? '#047857' : '#334155');
@@ -647,28 +647,28 @@
           }
         }
 
-        // 趨勢文字放大1級: 76px
+        // 趨勢字級 76px
         ctx.fillStyle = trendColor;
         ctx.font = 'bold 76px "Noto Sans TC"';
         ctx.fillText(trend, tblX + tblW * 0.93, ry + rowH * 0.65);
       });
 
       // -------------------------------------------------------------
-      // 4. 下層：全動態進步獎榮譽榜 (★ 需求 1：標題縮小2級至180px，拿掉左右星星)
+      // 4. 下層：全動態進步獎榮譽榜 (v2.4 主標 180px 無星 + 橫式自動換行)
       // -------------------------------------------------------------
       const btmY = midY + midH + 100;
       const btmH = H - btmY - 320;
 
       fillRoundRect(250, btmY, W - 500, btmH, 70, '#FFFDF7', '#CBD5E1', 10);
 
-      // ★ 縮小 2 級至 180px，拿掉文字左右兩邊星星，純淨大器
+      // v2.4 標題：180px 粗體、拿掉左右星星
       const mainHeaderH = 280;
       fillRoundRect(W/2 - 2500, btmY + 45, 5000, mainHeaderH, mainHeaderH/2, '#1C5D39', '#113E25', 10);
       drawTrophy(W/2 - 2150, btmY + 45 + mainHeaderH/2, 1.0, '#FBBF24');
       drawTrophy(W/2 + 2150, btmY + 45 + mainHeaderH/2, 1.0, '#FBBF24');
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '900 180px "Noto Sans TC"'; // ★ 縮小2級: 180px
+      ctx.font = '900 180px "Noto Sans TC"';
       ctx.fillText('🏆 每週惜食大躍進・週進步獎榮譽榜（減幅 ≥ 5%）🌿', W / 2, btmY + 45 + mainHeaderH * 0.68);
 
       const allWeeks = data.weeksArray;
@@ -747,38 +747,69 @@
             const isTop = (aIdx === 0);
 
             fillRoundRect(px + 15, iy, cardW - 30, itemH - 16, 26, isTop ? '#FFF7ED' : '#F8FAFC', isTop ? '#FED7AA' : '#E2E8F0', 4);
+            const cardInnerH = itemH - 16;
 
-            ctx.textAlign = 'left';
-            ctx.fillStyle = isTop ? '#C2410C' : '#1E293B';
-            ctx.font = `900 ${clsFontSize}px "Noto Sans TC"`;
-            ctx.fillText(`  🌿 ${item.name}`, px + 30, iy + (itemH - 16) * 0.62);
+            if (isLand) {
+              // -------------------------------------------------------------
+              // ★ 超過 5 週（A1 橫式）：自動換行顯示，徹底防文字重疊
+              // -------------------------------------------------------------
+              const line1Y = iy + cardInnerH * 0.44;
+              const line2Y = iy + cardInnerH * 0.82;
 
-            ctx.textAlign = 'right';
-            const rateStr = `改善 ${item.rate}%`;
-            const diffStr = ` (減少 ${item.diff} g/人)`;
+              // 1. 班級名稱 (第一行靠左)
+              ctx.textAlign = 'left';
+              ctx.fillStyle = isTop ? '#C2410C' : '#1E293B';
+              ctx.font = `900 ${Math.min(clsFontSize, 84)}px "Noto Sans TC"`;
+              ctx.fillText(`  🌿 ${item.name}`, px + 25, line1Y);
 
-            ctx.font = `bold ${diffFontSize}px "Noto Sans TC"`;
-            const diffWidth = ctx.measureText(diffStr).width;
+              // 2. 改善比例 (第一行靠右)
+              ctx.textAlign = 'right';
+              ctx.fillStyle = isTop ? '#EA580C' : '#059669';
+              ctx.font = `900 ${Math.min(rateFontSize, 82)}px "Noto Sans TC"`;
+              ctx.fillText(`改善 ${item.rate}%`, px + cardW - 35, line1Y);
 
-            ctx.fillStyle = '#64748B';
-            ctx.fillText(diffStr, px + cardW - 35, iy + (itemH - 16) * 0.62);
+              // 3. 減少廚餘量 (第二行換行靠右)
+              ctx.fillStyle = '#64748B';
+              ctx.font = `bold ${Math.min(diffFontSize, 68)}px "Noto Sans TC"`;
+              ctx.fillText(`(減少 ${item.diff} g/人)`, px + cardW - 35, line2Y);
 
-            ctx.fillStyle = isTop ? '#EA580C' : '#059669';
-            ctx.font = `900 ${rateFontSize}px "Noto Sans TC"`;
-            ctx.fillText(rateStr, px + cardW - 35 - diffWidth - 20, iy + (itemH - 16) * 0.62);
+            } else {
+              // -------------------------------------------------------------
+              // ★ 4 週以內（A1 直式）：單行舒適排列
+              // -------------------------------------------------------------
+              const lineY = iy + cardInnerH * 0.62;
+
+              ctx.textAlign = 'left';
+              ctx.fillStyle = isTop ? '#C2410C' : '#1E293B';
+              ctx.font = `900 ${clsFontSize}px "Noto Sans TC"`;
+              ctx.fillText(`  🌿 ${item.name}`, px + 30, lineY);
+
+              ctx.textAlign = 'right';
+              const rateStr = `改善 ${item.rate}%`;
+              const diffStr = ` (減少 ${item.diff} g/人)`;
+
+              ctx.font = `bold ${diffFontSize}px "Noto Sans TC"`;
+              const diffWidth = ctx.measureText(diffStr).width;
+
+              ctx.fillStyle = '#64748B';
+              ctx.fillText(diffStr, px + cardW - 35, lineY);
+
+              ctx.fillStyle = isTop ? '#EA580C' : '#059669';
+              ctx.font = `900 ${rateFontSize}px "Noto Sans TC"`;
+              ctx.fillText(rateStr, px + cardW - 35 - diffWidth - 20, lineY);
+            }
           });
         }
       });
 
       // -------------------------------------------------------------
-      // 5. 頁尾：最下面邊框標語（★ 需求 2：補齊右側對稱標語 110px）
+      // 5. 頁尾：最下面邊框標語 (完整保留 v2.4 雙邊對稱標語 110px)
       // -------------------------------------------------------------
       ctx.textAlign = 'center';
       ctx.fillStyle = '#475569';
       ctx.font = 'bold 75px "Noto Sans TC"';
       ctx.fillText('※ 進步獎標準：較前一週人均廚餘量降低超過 5.0% 即頒發獎勵。無用餐人數之日期不計入，以有效天數加權計算。', W / 2, H - 230);
 
-      // 左右兩側對稱標籤寬度與位置
       const footRibbonW = isLand ? 3400 : 2800;
       const footRibbonH = 170;
       const footRibbonY = H - 190;
@@ -790,7 +821,7 @@
       ctx.font = '900 110px "Noto Sans TC"';
       ctx.fillText('🌱 減少廚餘，更美好的明天', 250 + footRibbonW / 2, footRibbonY + footRibbonH * 0.68);
 
-      // ★ 右側補強對稱標語：深綠色標籤
+      // 右側對稱標語：深綠色標籤
       const rightRibbonX = W - 250 - footRibbonW;
       fillRoundRect(rightRibbonX, footRibbonY, footRibbonW, footRibbonH, footRibbonH/2, '#15803D', null);
       ctx.fillStyle = '#FFFFFF';
