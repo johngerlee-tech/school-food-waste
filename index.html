@@ -211,6 +211,12 @@
           <button onclick="window.calcMonthlyReport()" class="px-3.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow transition">
             🔄 重新彙整
           </button>
+          <!-- 在每月榮譽榜工具列中新增這個按鈕 -->
+<div class="flex items-center gap-2">
+  <button onclick="window.openPosterPage()" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition flex items-center gap-1.5 text-sm">
+    <span>🎨</span> 產製 A1 惜食印刷海報
+  </button>
+</div>
         </div>
         <div id="monthly-status-hint" class="text-xs text-slate-500"></div>
       </div>
@@ -3373,6 +3379,12 @@ window.loadOrRunAnalysis = async (forceReRun = false) => {
       }
     })();
 
+window.openPosterPage = function() {   //lee edit //印製海報
+  const y = parseInt(document.getElementById('daily-year')?.value || 115);
+  const m = parseInt(document.getElementById('monthly-select-month')?.value || 10);
+  // 新分頁開啟 poster.html 並帶入學年與月份參數
+  window.open(`poster.html?year=${y}&month=${m}`, '_blank');
+};
   </script>
 </body>
 </html>
