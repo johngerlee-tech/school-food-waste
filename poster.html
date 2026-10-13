@@ -26,7 +26,7 @@
         <span class="text-2xl">🌱</span>
         <div>
           <h1 class="text-lg font-bold tracking-wide">溪洲國小午餐惜食榮譽榜 A1 印刷海報產製器</h1>
-          <p class="text-xs text-emerald-200">精確減幅判定・走勢升降校正・折線圖刻度最佳化・大器進步獎排版</p>
+          <p class="text-xs text-emerald-200">嚴格進步獎篩選・四捨五入整數化・折線刻度 40~180 最佳化</p>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -160,6 +160,8 @@
       if (urlMonth) {
         document.getElementById('select-month').value = urlMonth;
         window.syncMonthToWeeks();
+      } else {
+        window.syncMonthToWeeks();
       }
 
       document.getElementById('db-status').textContent = "🟢 雲端資料庫已就緒";
@@ -263,7 +265,7 @@
           });
         });
 
-        // 判定進步獎：精確判定「減幅 (前週 - 本週) / 前週 >= 5.0%」，排除所有退步班級
+        // 判定進步獎：精確判定「減幅 (前週 - 本週) / 前週 >= 5.0%」，排除所有退步班級 (diff <= 0)
         const progressAwards = {};
         weeksArray.forEach(w => {
           progressAwards[w] = [];
@@ -272,20 +274,20 @@
             const currVal = weeklyStats[w][c.id];
             const prevVal = weeklyStats[prevW] ? weeklyStats[prevW][c.id] : null;
             if (currVal !== null && prevVal !== null && prevVal > 0) {
-              // 真正的減幅計算：前週 > 本週 才是改善（值大於 0）
               const diff = prevVal - currVal;
-              const rate = Number(((diff / prevVal) * 100).toFixed(1));
-              
-              // 只有當減幅確為正值且 >= 5.0% 時才算進步獎
-              if (rate >= 5.0) {
-                progressAwards[w].push({
-                  id: c.id,
-                  name: c.name,
-                  short: c.short,
-                  rate,
-                  prevVal,
-                  currVal
-                });
+              // 唯有真正減少（diff > 0）且減幅達 5% 以上才算進步獎
+              if (diff > 0) {
+                const rate = Number(((diff / prevVal) * 100).toFixed(1));
+                if (rate >= 5.0) {
+                  progressAwards[w].push({
+                    id: c.id,
+                    name: c.name,
+                    short: c.short,
+                    rate,
+                    prevVal,
+                    currVal
+                  });
+                }
               }
             }
           });
@@ -480,7 +482,7 @@
       });
 
       // -------------------------------------------------------------
-      // 3. 中層：折線圖 (Y軸 50~160 最佳化) 與 數據表格
+      // 3. 中層：折線圖 (Y軸 40~180 最佳化) 與 數據表格
       // -------------------------------------------------------------
       const midY = topY + colH + 100;
       const midH = isLand ? 2000 : 2820;
@@ -492,7 +494,6 @@
       ctx.font = 'bold 110px "Noto Sans TC"';
       ctx.fillText('每週人均廚餘量變化（公克／人）', 350 + 1300, midY + 220);
 
-      // 3A. 折線圖：刻度範圍設定為 40 ~ 180 (讓 50 ~ 160 區間起伏極致明顯)
       const chartX = 580;
       const chartY = midY + 460;
       const chartW = isLand ? 5200 : 3400;
@@ -502,7 +503,6 @@
       const yMax = 180;
       const yRange = yMax - yMin;
 
-      // Y 軸格線 (40, 60, 80, 100, 120, 140, 160, 180)
       const yTicks = [40, 60, 80, 100, 120, 140, 160, 180];
       ctx.strokeStyle = '#E2E8F0';
       ctx.lineWidth = 4;
@@ -519,7 +519,6 @@
         ctx.fillText(tick.toString(), chartX - 35, ty + 28);
       });
 
-      // X 軸刻度
       const xStep = chartW / (data.weeksArray.length - 1);
       data.weeksArray.forEach((w, i) => {
         const tx = chartX + i * xStep;
@@ -529,7 +528,6 @@
         ctx.fillText(`第 ${w} 週`, tx, chartY + chartH + 115);
       });
 
-      // 繪製 10 班折線 (含邊界保護)
       EVAL_CLASSES.forEach(cls => {
         ctx.beginPath();
         ctx.strokeStyle = cls.color;
@@ -565,7 +563,6 @@
         });
       });
 
-      // 折線圖圖例
       const legX = chartX;
       const legY = chartY - 95;
       EVAL_CLASSES.forEach((cls, i) => {
@@ -579,7 +576,7 @@
         ctx.fillText(cls.short, lx + 75, ly + 25);
       });
 
-      // 3B. 數據總表 (走勢升降判定嚴謹校準)
+      // 3B. 數據總表
       const tblX = isLand ? (chartX + chartW + 250) : 4260;
       const tblY = midY + 410;
       const tblW = isLand ? (W - tblX - 450) : 2280;
@@ -616,7 +613,6 @@
           ctx.fillText(val !== null ? val.toString() : '-', tblX + tblW * 0.24 + i * tWeeksColW + tWeeksColW/2, ry + rowH * 0.65);
         });
 
-        // 走勢判定校準：依序比較每週變化
         const vW4 = data.weeklyStats[data.weeksArray[0]] ? data.weeklyStats[data.weeksArray[0]][cls.id] : null;
         const vW5 = data.weeksArray.length > 2 && data.weeklyStats[data.weeksArray[1]] ? data.weeklyStats[data.weeksArray[1]][cls.id] : null;
         const vW6 = data.weeklyStats[data.weeksArray[data.weeksArray.length - 1]] ? data.weeklyStats[data.weeksArray[data.weeksArray.length - 1]][cls.id] : null;
@@ -625,27 +621,19 @@
         let trendColor = '#64748B';
 
         if (vW4 !== null && vW6 !== null) {
-          // 第4週到第5週上升，第5週到第6週下降 -> 先升後降
           if (vW5 !== null && vW5 > vW4 && vW6 < vW5) {
             trend = '先升後降 📉';
             trendColor = '#047857';
-          } 
-          // 連續下降
-          else if (vW5 !== null && vW4 > vW5 && vW5 > vW6) {
+          } else if (vW5 !== null && vW4 > vW5 && vW5 > vW6) {
             trend = '持續下降 📉';
             trendColor = '#047857';
-          }
-          // 總體大幅減少
-          else if (vW4 - vW6 >= 25) {
+          } else if (vW4 - vW6 >= 25) {
             trend = '大幅下降 📉';
             trendColor = '#047857';
-          } 
-          // 總體增加
-          else if (vW6 > vW4) {
+          } else if (vW6 > vW4) {
             trend = '走勢上升 📈';
             trendColor = '#E11D48';
-          }
-          else {
+          } else {
             trend = '下降改善 📉';
             trendColor = '#059669';
           }
@@ -657,13 +645,13 @@
       });
 
       // -------------------------------------------------------------
-      // 4. 下層：進步獎榮譽榜 (消除空白、拉開行距、杜絕壓迫感)
+      // 4. 下層：進步獎榮譽榜 (嚴格排他性篩選、杜絕留白)
       // -------------------------------------------------------------
       const btmY = midY + midH + 100;
       const btmH = H - btmY - 320;
       const halfW = (W - 580) / 2;
 
-      // 4A. 左側欄：第 4 週與第 5 週進步獎 (高度適度延展，融入標語消除留白)
+      // 4A. 左側欄：第 4 週與第 5 週進步獎
       fillRoundRect(250, btmY, halfW, btmH, 70, '#FFFDF7', '#CBD5E1', 10);
 
       const wA = data.weeksArray[0];
@@ -676,10 +664,11 @@
       ctx.fillText(`第 ${wA} 週進步獎`, 350 + (halfW - 200)/2, btmY + 60 + wAh * 0.68);
 
       const pListA = data.progressAwards[wA] || [];
-      const cardAh = isLand ? 460 : 660; // 延展高度，版面大器大字
+      const cardAh = isLand ? 460 : 660;
       const cardAy = btmY + 60 + wAh + 40;
       fillRoundRect(380, cardAy, halfW - 260, cardAh, 45, '#FFF7ED', '#FDBA74', 6);
       
+      // 只有真正達標的班級才會顯示（第 4 週僅有二年乙班）
       if (pListA.length > 0) {
         const top1 = pListA[0];
         ctx.textAlign = 'left';
@@ -715,26 +704,35 @@
       const awardRowH = (btmH - (wBy - btmY + wAh) - 70) / 3;
       const awardColors = ['#C2410C', '#D97706', '#059669'];
 
-      pListB.slice(0, 3).forEach((item, idx) => {
-        const cy = wBy + wAh + 25 + idx * awardRowH;
-        fillRoundRect(380, cy, halfW - 260, awardRowH - 25, 35, '#FFFFFF', '#FED7AA', 6);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#1E293B';
-        ctx.font = '900 140px "Noto Sans TC"';
-        ctx.fillText(item.name, 460, cy + (awardRowH - 25)/2 + 45);
+      if (pListB.length > 0) {
+        pListB.slice(0, 3).forEach((item, idx) => {
+          const cy = wBy + wAh + 25 + idx * awardRowH;
+          fillRoundRect(380, cy, halfW - 260, awardRowH - 25, 35, '#FFFFFF', '#FED7AA', 6);
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#1E293B';
+          ctx.font = '900 140px "Noto Sans TC"';
+          ctx.fillText(item.name, 460, cy + (awardRowH - 25)/2 + 45);
 
+          ctx.textAlign = 'center';
+          ctx.fillStyle = awardColors[idx % 3];
+          ctx.font = '900 130px "Noto Sans TC"';
+          ctx.fillText(`改善 ${item.rate}%`, 380 + halfW * 0.48, cy + (awardRowH - 25)/2 + 45);
+
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#64748B';
+          ctx.font = 'bold 85px "Noto Sans TC"';
+          ctx.fillText(`(${item.prevVal}g → ${item.currVal}g)`, 380 + halfW - 320, cy + (awardRowH - 25)/2 + 45);
+        });
+      } else {
+        const cy = wBy + wAh + 25;
+        fillRoundRect(380, cy, halfW - 260, awardRowH * 2, 35, '#FFFFFF', '#E2E8F0', 4);
         ctx.textAlign = 'center';
-        ctx.fillStyle = awardColors[idx % 3];
-        ctx.font = '900 130px "Noto Sans TC"';
-        ctx.fillText(`改善 ${item.rate}%`, 380 + halfW * 0.48, cy + (awardRowH - 25)/2 + 45);
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = 'bold 90px "Noto Sans TC"';
+        ctx.fillText('本週無班級減幅達 5% 門檻', 380 + (halfW - 260)/2, cy + awardRowH);
+      }
 
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#64748B';
-        ctx.font = 'bold 85px "Noto Sans TC"';
-        ctx.fillText(`(${item.prevVal}g → ${item.currVal}g)`, 380 + halfW - 320, cy + (awardRowH - 25)/2 + 45);
-      });
-
-      // 4B. 右側欄：第 6 週全校大躍進榮譽榜 (副標題間距加寬，杜絕壓迫感)
+      // 4B. 右側欄：第 6 週全校大躍進榮譽榜
       const rightX = 290 + halfW;
       fillRoundRect(rightX, btmY, halfW, btmH, 70, '#F0FDF4', '#86EFAC', 10);
 
@@ -746,7 +744,6 @@
       ctx.font = '900 130px "Noto Sans TC"';
       ctx.fillText(`第 ${lastW} 週進步獎（全校惜食大躍進）`, rightX + 100 + (halfW - 200)/2, btmY + 60 + wAh * 0.68);
 
-      // ★ 拉開副標題與主標題間距（向下位移 40px，給予充足呼吸空間）
       const subTitleY = btmY + wAh + 175;
       ctx.fillStyle = '#166534';
       ctx.font = 'bold 95px "Noto Sans TC"';
@@ -760,7 +757,7 @@
       ];
 
       const top3H = isLand ? 230 : 330;
-      const top3StartY = subTitleY + 65; // 從副標題往下留出安全距離
+      const top3StartY = subTitleY + 65;
 
       pListLast.slice(0, 3).forEach((item, idx) => {
         const iy = top3StartY + idx * (top3H + 25);
@@ -795,7 +792,6 @@
         ctx.fillText(topMedals[idx].badge, rightX + halfW - 140, iy + top3H/2 + 48);
       });
 
-      // 其餘班級雙欄卡片
       const otherClasses = [
         { name: '四年甲班', val: '改善 48.7%' },
         { name: '五年乙班', val: '改善 42.7%' },
