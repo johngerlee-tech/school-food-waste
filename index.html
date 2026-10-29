@@ -671,6 +671,27 @@
       serverTimestamp 
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+    // 在呼叫 API 的迴圈或重試邏輯中加入 High Demand 捕捉
+async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { data = null; }
+
+    // 若遇到伺服器壅塞 (High Demand / 503) 且還有重試次數
+    if (res.status === 503 || (data && data.error && data.error.message && data.error.message.includes('high demand'))) {
+      if (i < retries - 1) {
+        console.warn(`遭遇 Google 伺服器忙碌，等待 ${delay/1000} 秒後進行第 ${i + 1} 次重試...`);
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 1.5; // 指數退避延遲
+        continue;
+      }
+    }
+    return { ok: res.ok, status: res.status, data: data, rawText: text };
+  }
+}
+    
     const firebaseConfig = {
       apiKey: "AIzaSyB6xjT4asS3xcpRrgLD33jrssSIzmh0ix4",
       authDomain: "school-food-waste.firebaseapp.com",
